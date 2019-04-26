@@ -1,0 +1,33 @@
+{
+  "name": "lambda_function",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "node",
+    "typescript",
+    "lambda"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@types/node": "^11.13.4",
+    "@types/three": "^0.103.2",
+    "chroma-js": "^2.0.3",
+    "circular-json": "^0.5.9",
+    "mathjs": "^5.9.0",
+    "proj4": "^2.5.0",
+    "rxjs": "^6.4.0",
+    "three": "^0.103.0",
+    "underscore": "^1.9.1"
+  },
+  "devDependencies": {
+    "@types/chroma-js": "^1.4.1",
+    "@types/underscore": "^1.8.14",
+    "@types/circular-json": "^0.4.0",
+    "xmlhttprequest": "^1.8.0"
+  }
+}
