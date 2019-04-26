@@ -42,15 +42,15 @@ In a command prompt in the project folder, simply do `tsc`. A *dist* folder will
     ```  
     . zip_file.zip  
     └── dist  
-        └── core  
-        |   └── ...  
-        └── libs  
-        |   └── ...  
-        └── model  
-        |   └── ...  
-        └── grader.js  
+    |   └── core  
+    |   |   └── ...  
+    |   └── libs  
+    |   |   └── ...  
+    |   └── model  
+    |   |   └── ...  
+    |   └── grader.js  
     ```  
-  However, in the **Function code** panel, the content of the **Handler** input box has to be changed to __*dist/grader.gradeFile_URL*__
+However, in the **Function code** panel, the content of the **Handler** input box has to be changed to __*dist/grader.gradeFile_URL*__
 
 ## External npm packages and deploying node_modules
 
