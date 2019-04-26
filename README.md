@@ -25,13 +25,13 @@ Lambda requires the code to be in javascript. So the codes have to be built befo
 In a command prompt in the project folder, simply do `tsc`. A *dist* folder will be created with the built javascript code.
 
 #### Deploy the code
-1. Put the content of the **dist** folder into a .zip file. The name of the .zip file does not matter. Make sure that the .zip file structure is as follow:
-    zip_file.zip
-    |---core
-    |   |---...
-    |---libs
-    |   |---...
-    |---model
-    |   |---...
+1. Put the content of the **dist** folder into a .zip file. The name of the .zip file does not matter. Make sure that the .zip file structure is as follow:  
+    zip_file.zip  
+    |---core  
+    |   |---...  
+    |---libs  
+    |   |---...  
+    |---model  
+    |   |---...  
     |---grader.js
 2. Go to the lambda function *Configuration* page, *Function code* panel, in the *Code entry type* dropdown menu, select "Upload a .zip file". Upload the .zip file and press **Save** on the top right corner of the page
