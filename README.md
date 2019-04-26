@@ -36,4 +36,23 @@ In a command prompt in the project folder, simply do `tsc`. A *dist* folder will
     |   └── ...  
     └── grader.js  
     ```  
-2. Go to the lambda function *Configuration* page, *Function code* panel, in the *Code entry type* dropdown menu, select "Upload a .zip file". Upload the .zip file and press **Save** on the top right corner of the page
+2. Go to the lambda function **Configuration** page, **Function code** panel, in the **Code entry type** dropdown menu, select "Upload a .zip file". Upload the .zip file and press **Save** on the top right corner of the page
+
+** This following .zip file structure is also accepted:
+    ```  
+    . zip_file.zip  
+    └── dist
+        └── core  
+        |   └── ...  
+        └── libs  
+        |   └── ...  
+        └── model  
+        |   └── ...  
+        └── grader.js  
+    ```  
+  However, in the **Function code** panel, the content of the **Handler** input box has to be changed to __*dist/grader.gradeFile_URL*__
+
+## External npm packages and deploying node_modules
+
+## AWS API Gateway
+
