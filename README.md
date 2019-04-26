@@ -38,10 +38,10 @@ In a command prompt in the project folder, simply do `tsc`. A *dist* folder will
     ```  
 2. Go to the lambda function **Configuration** page, **Function code** panel, in the **Code entry type** dropdown menu, select "Upload a .zip file". Upload the .zip file and press **Save** on the top right corner of the page
 
-** This following .zip file structure is also accepted:
+** This following .zip file structure is also accepted:  
     ```  
     . zip_file.zip  
-    └── dist
+    └── dist  
         └── core  
         |   └── ...  
         └── libs  
