@@ -52,24 +52,28 @@ export const gradeFile = async (event: any = {}): Promise<any> => {
         // console.log('Execute flowchart...')
         await execute(mobFile.flowchart);
 
-        const result = mobFile.flowchart.nodes[mobFile.flowchart.nodes.length - 1].output.value
+        // const result = mobFile.flowchart.nodes[mobFile.flowchart.nodes.length - 1].output.value
         // console.log('Finished execute...')
         // console.log('result:', JSON.stringify(result.getData()));
 
         // TODO: grade the output...
 
         // TODO: return grading...
-        if (result.getData) {
+        const answer_model = null;
+        const result = answer_model.compare(mobFile); // student_model
+        
+        if (result.matches) {
             return {
                 "correct": true,
-                "score": 100,
-                "comment": `${result.getData().geometry.num_positions} positions`
+                "score": 1,
+                "comment": result.comment
             };
-        } else {
+        }
+        else {
             return {
-                "correct": true,
-                "score": 100,
-                "comment": `result: ${result}`
+                "correct": false,
+                "score": 1,
+                "comment": result.comment
             };
         }
         // return JSON.stringify(result.getData());

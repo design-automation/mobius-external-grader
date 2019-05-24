@@ -15,7 +15,7 @@ import { vecAdd, vecSum, vecDiv } from '../../libs/geom/vectors';
 import { checkCommTypes, checkIDs, IDcheckObj, TypeCheckObj} from './_check_args';
 import { rotateMatrix, multMatrix, scaleMatrix, mirrorMatrix, xfromSourceTargetMatrix } from '../../libs/geom/matrix';
 import { Matrix4 } from 'three';
-import _ from 'underscore';
+import __ from 'underscore';
 
 // ================================================================================================
 /**
@@ -637,7 +637,7 @@ function _delete(__model__: GIModel, ents_arr: TEntTypeIdx|TEntTypeIdx[], del_un
  */
 export function Delete(__model__: GIModel, entities: TId|TId[], del_unused_posis: _EDeleteMethod  ): void {
     // @ts-ignore
-    if (Array.isArray(entities)) { entities = _.flatten(entities); }
+    if (Array.isArray(entities)) { entities = __.flatten(entities); }
     // --- Error Check ---
     const ents_arr = checkIDs('modify.Delete', 'entities', entities,
         [IDcheckObj.isID, IDcheckObj.isIDList],
@@ -708,7 +708,7 @@ function _keep(__model__: GIModel, ents_arr: TEntTypeIdx|TEntTypeIdx[]): void {
  */
 export function Keep(__model__: GIModel, entities: TId|TId[] ): void {
     // @ts-ignore
-    if (Array.isArray(entities)) { entities = _.flatten(entities); }
+    if (Array.isArray(entities)) { entities = __.flatten(entities); }
     // --- Error Check ---
     const ents_arr = checkIDs('modify.Delete', 'entities', entities,
         [IDcheckObj.isID, IDcheckObj.isIDList],

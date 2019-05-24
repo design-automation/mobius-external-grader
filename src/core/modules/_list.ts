@@ -1,7 +1,6 @@
 /**
  * list functions that obtain and return information from an input list. Does not modify input list.
  */
-
 import __ from 'underscore';
 
 export function range(start: number, end: number, step?: number): number[] {
@@ -72,7 +71,7 @@ export function listJoin(list1: any[], list2: any[]): any[] {
 
 export function listFlat(list: any[], depth?: number): any[] {
     let list_copy = list.slice();
-    for (let i  = 0; i < depth; i++) { list_copy = __.flatten(list_copy, true) }
+    for (let i  = 0; i < depth; i++) { list_copy = __.flatten(list_copy, true); }
     return list_copy;
 }
 

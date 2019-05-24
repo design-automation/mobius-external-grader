@@ -2,24 +2,24 @@ import { INode } from '../node';
 import { IProcedure, ProcedureTypes, IFunction } from '../procedure';
 import { IPortInput, InputType } from '../port';
 import { Observable } from 'rxjs';
-import { XMLHttpRequest } from 'xmlhttprequest';
 import * as circularJSON from 'circular-json';
 import { _parameterTypes } from '../../core/modules';
 
+let _terminateCheck: string;
 
 export class CodeUtils {
 
+
     static getProcedureCode(prod: IProcedure, existingVars: string[], isMainFlowchart: Boolean,
                             functionName?: string, usedFunctions?: string[]): string[] {
-        if (prod.enabled === false ||
+        if (_terminateCheck === '' || prod.enabled === false ||
             prod.type === ProcedureTypes.Blank ||
             prod.type === ProcedureTypes.Comment) { return ['']; }
 
-        // ignore terminate
+        // mark _terminateCheck to terminate all process after this
         if (prod.type === ProcedureTypes.Terminate) {
-            return [''];
-            // _terminateCheck = '';
-            // return ['return __params__.model;'];
+            _terminateCheck = '';
+            return ['return __params__.model;'];
         }
 
         prod.hasError = false;
@@ -33,6 +33,9 @@ export class CodeUtils {
             && existingVars.indexOf(args[0].value) === -1 ? 'let ' : '';
         }
         codeStr.push('');
+        if (isMainFlowchart && prod.type !== ProcedureTypes.Else && prod.type !== ProcedureTypes.Elseif) {
+            codeStr.push(`__params__.currentProcedure[0] = "${prod.ID}";`);
+        }
 
         switch ( prod.type ) {
             case ProcedureTypes.Variable:
@@ -142,6 +145,10 @@ export class CodeUtils {
                     codeStr.push(`return __params__['model'];`);
                 } else {
                     codeStr.push(`let __return_value__ = __modules__.${_parameterTypes.return}(${returnArgVals.join(', ')});`);
+                    if (isMainFlowchart) {
+                        // codeStr.push(`console.(log'Return: ', __return_value__);`);
+                        codeStr.push(`__params__.console.push('Return: ' + __return_value__.toString());`);
+                    }
                     codeStr.push(`return __return_value__;`);
                 }
                 break;
@@ -174,8 +181,8 @@ export class CodeUtils {
                         }
                     }
                 }
-                const argValues = argVals.join(', ');
-                const fnCall = `__modules__.${prod.meta.module}.${prod.meta.name}( ${argValues} )`;
+                // const argValues = argVals.join(', ');
+                const fnCall = `__modules__.${prod.meta.module}.${prod.meta.name}( ${argVals.join(', ')} )`;
                 if ( prod.meta.module.toUpperCase() === 'OUTPUT') {
                     if (prod.args[prod.args.length - 1].value) {
                         codeStr.push(`return ${fnCall};`);
@@ -195,7 +202,7 @@ export class CodeUtils {
                 }
                 break;
             case ProcedureTypes.Imported:
-                let argsVals: any = [];
+                const argsVals: any = [];
                 const namePrefix = functionName ? `${functionName}_` : '';
 
                 // let urlCheck = false;
@@ -222,9 +229,9 @@ export class CodeUtils {
                         argsVals.push(prod.resolvedValue);
                     }
                 }
-                argsVals = argsVals.join(', ');
-
-                const fn = `${namePrefix}${prod.meta.name}(__params__, ${argsVals} )`;
+                // argsVals = argsVals.join(', ');
+                // const fn = `${namePrefix}${prod.meta.name}(__params__, ${argsVals} )`;
+                const fn = `${namePrefix}${prod.meta.name}(__params__${argsVals.map(val => ', ' + val).join('')})`;
 
                 if (args[0].name === '__none__' || !args[0].value) {
                     codeStr.push(`${fn};`);
@@ -250,9 +257,33 @@ export class CodeUtils {
             codeStr.push(`}`);
         }
 
+        if (isMainFlowchart && prod.print && prod.args[0].value) {
+            const repGet = this.repGetAttrib(prod.args[0].value);
+            codeStr.push(`printFunc(__params__.console,'${prod.args[0].value}', ${repGet});`);
+        }
+        if (isMainFlowchart && prod.selectGeom && prod.args[0].value) {
+            const repGet = this.repGetAttrib(prod.args[0].value);
+            codeStr.push(`__modules__.${_parameterTypes.select}(__params__.model, ${repGet}, "${repGet}");`);
+        }
         return codeStr;
     }
     static repSetAttrib(val: string) {
+        // if (!val || val.indexOf('@') === -1) {
+        //     return false;
+        // }
+        // const splitted = val.split('@');
+        // if (splitted.length > 2) {
+        //     splitted[1] = splitted.splice(1, splitted.length - 1).join('@');
+        // }
+        // const openBracketMatch = (splitted[1].match(/\[/g) || []).length;
+        // if (openBracketMatch) {
+        //     const bracketSplit = splitted[1].substring(0, splitted[1].length - 1).split('[');
+        //     const innerVar = CodeUtils.repGetAttrib(bracketSplit.splice(1, bracketSplit.length - 1).join('['));
+        //     return [`__modules__.${_parameterTypes.setattrib}(
+        //              __params__.model, ${splitted[0]}, '${bracketSplit[0]}',`, `, ${innerVar});`];
+        // } else {
+        //     return [`__modules__.${_parameterTypes.setattrib}(__params__.model, ${splitted[0]}, '${splitted[1]}',`, ');'];
+        // }
 
         if (!val || val.indexOf('@') === -1) {
             return false;
@@ -340,7 +371,7 @@ export class CodeUtils {
         const p = new Promise((resolve) => {
             const request = new XMLHttpRequest();
             request.open('GET', url);
-            // request.overrideMimeType('text/plain; charset=x-user-defined');
+            request.overrideMimeType('text/plain; charset=x-user-defined');
             request.onload = () => {
                 resolve(request.responseText.replace(/(\\[bfnrtv\'\"\\])/g, '\\$1'));
             };
@@ -459,6 +490,15 @@ export class CodeUtils {
         let codeStr = [];
         const varsDefined: string[] = [];
 
+        // reset terminate check to false at start node (only in main flowchart's start node).
+        // for every node after that, if terminate check is true, do not execute the node.
+        if (!isMainFlowchart) {
+            // do nothing
+        } else if (node.type === 'start') {
+            _terminateCheck = null;
+        } else if (_terminateCheck) {
+            return [undefined, _terminateCheck];
+        }
 
         // input initializations
         if (isMainFlowchart) {
@@ -483,37 +523,26 @@ export class CodeUtils {
             codeStr.push('return __params__.model;');
         }
 
-        return [[codeStr, varsDefined], null];
+        if (_terminateCheck === '') {
+            _terminateCheck = node.name;
+        }
+
+        return [[codeStr, varsDefined], _terminateCheck];
     }
 
     static getFunctionString(func: IFunction): string {
         let fullCode = '';
-        let fnCode;
-        if (func.argCount === 0) {
-            fnCode = `function ${func.name}(__params__)` +
-            `{\nvar merged;\n`;
-        } else {
-            fnCode = `function ${func.name}(__params__, ${func.args.map(arg => arg.name).join(', ')})` +
-            `{\nvar merged;\n`;
-        }
+        let fnCode = `function ${func.name}(__params__${func.args.map(arg => ', ' + arg.name).join('')})` + `{\nvar merged;\n`;
 
         for (const node of func.flowchart.nodes) {
-            const codeRes = CodeUtils.getNodeCode(node, false, func.name)[0];
-            let code: any = codeRes[0];
+            const nodeFuncName = `${func.name}_${node.id}`;
             if (node.type === 'start') {
-                code = '{ return __params__.model; }';
+                fnCode += `let result_${nodeFuncName} = __params__.model;\n`;
             } else {
-                code = '{\n' + code.join('\n') + '\n}';
-            }
-            if (func.argCount === 0) {
-                fullCode += `function ${node.id}(__params__)` + code + `\n\n`;
-            } else {
-                fullCode += `function ${node.id}(__params__, ${func.args.map(arg => arg.name).join(', ')})` + code + `\n\n`;
-            }
+                const codeRes = CodeUtils.getNodeCode(node, false, func.name)[0];
+                fullCode += `function ${nodeFuncName}(__params__${func.args.map(arg => ', ' + arg.name).join('')}){\n` +
+                            codeRes[0].join('\n') + `\n}\n\n`;
 
-            if (node.type === 'start') {
-                fnCode += `let result_${node.id} = __params__.model;\n`;
-            } else {
                 const activeNodes = [];
                 for (const nodeEdge of node.input.edges) {
                     if (!nodeEdge.source.parentNode.enabled) {
@@ -521,15 +550,14 @@ export class CodeUtils {
                     }
                     activeNodes.push(nodeEdge.source.parentNode.id);
                 }
-                fnCode += `\n__params__.model = mergeInputs([${activeNodes.map((nodeId) => 'result_' + nodeId).join(', ')}]);\n`;
-                if (func.argCount === 0) {
-                    fnCode += `let result_${node.id} = ${node.id}(__params__);\n`;
-                } else {
-                    fnCode += `let result_${node.id} = ${node.id}(__params__, ${func.args.map(arg => arg.name).join(', ')});\n`;
-                }
+                fnCode += `\n__params__.model = mergeInputs([${activeNodes.map((nodeId) =>
+                    `result_${func.name}_${nodeId}`).join(', ')}]);\n`;
+                fnCode += `let result_${nodeFuncName} = ${nodeFuncName}(__params__${func.args.map(arg => ', ' + arg.name).join('')});\n`;
+
             }
             if (node.type === 'end') {
-                fnCode += `\nreturn result_${node.id};\n`;
+                // fnCode += `\n__mainParams__.model = mergeInputs([__mainParams__.model,__params__.model]);\n`;
+                fnCode += `\nreturn result_${nodeFuncName};\n`;
             }
         }
         fnCode += '}\n\n';

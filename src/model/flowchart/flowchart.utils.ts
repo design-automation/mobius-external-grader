@@ -1,7 +1,58 @@
 import { IFlowchart, canvasSize } from './flowchart.interface';
-import { INode } from '../node';
+import { NodeUtils, INode } from '../node';
+import { IEdge } from '../edge';
+import { IdGenerator } from '../../utils';
 
 export class FlowchartUtils {
+
+    public static newflowchart(): IFlowchart {
+        const startNode = NodeUtils.getStartNode();
+        let startPos = canvasSize * 1.07 / 2;
+        startPos = startPos - startPos % 20;
+
+        startNode.position = {x: startPos, y: canvasSize / 2};
+
+        const middleNode = NodeUtils.getNewNode();
+        middleNode.position = {x: startPos, y: 200 + canvasSize / 2};
+
+        const endNode = NodeUtils.getEndNode();
+        endNode.position = {x: startPos, y: 400 + canvasSize / 2};
+
+        const startMid: IEdge = {
+            source: startNode.output,
+            target: middleNode.input,
+            selected: false
+        };
+        startNode.output.edges = [startMid];
+        middleNode.input.edges = [startMid];
+
+        const midEnd: IEdge = {
+            source: middleNode.output,
+            target: endNode.input,
+            selected: false
+        };
+        middleNode.output.edges = [midEnd];
+        endNode.input.edges = [midEnd];
+
+        middleNode.enabled = true;
+        endNode.enabled = true;
+
+        const flw: IFlowchart = {
+            id: IdGenerator.getId(),
+            name: 'Untitled',
+            description: '',
+            language: 'js',
+            meta: {
+                selected_nodes: [2]
+            },
+            nodes: [ startNode, middleNode, endNode ],
+            edges: [ startMid, midEnd ],
+            functions: [],
+            ordered: true
+        };
+
+        return flw;
+    }
 
     static checkNode(nodeOrder: INode[], node: INode, enabled: boolean) {
         if (node.hasExecuted) {
@@ -24,7 +75,7 @@ export class FlowchartUtils {
     }
 
     public static orderNodes(flw: IFlowchart) {
-        let startNode: INode = flw.nodes[0];
+        let startNode: INode;
         const selectedNodesID = [];
         for (const nodeIndex of flw.meta.selected_nodes) {
             selectedNodesID.push(flw.nodes[nodeIndex].id);
@@ -35,7 +86,7 @@ export class FlowchartUtils {
             }
             node.hasExecuted = false;
         }
-        const nodeOrder: any[] = [];
+        const nodeOrder = [];
         FlowchartUtils.checkNode(nodeOrder, startNode, true);
         if (nodeOrder.length < flw.nodes.length) {
             /*

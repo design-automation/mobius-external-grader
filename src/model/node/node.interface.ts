@@ -36,6 +36,6 @@ export interface INode {
         output_port: number
     };
 
-    update_properties(data: any): any;
-    reset(): null;
+    update_properties(data: any);
+    reset();
 }
