@@ -16,8 +16,10 @@
   "dependencies": {
     "@types/node": "^11.13.4",
     "@types/three": "^0.103.2",
+    "aws-sdk": "^2.461.0",
     "chroma-js": "^2.0.3",
     "circular-json": "^0.5.9",
+    "env-cmd": "^9.0.1",
     "mathjs": "^5.9.0",
     "proj4": "^2.5.0",
     "rxjs": "^6.4.0",

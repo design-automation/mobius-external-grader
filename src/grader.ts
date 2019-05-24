@@ -9,6 +9,9 @@ import * as Modules from './core/modules';
 import * as circularJSON from 'circular-json';
 import { XMLHttpRequest } from 'xmlhttprequest';
 import { INode } from './model/node';
+import { GIModel } from './libs/geo-info/GIModel';
+
+import AWS from 'aws-sdk';
 
 const mergeInputsFunc = `
 function mergeInputs(models){
@@ -20,16 +23,15 @@ function mergeInputs(models){
 }
 `;
 
-
-export const gradeFile_URL = async (event: any = {}): Promise<any> => {
+exports.gradeFile_URL = async (event = {}) => {
     const p = new Promise((resolve) => {
-
         const request = new XMLHttpRequest();
         request.open('GET', event.file);
         request.onload = async () => {
             if (request.status === 200) {
-                resolve(await gradeFile({"file": request.responseText}))
-            } else {
+                resolve(await exports.gradeFile({ "file": request.responseText, "question": event.question }));
+            }
+            else {
                 resolve({
                     "correct": false,
                     "score": 0,
@@ -40,48 +42,52 @@ export const gradeFile_URL = async (event: any = {}): Promise<any> => {
         request.send();
     });
     return await p;
-}
+};
 
 export const gradeFile = async (event: any = {}): Promise<any> => {
     try {
         // parse the mob file
         // console.log('Parsing .mob file...')
         const mobFile = circularJSON.parse(event.file);
-
         // execute the flowchart
         // console.log('Execute flowchart...')
         await execute(mobFile.flowchart);
-
-        // const result = mobFile.flowchart.nodes[mobFile.flowchart.nodes.length - 1].output.value
+        const mob_excution_result = mobFile.flowchart.nodes[mobFile.flowchart.nodes.length - 1].output.value;
         // console.log('Finished execute...')
-        // console.log('result:', JSON.stringify(result.getData()));
-
-        // TODO: grade the output...
-
-        // TODO: return grading...
-        const answer_model = null;
-        const result = answer_model.compare(mobFile); // student_model
         
-        if (result.matches) {
-            return {
-                "correct": true,
-                "score": 1,
-                "comment": result.comment
-            };
-        }
-        else {
-            return {
-                "correct": false,
-                "score": 1,
-                "comment": result.comment
-            };
-        }
-        // return JSON.stringify(result.getData());
+        const student_model_data = mob_excution_result.getData();
+
+        var s3 = new AWS.S3();
+        const params = { Bucket: "mooc-answers", Key: event.question + '.gi' };
+        return await s3.getObject(params).promise()
+        .then((res) => {
+             const answer_obj = JSON.parse(res.Body.toString('utf-8'));
+                const answer_model = new GIModel(answer_obj);
+                const student_model = new GIModel(student_model_data);
+                const result = answer_model.compare(student_model);
+                if (result.matches) {
+                    return {
+                        "correct": true,
+                        "score": 1,
+                        "comment": result.comment
+                    };
+                }
+                else {
+                    return {
+                        "correct": false,
+                        "score": 0,
+                        "comment": result.comment
+                    };
+                }
+        })
+        .catch((err) => {
+            return err;
+        });
     } catch(err) {
         return {
             "correct": false,
             "score": 0,
-            "comment": err.message
+            "comment": 'Error: ' + err.message
         };
     }
 }
