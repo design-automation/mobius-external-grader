@@ -49,12 +49,13 @@ export const gradeFile = async (event: any = {}): Promise<any> => {
         // parse the mob file
         // console.log('Parsing .mob file...')
         const mobFile = circularJSON.parse(event.file);
+        const consoleLog = [];
         // execute the flowchart
         // console.log('Execute flowchart...')
-        await execute(mobFile.flowchart);
+        await execute(mobFile.flowchart, consoleLog);
         const mob_excution_result = mobFile.flowchart.nodes[mobFile.flowchart.nodes.length - 1].output.value;
         // console.log('Finished execute...')
-        
+        console.log(consoleLog.join('\n'));
         const student_model_data = mob_excution_result.getData();
 
         var s3 = new AWS.S3();
@@ -92,7 +93,7 @@ export const gradeFile = async (event: any = {}): Promise<any> => {
     }
 }
 
-async function execute(flowchart: any) {
+async function execute(flowchart: any, consoleLog) {
 
     // reset input of all nodes except start & resolve all async processes (file reading + get url content)
     for (const node of flowchart.nodes) {
@@ -180,10 +181,10 @@ async function execute(flowchart: any) {
         }
     }
 
-    executeFlowchart(flowchart);
+    executeFlowchart(flowchart, consoleLog);
 }
 
-function executeFlowchart(flowchart: IFlowchart) {
+function executeFlowchart(flowchart: IFlowchart, consoleLog) {
     let globalVars = '';
 
     // reordering the flowchart
@@ -214,7 +215,7 @@ function executeFlowchart(flowchart: IFlowchart) {
             node.output.value = undefined;
             continue;
         }
-        globalVars = executeNode(node, funcStrings, globalVars);
+        globalVars = executeNode(node, funcStrings, globalVars, consoleLog);
     }
 
     for (const node of flowchart.nodes) {
@@ -261,7 +262,7 @@ async function resolveImportedUrl(prodList: IProcedure[], isMainFlowchart?: bool
     }
 }
 
-function executeNode(node: INode, funcStrings, globalVars): string {
+function executeNode(node: INode, funcStrings, globalVars, consoleLog): string {
     const params = {'currentProcedure': [''], 'console': []};
     let fnString = '';
     try {
