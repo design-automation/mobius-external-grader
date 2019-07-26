@@ -10,7 +10,6 @@ import * as circularJSON from 'circular-json';
 import { XMLHttpRequest } from 'xmlhttprequest';
 import { INode } from './model/node';
 import { GIModel } from './libs/geo-info/GIModel';
-
 import AWS from 'aws-sdk';
 
 const mergeInputsFunc = `
@@ -22,8 +21,29 @@ function mergeInputs(models){
     return result;
 }
 `;
+const printFunc = `
+function printFunc(_console, name, value){
+    let val;
+    if (!value) {
+        val = value;
+    } else if (typeof value === 'number' || value === undefined) {
+        val = value;
+    } else if (typeof value === 'string') {
+        val = '"' + value + '"';
+    } else if (value.constructor === [].constructor) {
+        val = JSON.stringify(value);
+    } else if (value.constructor === {}.constructor) {
+        val = JSON.stringify(value);
+    } else {
+        val = value;
+    }
+    _console.push('_ ' + name + ': ' + val );
+    return val;
+}
+`;
 
 exports.gradeFile_URL = async (event = {}) => {
+    
     const p = new Promise((resolve) => {
         const request = new XMLHttpRequest();
         request.open('GET', event.file);
@@ -46,51 +66,137 @@ exports.gradeFile_URL = async (event = {}) => {
 
 export const gradeFile = async (event: any = {}): Promise<any> => {
     try {
-        // parse the mob file
-        // console.log('Parsing .mob file...')
-        const mobFile = circularJSON.parse(event.file);
-        const consoleLog = [];
-        // execute the flowchart
-        // console.log('Execute flowchart...')
-        await execute(mobFile.flowchart, consoleLog);
-        const mob_excution_result = mobFile.flowchart.nodes[mobFile.flowchart.nodes.length - 1].output.value;
-        // console.log('Finished execute...')
-        console.log(consoleLog.join('\n'));
-        const student_model_data = mob_excution_result.getData();
-
+        // get the params and corresponding answers
+        // TODO: allowing S3
         var s3 = new AWS.S3();
         const params = { Bucket: "mooc-answers", Key: event.question + '.gi' };
-        return await s3.getObject(params).promise()
-        .then((res) => {
-             const answer_obj = JSON.parse(res.Body.toString('utf-8'));
-                const answer_model = new GIModel(answer_obj);
-                const student_model = new GIModel(student_model_data);
-                const result = answer_model.compare(student_model);
-                if (result.matches) {
-                    return {
-                        "correct": true,
-                        "score": 1,
-                        "comment": result.comment
-                    };
-                }
-                else {
-                    return {
-                        "correct": false,
-                        "score": 0,
-                        "comment": result.comment
-                    };
-                }
-        })
-        .catch((err) => {
-            return err;
-        });
+        const res: any =  await s3.getObject(params).promise()
+        const answer = JSON.parse(res.Body.toString('utf-8'));
+
+        // const answer = JSON.parse(answer_text);
+        // parse the mob file
+        const mobFile = circularJSON.parse(event.file);
+
+        const missing_params = checkParams(mobFile.flowchart, answer[0].params)
+        if (missing_params.length > 0) {
+            return {
+                "correct": false,
+                "score": 0,
+                "comment": 'Error: Missing start node parameters - '+ missing_params.join(',') + '.'
+            };
+        }
+        let score = 0;
+        // perform the test for each of the params set
+        for (const test of answer) {
+            const consoleLog = [];
+            // execute the flowchart
+            setParams(mobFile.flowchart, test.params);
+            await execute(mobFile.flowchart, consoleLog);
+            const answer_model = new GIModel(test.model);
+            const student_model = mobFile.flowchart.nodes[mobFile.flowchart.nodes.length - 1].output.value;
+            const result = answer_model.compare(student_model);
+            if (result.matches) {
+                score += 1;
+            }
+        }
+        return {
+            "correct": score > 0,
+            "score": score,
+            "comment": score + '/' + answer.length
+        };
     } catch(err) {
+        // throw(err);
         return {
             "correct": false,
             "score": 0,
             "comment": 'Error: ' + err.message
         };
     }
+}
+
+// export const gradeFile_old = async (event: any = {}): Promise<any> => {
+//     try {
+//         // parse the mob file
+//         // console.log('Parsing .mob file...')
+//         const mobFile = circularJSON.parse(event.file);
+//         const consoleLog = [];
+//         // execute the flowchart
+//         // console.log('Execute flowchart...')
+//         getParams(mobFile.flowchart);
+//         await execute(mobFile.flowchart, consoleLog);
+//         const mob_excution_result = mobFile.flowchart.nodes[mobFile.flowchart.nodes.length - 1].output.value;
+//         // console.log('Finished execute...')
+//         const student_model_data = mob_excution_result.getData();
+
+//         var s3 = new AWS.S3();
+//         const params = { Bucket: "mooc-answers", Key: event.question + '.gi' };
+//         return await s3.getObject(params).promise()
+//         .then((res) => {
+//              const answer_obj = JSON.parse(res.Body.toString('utf-8'));
+//                 const answer_model = new GIModel(answer_obj);
+//                 const student_model = new GIModel(student_model_data);
+//                 const result = answer_model.compare(student_model);
+//                 if (result.matches) {
+//                     return {
+//                         "correct": true,
+//                         "score": 1,
+//                         "comment": result.comment
+//                     };
+//                 }
+//                 else {
+//                     return {
+//                         "correct": false,
+//                         "score": 0,
+//                         "comment": result.comment
+//                     };
+//                 }
+//         })
+//         .catch((err) => {
+//             return err;
+//         });
+//     } catch(err) {
+//         return {
+//             "correct": false,
+//             "score": 0,
+//             "comment": 'Error: ' + err.message
+//         };
+//     }
+// }
+
+function checkParams(flowchart: IFlowchart, params: any): string[]{
+    const missing_params = [];
+    for (const param in params) {
+        let check = false;
+        for (const prod of flowchart.nodes[0].procedure){
+            if (prod.type === ProcedureTypes.Constant && params[prod.args[0].value] === params[param]) {
+                check = true;
+            }
+        }
+        if (!check) {
+            missing_params.push(param);
+        }
+    }
+    return missing_params;
+}
+
+function setParams(flowchart: IFlowchart, params: any) {
+    for (const prod of flowchart.nodes[0].procedure){
+        if (prod.type === ProcedureTypes.Constant && 
+        (params[prod.args[0].value] || params[prod.args[0].value] === '' || params[prod.args[0].value] === 0)) {
+            prod.args[1].jsValue = params[prod.args[0].value]
+            prod.args[1].value = params[prod.args[0].value]
+        }
+    }
+}
+
+function getParams(flowchart: IFlowchart): any {
+    const params = {};
+    for (const prod of flowchart.nodes[0].procedure){
+        if (prod.type === ProcedureTypes.Constant) {
+            params[prod.args[0].value] = prod.args[1].jsValue||prod.args[1].value;
+        }
+    }
+    return params;
 }
 
 async function execute(flowchart: any, consoleLog) {
@@ -117,6 +223,11 @@ async function execute(flowchart: any, consoleLog) {
         let InvalidECheck = false;
 
         for (const prod of node.procedure) {
+            for (const arg of prod.args) {
+                if (!arg.jsValue) {
+                    arg.jsValue = arg.value
+                }
+            }
             if (prod.type === ProcedureTypes.Return || prod.type === ProcedureTypes.Comment || !prod.enabled) { continue; }
             if (prod.argCount > 0 && prod.args[0].invalidVar) {
                 node.hasError = true;
@@ -186,6 +297,7 @@ async function execute(flowchart: any, consoleLog) {
 
 function executeFlowchart(flowchart: IFlowchart, consoleLog) {
     let globalVars = '';
+    const constantList = {};
 
     // reordering the flowchart
     if (!flowchart.ordered) {
@@ -215,7 +327,7 @@ function executeFlowchart(flowchart: IFlowchart, consoleLog) {
             node.output.value = undefined;
             continue;
         }
-        globalVars = executeNode(node, funcStrings, globalVars, consoleLog);
+        globalVars = executeNode(node, funcStrings, globalVars, constantList, consoleLog);
     }
 
     for (const node of flowchart.nodes) {
@@ -262,8 +374,8 @@ async function resolveImportedUrl(prodList: IProcedure[], isMainFlowchart?: bool
     }
 }
 
-function executeNode(node: INode, funcStrings, globalVars, consoleLog): string {
-    const params = {'currentProcedure': [''], 'console': []};
+function executeNode(node: INode, funcStrings, globalVars, constantList, consoleLog): string {
+    const params = {'currentProcedure': [''], 'console': [], 'constants': constantList};
     let fnString = '';
     try {
         const usedFuncs: string[] = [];
@@ -294,7 +406,7 @@ function executeNode(node: INode, funcStrings, globalVars, consoleLog): string {
         fnString = _varString + globalVars + fnString;
 
         // add the merge input function and the print function
-        fnString = mergeInputsFunc + '\n' + fnString;
+        fnString = mergeInputsFunc + '\n' + printFunc + '\n' + fnString;
 
         // ==> generated code structure:
         //  1. mergeInputFunction
@@ -329,12 +441,15 @@ function executeNode(node: INode, funcStrings, globalVars, consoleLog): string {
                 if (params['constants'].hasOwnProperty(constant)) {
                     const constString = JSON.stringify(params['constants'][constant]);
                     globalVars += `const ${constant} = ${constString};\n`;
+                    constantList[constant] = params['constants'][constant];
                 }
             }
             globalVars += '\n';
         }
         node.input.value = null;
-
+        for (const i of params['console']) {
+            consoleLog.push(i);
+        }
         return globalVars;
     } catch (ex) {
         throw ex;
