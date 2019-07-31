@@ -68,12 +68,15 @@ export const gradeFile = async (event: any = {}): Promise<any> => {
     try {
         // get the params and corresponding answers
         // TODO: allowing S3
-        var s3 = new AWS.S3();
-        const params = { Bucket: "mooc-answers", Key: event.question + '.gi' };
-        const res: any =  await s3.getObject(params).promise()
-        const answer = JSON.parse(res.Body.toString('utf-8'));
 
-        // const answer = JSON.parse(answer_text);
+        // var s3 = new AWS.S3();
+        // const params = { Bucket: "mooc-answers", Key: event.question + '.json' };
+        // const res: any =  await s3.getObject(params).promise()
+        // const answer = JSON.parse(res.Body.toString('utf-8'));
+
+        const answer = require('../test_foreach.json');
+        // const answer = require('../test_foreach1.json');
+
         // parse the mob file
         const mobFile = circularJSON.parse(event.file);
 
@@ -90,12 +93,26 @@ export const gradeFile = async (event: any = {}): Promise<any> => {
         for (const test of answer) {
             const consoleLog = [];
             // execute the flowchart
-            setParams(mobFile.flowchart, test.params);
+            if (test.params) {
+                setParams(mobFile.flowchart, test.params);
+            }
             await execute(mobFile.flowchart, consoleLog);
-            const answer_model = new GIModel(test.model);
-            const student_model = mobFile.flowchart.nodes[mobFile.flowchart.nodes.length - 1].output.value;
-            const result = answer_model.compare(student_model);
-            if (result.matches) {
+
+            let correct_check = true;
+            if (test.console && test.console !== test.console) {
+                console.log('console logs do not match')
+                correct_check = false
+            }
+            if (test.model) {
+                const answer_model = new GIModel(test.model);
+                const student_model = mobFile.flowchart.nodes[mobFile.flowchart.nodes.length - 1].output.value;
+                
+                const result = answer_model.compare(student_model);
+                if (!result.matches) {
+                    correct_check = false    
+                }
+            }
+            if (correct_check) {
                 score += 1;
             }
         }
@@ -105,7 +122,7 @@ export const gradeFile = async (event: any = {}): Promise<any> => {
             "comment": score + '/' + answer.length
         };
     } catch(err) {
-        // throw(err);
+        throw(err);
         return {
             "correct": false,
             "score": 0,
@@ -168,7 +185,8 @@ function checkParams(flowchart: IFlowchart, params: any): string[]{
     for (const param in params) {
         let check = false;
         for (const prod of flowchart.nodes[0].procedure){
-            if (prod.type === ProcedureTypes.Constant && params[prod.args[0].value] === params[param]) {
+            if (prod.type === ProcedureTypes.Constant && 
+                (params[prod.args[0].value] === params[param] || params[prod.args[0].jsValue] === params[param])) {
                 check = true;
             }
         }
@@ -181,10 +199,15 @@ function checkParams(flowchart: IFlowchart, params: any): string[]{
 
 function setParams(flowchart: IFlowchart, params: any) {
     for (const prod of flowchart.nodes[0].procedure){
-        if (prod.type === ProcedureTypes.Constant && 
-        (params[prod.args[0].value] || params[prod.args[0].value] === '' || params[prod.args[0].value] === 0)) {
-            prod.args[1].jsValue = params[prod.args[0].value]
-            prod.args[1].value = params[prod.args[0].value]
+        if (prod.type === ProcedureTypes.Constant) {
+            if (params[prod.args[0].value] !== undefined) {
+                prod.args[1].jsValue = params[prod.args[0].value];
+                prod.args[1].value = params[prod.args[0].value];
+            }
+            if (params[prod.args[0].jsValue] !== undefined) {
+                prod.args[1].jsValue = params[prod.args[0].jsValue]
+                prod.args[1].value = params[prod.args[0].jsValue]
+            }
         }
     }
 }

@@ -8,8 +8,8 @@ const gradeFile = grader.gradeFile_URL;
 
 
 gradeFile({
-    'file': 'https://raw.githubusercontent.com/phuongtung1/test_repo/master/modded_foreach.mob',
-    'question': 'foreach_test'
+    'file': 'https://raw.githubusercontent.com/phuongtung1/test_repo/master/modded_foreach_no_export.mob',
+    'question': 'test_foreach'
 }).then(r => {
     console.log(JSON.stringify(r))
 });

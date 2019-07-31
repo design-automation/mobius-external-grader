@@ -1,0 +1,17 @@
+[
+    {
+        "params": {"param1": "val1","param2": "val2"},
+        "console": "__console_string_1__",
+        "model": "__gi_model_1__"
+    },
+    {
+        "params": {"param1": "val3","param2": "val4"},
+        "console": "__console_string_2__",
+        "model": "__gi_model_2__"
+    },
+    {
+        "params": {"param1": "val5","param2": "val6"},
+        "console": "__console_string_3__",
+        "model": "__gi_model_3__"
+    }
+]
