@@ -69,16 +69,49 @@ export const gradeFile = async (event: any = {}): Promise<any> => {
         // get the params and corresponding answers
         // TODO: allowing S3
 
-        // var s3 = new AWS.S3();
-        // const params = { Bucket: "mooc-answers", Key: event.question + '.json' };
-        // const res: any =  await s3.getObject(params).promise()
-        // const answer = JSON.parse(res.Body.toString('utf-8'));
+        var s3 = new AWS.S3();
+        const params = { Bucket: "mooc-answers", Key: event.question };
+        const res: any =  await s3.getObject(params).promise()
+        const answer = JSON.parse(res.Body.toString('utf-8'));
 
-        const answer = require('../test_foreach.json');
         // const answer = require('../test_foreach1.json');
 
         // parse the mob file
         const mobFile = circularJSON.parse(event.file);
+
+        let score = 0;
+
+        if (!answer.length) {
+            if (answer.geometry) {
+                await execute(mobFile.flowchart, []);
+                const answer_model = new GIModel(answer);
+                const student_model = mobFile.flowchart.nodes[mobFile.flowchart.nodes.length - 1].output.value;
+                
+                const result = answer_model.compare(student_model);
+                if (!result.matches) {
+                    score = 1;
+                }
+                return {
+                    "correct": score > 0,
+                    "score": score,
+                    "comment": score + '/1'
+                };
+            }
+            const missing_params = checkParams(mobFile.flowchart, answer.params)
+            if (missing_params.length > 0) {
+                return {
+                    "correct": false,
+                    "score": 0,
+                    "comment": 'Error: Missing start node parameters - '+ missing_params.join(',') + '.'
+                };
+            }
+            score += await resultCheck(mobFile.flowchart, answer);
+            return {
+                "correct": score > 0,
+                "score": score,
+                "comment": score + '/1'
+            };
+        }
 
         const missing_params = checkParams(mobFile.flowchart, answer[0].params)
         if (missing_params.length > 0) {
@@ -88,33 +121,9 @@ export const gradeFile = async (event: any = {}): Promise<any> => {
                 "comment": 'Error: Missing start node parameters - '+ missing_params.join(',') + '.'
             };
         }
-        let score = 0;
         // perform the test for each of the params set
         for (const test of answer) {
-            const consoleLog = [];
-            // execute the flowchart
-            if (test.params) {
-                setParams(mobFile.flowchart, test.params);
-            }
-            await execute(mobFile.flowchart, consoleLog);
-
-            let correct_check = true;
-            if (test.console && test.console !== test.console) {
-                console.log('console logs do not match')
-                correct_check = false
-            }
-            if (test.model) {
-                const answer_model = new GIModel(test.model);
-                const student_model = mobFile.flowchart.nodes[mobFile.flowchart.nodes.length - 1].output.value;
-                
-                const result = answer_model.compare(student_model);
-                if (!result.matches) {
-                    correct_check = false    
-                }
-            }
-            if (correct_check) {
-                score += 1;
-            }
+            score += await resultCheck(mobFile.flowchart, test);
         }
         return {
             "correct": score > 0,
@@ -122,7 +131,6 @@ export const gradeFile = async (event: any = {}): Promise<any> => {
             "comment": score + '/' + answer.length
         };
     } catch(err) {
-        throw(err);
         return {
             "correct": false,
             "score": 0,
@@ -131,54 +139,33 @@ export const gradeFile = async (event: any = {}): Promise<any> => {
     }
 }
 
-// export const gradeFile_old = async (event: any = {}): Promise<any> => {
-//     try {
-//         // parse the mob file
-//         // console.log('Parsing .mob file...')
-//         const mobFile = circularJSON.parse(event.file);
-//         const consoleLog = [];
-//         // execute the flowchart
-//         // console.log('Execute flowchart...')
-//         getParams(mobFile.flowchart);
-//         await execute(mobFile.flowchart, consoleLog);
-//         const mob_excution_result = mobFile.flowchart.nodes[mobFile.flowchart.nodes.length - 1].output.value;
-//         // console.log('Finished execute...')
-//         const student_model_data = mob_excution_result.getData();
+async function resultCheck(flowchart: IFlowchart, answer: any): Promise<number> {
+    const consoleLog = [];
+    // execute the flowchart
+    if (answer.params) {
+        setParams(flowchart, answer.params);
+    }
+    await execute(flowchart, consoleLog);
 
-//         var s3 = new AWS.S3();
-//         const params = { Bucket: "mooc-answers", Key: event.question + '.gi' };
-//         return await s3.getObject(params).promise()
-//         .then((res) => {
-//              const answer_obj = JSON.parse(res.Body.toString('utf-8'));
-//                 const answer_model = new GIModel(answer_obj);
-//                 const student_model = new GIModel(student_model_data);
-//                 const result = answer_model.compare(student_model);
-//                 if (result.matches) {
-//                     return {
-//                         "correct": true,
-//                         "score": 1,
-//                         "comment": result.comment
-//                     };
-//                 }
-//                 else {
-//                     return {
-//                         "correct": false,
-//                         "score": 0,
-//                         "comment": result.comment
-//                     };
-//                 }
-//         })
-//         .catch((err) => {
-//             return err;
-//         });
-//     } catch(err) {
-//         return {
-//             "correct": false,
-//             "score": 0,
-//             "comment": 'Error: ' + err.message
-//         };
-//     }
-// }
+    let correct_check = true;
+    if (answer.console && answer.console !== answer.console) {
+        console.log('console logs do not match')
+        correct_check = false
+    }
+    if (answer.model) {
+        const answer_model = new GIModel(answer.model);
+        const student_model = flowchart.nodes[flowchart.nodes.length - 1].output.value;
+        
+        const result = answer_model.compare(student_model);
+        if (!result.matches) {
+            correct_check = false    
+        }
+    }
+    if (correct_check) {
+        return 1;
+    }
+    return 0;
+}
 
 function checkParams(flowchart: IFlowchart, params: any): string[]{
     const missing_params = [];
