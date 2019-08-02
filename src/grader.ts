@@ -69,66 +69,92 @@ export const gradeFile = async (event: any = {}): Promise<any> => {
         // get the params and corresponding answers
         // TODO: allowing S3
 
+        const answerList = []
         var s3 = new AWS.S3();
         const params = { Bucket: "mooc-answers", Key: event.question };
         const res: any =  await s3.getObject(params).promise()
-        const answer = JSON.parse(res.Body.toString('utf-8'));
+        const answerParams = JSON.parse(res.Body.toString('utf-8'));
+        for (const param of answerParams) {
+            try {
+                answerList.push(await s3.getObject({ Bucket: "mooc-answers", Key: param }).promise())
+            } catch (ex) {
+                console.log(`Error: File ${param} does not exist in S3 bucket "mooc-answers"`);
+                continue;
+            }
+        }
 
-        // const answer = require('../test_foreach1.json');
+        // const answerList = require('../test_foreach.json');
+
+        if (answerList.length === 0) {
+            return {
+                "correct": true,
+                "score": 0,
+                "comment": "Error: Unable to find answers for this question."
+            }
+        }
+
+        // const answer = require('../test_foreach2.json');
 
         // parse the mob file
         const mobFile = circularJSON.parse(event.file);
 
         let score = 0;
 
-        if (!answer.length) {
-            if (answer.geometry) {
-                await execute(mobFile.flowchart, []);
-                const answer_model = new GIModel(answer);
-                const student_model = mobFile.flowchart.nodes[mobFile.flowchart.nodes.length - 1].output.value;
+        // if (!answer.length) {
+        //     if (answer.geometry) {
+        //         await execute(mobFile.flowchart, []);
+        //         const answer_model = new GIModel(answer);
+        //         const student_model = mobFile.flowchart.nodes[mobFile.flowchart.nodes.length - 1].output.value;
                 
-                const result = answer_model.compare(student_model);
-                if (!result.matches) {
-                    score = 1;
-                }
-                return {
-                    "correct": score > 0,
-                    "score": score,
-                    "comment": score + '/1'
-                };
-            }
-            const missing_params = checkParams(mobFile.flowchart, answer.params)
-            if (missing_params.length > 0) {
-                return {
-                    "correct": false,
-                    "score": 0,
-                    "comment": 'Error: Missing start node parameters - '+ missing_params.join(',') + '.'
-                };
-            }
-            score += await resultCheck(mobFile.flowchart, answer);
-            return {
-                "correct": score > 0,
-                "score": score,
-                "comment": score + '/1'
-            };
-        }
+        //         const result = answer_model.compare(student_model);
+        //         if (result.matches) {
+        //             score = 1;
+        //         }
+        //         return {
+        //             "correct": score > 0,
+        //             "score": score,
+        //             "comment": score + '/1'
+        //         };
+        //     }
+        //     const missing_params = checkParams(mobFile.flowchart, answer.params)
+        //     if (missing_params.length > 0) {
+        //         return {
+        //             "correct": false,
+        //             "score": 0,
+        //             "comment": 'Error: Missing start node parameters - '+ missing_params.join(',') + '.'
+        //         };
+        //     }
+        //     score += await resultCheck(mobFile.flowchart, answer);
+        //     return {
+        //         "correct": score > 0,
+        //         "score": score,
+        //         "comment": score + '/1'
+        //     };
+        // }
 
-        const missing_params = checkParams(mobFile.flowchart, answer[0].params)
-        if (missing_params.length > 0) {
+        let missing_params;
+        for (const answer of answerList) {
+            if (answer.params) {
+                missing_params = checkParams(mobFile.flowchart, answerList[0].params)
+            }
+            break;
+        }
+        if (missing_params && missing_params.length > 0) {
             return {
                 "correct": false,
                 "score": 0,
                 "comment": 'Error: Missing start node parameters - '+ missing_params.join(',') + '.'
             };
         }
+
         // perform the test for each of the params set
-        for (const test of answer) {
+        for (const test of answerList) {
             score += await resultCheck(mobFile.flowchart, test);
         }
         return {
             "correct": score > 0,
             "score": score,
-            "comment": score + '/' + answer.length
+            "comment": score + '/' + answerList.length
         };
     } catch(err) {
         return {
