@@ -76,7 +76,9 @@ export const gradeFile = async (event: any = {}): Promise<any> => {
         const answerParams = JSON.parse(res.Body.toString('utf-8'));
         for (const param of answerParams) {
             try {
-                answerList.push(await s3.getObject({ Bucket: "mooc-answers", Key: param }).promise())
+                const newParams = { Bucket: "mooc-answers", Key: param };
+                const answerResponse = await s3.getObject(newParams).promise()
+                answerList.push(JSON.parse(answerResponse.Body.toString('utf-8')));
             } catch (ex) {
                 console.log(`Error: File ${param} does not exist in S3 bucket "mooc-answers"`);
                 continue;
@@ -93,12 +95,13 @@ export const gradeFile = async (event: any = {}): Promise<any> => {
             }
         }
 
-        // const answer = require('../test_foreach2.json');
+        // const answerList = [require('../test_foreach1.json')];
 
         // parse the mob file
         const mobFile = circularJSON.parse(event.file);
 
-        let score = 0;
+        let score = 1;
+        let correct_count = 0;
 
         // if (!answer.length) {
         //     if (answer.geometry) {
@@ -149,14 +152,20 @@ export const gradeFile = async (event: any = {}): Promise<any> => {
 
         // perform the test for each of the params set
         for (const test of answerList) {
-            score += await resultCheck(mobFile.flowchart, test);
+            const check = await resultCheck(mobFile.flowchart, test);
+            if (!check) {
+                score = 0
+            } else {
+                correct_count += 1;
+            }
         }
         return {
             "correct": score > 0,
             "score": score,
-            "comment": score + '/' + answerList.length
+            "comment": correct_count + '/' + answerList.length
         };
     } catch(err) {
+        // throw err;
         return {
             "correct": false,
             "score": 0,
@@ -165,7 +174,7 @@ export const gradeFile = async (event: any = {}): Promise<any> => {
     }
 }
 
-async function resultCheck(flowchart: IFlowchart, answer: any): Promise<number> {
+async function resultCheck(flowchart: IFlowchart, answer: any): Promise<boolean> {
     const consoleLog = [];
     // execute the flowchart
     if (answer.params) {
@@ -187,10 +196,7 @@ async function resultCheck(flowchart: IFlowchart, answer: any): Promise<number> 
             correct_check = false    
         }
     }
-    if (correct_check) {
-        return 1;
-    }
-    return 0;
+    return correct_check;
 }
 
 function checkParams(flowchart: IFlowchart, params: any): string[]{

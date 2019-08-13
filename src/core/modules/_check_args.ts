@@ -1,4 +1,4 @@
-import { EEntType, EAttribNames, TEntTypeIdx } from '../../libs/geo-info/common';
+import { EEntType, EAttribNames, TEntTypeIdx, EEntTypeStr } from '../../libs/geo-info/common';
 // import { isDim0, isDim1, isDim2 } from '../../libs/geo-info/id';
 import { idsBreak } from '../../libs/geo-info/id';
 
@@ -31,13 +31,11 @@ export function checkAttribValue(fn_name: string, attrib_value: any, attrib_inde
     if (attrib_index !== null && attrib_index !== undefined) {
         // check if index is number
         TypeCheckObj.isNumber(fn_name, 'attrib_index', attrib_index);
-        // check sting, number
-        checkCommTypes(fn_name  + '[' + attrib_index + ']', 'attrib_value', attrib_value,
-            [TypeCheckObj.isString, TypeCheckObj.isNumber]);
+        // this is an item in a list, the item value can be any
     } else {
         // check sting, number, string[], number[]
         checkCommTypes(fn_name, 'attrib_value', attrib_value,
-            [TypeCheckObj.isString, TypeCheckObj.isNumber, TypeCheckObj.isStringList, TypeCheckObj.isNumberList]);
+            [TypeCheckObj.isString, TypeCheckObj.isNumber, TypeCheckObj.isNull, TypeCheckObj.isList]);
     }
 }
 
@@ -80,7 +78,7 @@ export function checkAttribValue(fn_name: string, attrib_value: any, attrib_inde
 //         if (blocked === true) {
 //             let pass = false;
 //             const err_arr = [fn_name + ': ' + 'attrib_name is one of the reserved attribute names - '
-//                             + Object.values(EAttribNames).toString() + '\n'];
+//                             + Object.values(EAttribNames).toString() + '<br>'];
 //             if (isName) {
 //                 try {
 //                     isValidName(fn_name, 'attrib_value', attrib_value);
@@ -108,7 +106,7 @@ export function checkAttribValue(fn_name: string, attrib_value: any, attrib_inde
 //                         try {
 //                             check_fns[i](fn_name + '.' + check_fns[i], 'attrib_value', attrib_value);
 //                         } catch (err) {
-//                             err_arr.push(err.message + '\n');
+//                             err_arr.push(err.message + '<br>');
 //                             continue;
 //                         }
 //                         pass = true;
@@ -132,7 +130,7 @@ export function checkAttribValue(fn_name: string, attrib_value: any, attrib_inde
 //                             check_fns[i](fn_name + '[' + attrib_index + ']' + '.' + check_fns[i],
 //                                                       'attrib_value', attrib_value);
 //                         } catch (err) {
-//                             err_arr.push(err.message + '\n');
+//                             err_arr.push(err.message + '<br>');
 //                             continue;
 //                         }
 //                         pass = true;
@@ -160,20 +158,20 @@ export function checkAttribValue(fn_name: string, attrib_value: any, attrib_inde
 // =========================================================================================================================================
 export class TypeCheckObj {
     // entities: Check if string
-    static isEntity(fn_name: string, arg_name: string, arg: string): void {
-        isStringArg(fn_name, arg_name, arg, 'entity');
-        if (arg.slice(2).length === 0) {
-            throw new Error(fn_name + ': ' + arg_name + ' needs to have an index specified');
-        }
-        return;
-    }
-    static isEntityList(fn_name: string, arg_name: string, arg_list: string[]): void {
-        isListArg(fn_name, arg_name, arg_list, 'entity');
-        for (let i = 0; i < arg_list.length; i++) {
-            TypeCheckObj.isEntity(fn_name, arg_name + '[' + i + ']', arg_list[i]);
-        }
-        return;
-    }
+    // static isEntity(fn_name: string, arg_name: string, arg: string): void {
+    //     isStringArg(fn_name, arg_name, arg, 'entity');
+    //     if (arg.slice(2).length === 0) {
+    //         throw new Error(fn_name + ': ' + arg_name + ' needs to have an index specified');
+    //     }
+    //     return;
+    // }
+    // static isEntityList(fn_name: string, arg_name: string, arg_list: string[]): void {
+    //     isListArg(fn_name, arg_name, arg_list, 'entity');
+    //     for (let i = 0; i < arg_list.length; i++) {
+    //         TypeCheckObj.isEntity(fn_name, arg_name + '[' + i + ']', arg_list[i]);
+    //     }
+    //     return;
+    // }
     // any: to catch undefined
     static isAny(fn_name: string, arg_name: string, arg: string): void {
         isAnyArg(fn_name, arg_name, arg);
@@ -207,6 +205,10 @@ export class TypeCheckObj {
         isNumberListArg(fn_name, arg_name, arg_list);
         return;
     }
+    static isNullList(fn_name: string, arg_name: string, arg_list: number[]): void {
+        isNullListArg(fn_name, arg_name, arg_list);
+        return;
+    }
     static isInt(fn_name: string, arg_name: string, arg: number): void {
         isIntArg(fn_name, arg_name, arg);
         return;
@@ -228,6 +230,12 @@ export class TypeCheckObj {
         return;
     }
     // Other Geometry
+    static isColor(fn_name: string, arg_name: string, arg: [number, number, number]): void { // TColor = [number, number, number]
+        isListArg(fn_name, arg_name, arg, 'numbers');
+        isListLenArg(fn_name, arg_name, arg, 3);
+        isNumberListArg(fn_name, arg_name, arg);
+        return;
+    }
     static isCoord(fn_name: string, arg_name: string, arg: [number, number, number]): void { // Txyz = [number, number, number]
         isListArg(fn_name, arg_name, arg, 'numbers');
         isListLenArg(fn_name, arg_name, arg, 3);
@@ -245,10 +253,7 @@ export class TypeCheckObj {
     static isCoordList_List(fn_name: string, arg_name: string, arg_list: [number, number, number][][]): void {
         isListArg(fn_name, arg_name, arg_list, 'lists of coordinates');
         for (let i = 0; i < arg_list.length; i++) {
-            for (let j = 0; j < arg_list[i].length; j++) {
-                isListLenArg(fn_name, arg_name + '[' + i + ']' + '[' + j + ']', arg_list[i][j], 3);
-                isNumberListArg(fn_name, arg_name + '[' + i + ']' + '[' + j + ']', arg_list[i][j]);
-            }
+            TypeCheckObj.isCoordList(fn_name, arg_name + '[' + i + ']', arg_list[i]);
         }
         return;
     }
@@ -333,9 +338,12 @@ export class IDcheckObj {
     // entity types
     // POSI, TRI, VERT, EDGE, WIRE, FACE, POINT, PLINE, PGON, COLL
     static isID(fn_name: string, arg_name: string, arg: any, ent_type_strs: EEntType[]|null): TEntTypeIdx {
-        TypeCheckObj.isEntity(fn_name, arg_name, arg); // check is valid id
-        const ent_arr = idsBreak(arg) as TEntTypeIdx; // split
-
+        let ent_arr;
+        try {
+            ent_arr = idsBreak(arg) as TEntTypeIdx; // split
+        } catch (err) {
+            throw new Error(fn_name + ': ' + arg_name + ' is not a valid Entity ID'); // check valid id
+        }
         if (ent_type_strs === null) {
             ent_type_strs = IDcheckObj.default_ent_type_strs;
         }
@@ -353,33 +361,22 @@ export class IDcheckObj {
         return ent_arr;
     }
     static isIDList(fn_name: string, arg_name: string, arg_list: any[], ent_type_strs: EEntType[]|null): TEntTypeIdx[] {
-        TypeCheckObj.isEntityList(fn_name, arg_name, arg_list); // check is valid id list
-        const ent_arr_lst = idsBreak(arg_list) as TEntTypeIdx[]; // split
-
+        isListArg(fn_name, arg_name, arg_list, 'valid Entity IDs');
+        const ret_arr = [];
         if (ent_type_strs === null) {
             ent_type_strs = IDcheckObj.default_ent_type_strs;
         }
-        for (let i = 0; i < ent_arr_lst.length; i++) {
-            let pass = false;
-            for (let j = 0; j < ent_type_strs.length; j++) {
-                if (ent_arr_lst[i][0] === ent_type_strs[j]) {
-                    pass = true;
-                    break;
-                }
-            }
-            if (pass === false) {
-                const ret_str_arr = [];
-                ent_type_strs.forEach((test_ent) => {
-                    ret_str_arr.push(EEntType[test_ent] + '_list');
-                });
-                throw new Error(fn_name + ': ' + arg_name + '[' + i + ']' + ' is not one of the following valid types - '
-                                + ent_type_strs.map((test_ent) => EEntType[test_ent] + '_list').toString());
-            }
+        for (let i = 0; i < arg_list.length; i++) {
+            ret_arr.push(IDcheckObj.isID(fn_name, arg_name + '[' + i + ']', arg_list[i], ent_type_strs));
         }
-        return ent_arr_lst;
+        return ret_arr as TEntTypeIdx[];
     }
     static isIDList_list(fn_name: string, arg_name: string, arg_list: any, ent_type_strs: EEntType[]|null): TEntTypeIdx[][] {
+        isListArg(fn_name, arg_name, arg_list, 'list of valid Entity IDs');
         const ret_arr = [];
+        if (ent_type_strs === null) {
+            ent_type_strs = IDcheckObj.default_ent_type_strs;
+        }
         for (let i = 0; i < arg_list.length; i++) {
             ret_arr.push(IDcheckObj.isIDList(fn_name, arg_name + '[' + i + ']', arg_list[i], ent_type_strs));
         }
@@ -398,14 +395,14 @@ export function checkCommTypes(fn_name: string, arg_name: string, arg: any, chec
         try {
            ret = check_fns[i](fn_name, arg_name, arg);
         } catch (err) {
-            err_arr.push(err.message + '\n');
+            err_arr.push(err.message + '<br>');
             continue;
         }
         pass = true;
         break; // passed
     }
     if (pass === false) { // Failed all tests: argument does not fall into any valid types
-        const ret_msg = fn_name + ': ' + arg_name + ' failed the following tests:\n';
+        const ret_msg = fn_name + ': ' + arg_name + ' failed the following tests:<br>';
         throw new Error(ret_msg + err_arr.join(''));
     }
     return ret;
@@ -420,14 +417,14 @@ export function checkIDs(fn_name: string, arg_name: string, arg: any, check_fns:
         try {
            ret =  check_fns[i](fn_name, arg_name, arg, IDchecks);
         } catch (err) {
-            err_arr.push(err.message + '\n');
+            err_arr.push(err.message + '<br>');
             continue;
         }
         pass = true;
         break; // passed
     }
     if (pass === false) { // Failed all tests: argument does not fall into any valid types
-        const ret_msg = fn_name + ': ' + arg_name + ' failed the following tests:\n';
+        const ret_msg = fn_name + ': ' + arg_name + ' failed the following tests:<br>';
         throw new Error(ret_msg + err_arr.join(''));
     }
     return ret; // returns TEntTypeIdx|TEntTypeIdx[]|TEntTypeIdx[][]; depends on which passes
@@ -444,7 +441,7 @@ export function checkIDnTypes(fn_name: string, arg_name: string, arg: any, check
         try {
             ret = check_fns[i](fn_name, arg_name, arg, IDchecks);
         } catch (err) {
-            err_arr.push(err.message + '\n');
+            err_arr.push(err.message + '<br>');
             continue;
         }
         pass = true;
@@ -455,7 +452,7 @@ export function checkIDnTypes(fn_name: string, arg_name: string, arg: any, check
         //     try {
         //         ret = IDcheckObj[check_fns[i]](fn_name + '.' + check_fns[i], arg_name, arg, IDchecks);
         //     } catch (err) {
-        //         err_arr.push(err.message + '\n');
+        //         err_arr.push(err.message + '<br>');
         //         continue;
         //     }
         //     pass = true;
@@ -465,7 +462,7 @@ export function checkIDnTypes(fn_name: string, arg_name: string, arg: any, check
         //     try {
         //         TypeCheckObj[check_fns[i]](fn_name + '.' + check_fns[i], arg_name, arg);
         //     } catch (err) {
-        //         err_arr.push(err.message + '\n');
+        //         err_arr.push(err.message + '<br>');
         //         continue;
         //     }
         //     pass = true;
@@ -473,7 +470,7 @@ export function checkIDnTypes(fn_name: string, arg_name: string, arg: any, check
         // }
     }
     if (pass === false) { // Failed all tests: argument does not fall into any valid types
-        const ret_msg = fn_name + ': ' + arg_name + ' failed the following tests:\n';
+        const ret_msg = fn_name + ': ' + arg_name + ' failed the following tests:<br>';
         throw new Error(ret_msg + err_arr.join(''));
     }
     return ret; // returns void|TEntTypeIdx|TEntTypeIdx[]|TEntTypeIdx[][]; depends on which passes
@@ -525,7 +522,7 @@ function isStringListArg(fn_name: string, arg_name: string, arg_list: any[], typ
 }
 // Numbers
 function isNumberArg(fn_name: string, arg_name: string, arg: any): void {
-    if (typeof arg !== 'number') {
+    if (isNaN(arg) || isNaN(parseInt(arg, 10))) {
         throw new Error(fn_name + ': ' + arg_name + ' is not a number');
     }
     return;
@@ -533,9 +530,14 @@ function isNumberArg(fn_name: string, arg_name: string, arg: any): void {
 function isNumberListArg(fn_name: string, arg_name: string, arg_list: any): void {
     isListArg(fn_name, arg_name, arg_list, 'numbers');
     for (let i = 0; i < arg_list.length; i++) {
-        if (typeof arg_list[i] !== 'number') {
-            throw new Error(fn_name + ': ' + arg_name + '[' + i + ']' + ' is not a number');
-        }
+        isNumberArg(fn_name, arg_name + '[' + i + ']', arg_list[i]);
+    }
+    return;
+}
+function isNullListArg(fn_name: string, arg_name: string, arg_list: any): void {
+    isListArg(fn_name, arg_name, arg_list, 'null');
+    for (let i = 0; i < arg_list.length; i++) {
+        isNullArg(fn_name, arg_name + '[' + i + ']', arg_list[i]);
     }
     return;
 }

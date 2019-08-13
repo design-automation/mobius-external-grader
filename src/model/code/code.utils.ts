@@ -18,7 +18,7 @@ export class CodeUtils {
             prod.type === ProcedureTypes.Comment) { return ['']; }
 
         // mark _terminateCheck to terminate all process after this
-        if (prod.type === ProcedureTypes.Terminate) {
+        if (prod.type === ProcedureTypes.Terminate && prod.enabled) {
             _terminateCheck = '';
             return ['return __params__.model;'];
         }
@@ -41,23 +41,22 @@ export class CodeUtils {
         switch ( prod.type ) {
             case ProcedureTypes.Variable:
                 if (!args[0].jsValue) {
-                    codeStr.push(`${this.repGetAttrib(args[1].jsValue)};`);
+                    codeStr.push(`${args[1].jsValue};`);
                     break;
                 }
                 const repVar = this.repSetAttrib(args[0].jsValue);
                 if (!repVar) {
-                    codeStr.push(`${prefix}${args[0].jsValue} = ${this.repGetAttrib(args[1].jsValue)};`);
+                    codeStr.push(`${prefix}${args[0].jsValue} = ${args[1].jsValue};`);
                     if (prefix === 'let ') {
                         existingVars.push(args[0].jsValue);
                     }
                 } else {
-                    codeStr.push(`${repVar[0]} ${this.repGetAttrib(args[1].jsValue)} ${repVar[1]}`);
+                    codeStr.push(`${repVar[0]} ${args[1].jsValue} ${repVar[1]}`);
                 }
                 break;
 
             case ProcedureTypes.If:
-                if (args[0].jsValue.indexOf('__params__') !== -1) { throw new Error('Unexpected Identifier'); }
-                codeStr.push(`if (${this.repGetAttrib(args[0].jsValue)}){`);
+                codeStr.push(`if (${args[0].jsValue}){`);
                 break;
 
             case ProcedureTypes.Else:
@@ -65,19 +64,15 @@ export class CodeUtils {
                 break;
 
             case ProcedureTypes.Elseif:
-                if (args[0].jsValue.indexOf('__params__') !== -1) { throw new Error('Unexpected Identifier'); }
-                codeStr.push(`else if(${this.repGetAttrib(args[0].jsValue)}){`);
+                codeStr.push(`else if(${args[0].jsValue}){`);
                 break;
 
             case ProcedureTypes.Foreach:
-                // codeStr.push(`for (${prefix} ${args[0].jsValue} of [...Array(${args[1].jsValue}).keys()]){`);
-                if (args[0].jsValue.indexOf('__params__') !== -1) { throw new Error('Unexpected Identifier'); }
-                codeStr.push(`for (${prefix} ${args[0].jsValue} of ${this.repGetAttrib(args[1].jsValue)}){`);
+                codeStr.push(`for (${prefix} ${args[0].jsValue} of ${args[1].jsValue}){`);
                 break;
 
             case ProcedureTypes.While:
-                if (args[0].jsValue.indexOf('__params__') !== -1) { throw new Error('Unexpected Identifier'); }
-                codeStr.push(`while (${this.repGetAttrib(args[0].jsValue)}){`);
+                codeStr.push(`while (${args[0].jsValue}){`);
                 break;
 
             case ProcedureTypes.Break:
@@ -135,20 +130,19 @@ export class CodeUtils {
                         check = false;
                         break;
                     }
-                    if (arg.jsValue.indexOf('__params__') !== -1) { throw new Error('Unexpected Identifier'); }
                     if (arg.jsValue[0] === '#') {
-                        returnArgVals.push('`' + this.repGetAttrib(arg.jsValue) + '`');
+                        returnArgVals.push('`' + arg.jsValue + '`');
                         continue;
                     }
-                    returnArgVals.push(this.repGetAttrib(arg.jsValue));
+                    returnArgVals.push(arg.jsValue);
                 }
                 if (!check) {
                     codeStr.push(`return __params__['model'];`);
                 } else {
                     codeStr.push(`let __return_value__ = __modules__.${_parameterTypes.return}(${returnArgVals.join(', ')});`);
                     if (isMainFlowchart) {
-                        // codeStr.push(`console.(log'Return: ', __return_value__);`);
-                        codeStr.push(`__params__.console.push('Return: ' + __return_value__.toString());`);
+                        codeStr.push(`__params__.console.push('<p><b>Return: <i>' + ` +
+                                     `__return_value__.toString().replace(/,/g,', ') + '</i></b></p>');`);
                     }
                     codeStr.push(`return __return_value__;`);
                 }
@@ -157,7 +151,6 @@ export class CodeUtils {
             case ProcedureTypes.Function:
                 const argVals = [];
                 for (const arg of args.slice(1)) {
-                    if (arg.jsValue && arg.jsValue.indexOf('__params__') !== -1) { throw new Error('Unexpected Identifier'); }
                     if (arg.name === _parameterTypes.constList) {
                         argVals.push('__params__.constants');
                         continue;
@@ -166,20 +159,33 @@ export class CodeUtils {
                         argVals.push('__params__.model');
                         continue;
                     }
-
-                    if (arg.jsValue && arg.jsValue[0] === '#') {
-                        argVals.push('`' + this.repGetAttrib(arg.jsValue) + '`');
+                    if (arg.name === _parameterTypes.console) {
+                        argVals.push('__params__.console');
                         continue;
                     }
-                    argVals.push(this.repGetAttrib(arg.jsValue));
+                    if (arg.name === _parameterTypes.fileName) {
+                        argVals.push('__params__.fileName');
+                        continue;
+                    }
+
+                    if (arg.jsValue && arg.jsValue[0] === '#') {
+                        argVals.push('`' + arg.jsValue + '`');
+                        continue;
+                    }
+                    argVals.push(arg.jsValue);
                 }
                 if (prod.resolvedValue) {
+                    let prodResolvedCheck = false;
                     for (let i = 0; i < argVals.length; i++) {
                         if (argVals[i].indexOf('://') !== -1) {
                             argVals[i] = prod.resolvedValue;
                             prod.resolvedValue = null;
+                            prodResolvedCheck = true;
                             break;
                         }
+                    }
+                    if (!prodResolvedCheck) {
+                        argVals[1] = prod.resolvedValue;
                     }
                 }
                 // const argValues = argVals.join(', ');
@@ -225,7 +231,8 @@ export class CodeUtils {
                     //     prod.resolvedValue = null;
                     // }
                     if (arg.type.toString() !== InputType.URL.toString()) {
-                        argsVals.push(this.repGetAttrib(arg.jsValue));
+                        argsVals.push(arg.jsValue);
+                        // argsVals.push(this.repGetAttrib(arg.jsValue));
                     } else {
                         argsVals.push(prod.resolvedValue);
                     }
@@ -259,33 +266,19 @@ export class CodeUtils {
         }
 
         if (isMainFlowchart && prod.print && prod.args[0].jsValue) {
+            // const repGet = prod.args[0].jsValue;
             const repGet = this.repGetAttrib(prod.args[0].jsValue);
             codeStr.push(`printFunc(__params__.console,'${prod.args[0].value}', ${repGet});`);
         }
         if (isMainFlowchart && prod.selectGeom && prod.args[0].jsValue) {
-            const repGet = this.repGetAttrib(prod.args[0].jsValue);
-            codeStr.push(`__modules__.${_parameterTypes.select}(__params__.model, ${repGet}, "${repGet}");`);
+            // const repGet = prod.args[0].jsValue;
+            const repGet = this.repGetAttrib(prod.args[0].value);
+            const repGetJS = this.repGetAttrib(prod.args[0].jsValue);
+            codeStr.push(`__modules__.${_parameterTypes.select}(__params__.model, ${repGetJS}, "${repGet}");`);
         }
         return codeStr;
     }
     static repSetAttrib(val: string) {
-        // if (!val || val.indexOf('@') === -1) {
-        //     return false;
-        // }
-        // const splitted = val.split('@');
-        // if (splitted.length > 2) {
-        //     splitted[1] = splitted.splice(1, splitted.length - 1).join('@');
-        // }
-        // const openBracketMatch = (splitted[1].match(/\[/g) || []).length;
-        // if (openBracketMatch) {
-        //     const bracketSplit = splitted[1].substring(0, splitted[1].length - 1).split('[');
-        //     const innerVar = CodeUtils.repGetAttrib(bracketSplit.splice(1, bracketSplit.length - 1).join('['));
-        //     return [`__modules__.${_parameterTypes.setattrib}(
-        //              __params__.model, ${splitted[0]}, '${bracketSplit[0]}',`, `, ${innerVar});`];
-        // } else {
-        //     return [`__modules__.${_parameterTypes.setattrib}(__params__.model, ${splitted[0]}, '${splitted[1]}',`, ');'];
-        // }
-
         if (!val || val.indexOf('@') === -1) {
             return false;
         }
@@ -300,63 +293,86 @@ export class CodeUtils {
             val_0 = val.slice(0, atIndex);
             val_1 = val.slice(atIndex + 1);
         }
-        const openBracketMatch = (val_1.match(/\[/g) || []).length;
-        if (openBracketMatch) {
-            const bracketSplit = val_1.substring(0, val_1.length - 1).split('[');
-            const innerVar = CodeUtils.repGetAttrib(bracketSplit.splice(1, bracketSplit.length - 1).join('['));
-            return [`__modules__.${_parameterTypes.setattrib}(__params__.model, ${val_0}, '${bracketSplit[0]}',`, `, ${innerVar});`];
+        const bracketIndex = val_1.indexOf('.slice(');
+        if (bracketIndex !== -1) {
+            const name = val_1.slice(0, bracketIndex);
+            const index = val_1.slice(bracketIndex + 7, -4);
+            // const innerVar = CodeUtils.repGetAttrib(bracketSplit.splice(1, bracketSplit.length - 1).join('['));
+            return [`__modules__.${_parameterTypes.setattrib}(__params__.model, ${val_0}, '${name}', ${index},`, `);`];
         } else {
-            return [`__modules__.${_parameterTypes.setattrib}(__params__.model, ${val_0}, '${val_1}',`, ');'];
+            return [`__modules__.${_parameterTypes.setattrib}(__params__.model, ${val_0}, '${val_1}', null, `, ');'];
         }
     }
 
     static repGetAttrib(val: string) {
         if (!val) { return; }
-        if (typeof val === 'number') { return val; }
-
-        const res = val.split(' ');
-        for (const i in res) {
-            if (!res[i]) {
-                continue;
-            }
-            const atIndex = res[i].indexOf('@');
-            if (atIndex !== -1 && atIndex >= 0 && res[i].trim()[0] !== '#') {
-                // get two parts, before @ and after @
-                let val_0: string;
-                let val_1: string;
-                let pref = '';
-                let postf = '';
-                if (atIndex === 0) {
-                    val_0 = null;
-                    val_1 = res[i].slice(1);
-                } else {
-                    val_0 = res[i].slice(0, atIndex);
-                    val_1 = res[i].slice(atIndex + 1);
-                    while (val_0[0] === '[') {
-                        val_0 = val_0.substring(1, val_0.length);
-                        pref += '[';
-                    }
-                    if (val_0 === '') {
-                        val_0 = null;
-                    }
-                }
-                const closeBracketMatch = (val_1.match(/\]/g) || []).length;
-                const openBracketMatch = (val_1.match(/\[/g) || []).length;
-                if (closeBracketMatch > openBracketMatch) {
-                    val_1 = val_1.substring(0, val_1.length - (closeBracketMatch - openBracketMatch));
-                    postf = ']'.repeat(closeBracketMatch - openBracketMatch);
-                }
-                if (openBracketMatch) {
-                    const bracketSplit = val_1.substring(0, val_1.length - 1).split('[');
-                    const innerVar = CodeUtils.repGetAttrib(bracketSplit.splice(1, bracketSplit.length - 1).join('['));
-                    res[i] = `${pref}__modules__.${_parameterTypes.getattrib}` +
-                        `(__params__.model, ${val_0}, '${bracketSplit[0]}', ${innerVar})${postf}`;
-                } else {
-                    res[i] = `${pref}__modules__.${_parameterTypes.getattrib}(__params__.model, ${val_0}, '${val_1}')${postf}`;
-                }
-            }
+        const res = val.split('@');
+        if (res.length === 1 ) {
+            return val;
         }
-        return res.join(' ');
+        let entity = res[0];
+        if (res[0] === '') {
+            entity = 'null';
+        }
+
+        let att_name;
+        let att_index;
+        const bracketIndex = res[1].indexOf('.slice(');
+        if (bracketIndex !== -1) {
+            att_name = res[1].slice(0, bracketIndex);
+            att_index = res[1].slice(bracketIndex + 7, -4);
+        } else {
+            att_name = res[1];
+            att_index = 'null';
+        }
+        return `__modules__.${_parameterTypes.getattrib}(__params__.model, ${entity}, '${att_name}', ${att_index})`;
+
+        // if (!val) { return; }
+        // if (typeof val === 'number') { return val; }
+
+        // const res = val.split(' ');
+        // for (const i in res) {
+        //     if (!res[i]) {
+        //         continue;
+        //     }
+        //     const atIndex = res[i].indexOf('@');
+        //     if (atIndex !== -1 && atIndex >= 0 && res[i].trim()[0] !== '#') {
+        //         // get two parts, before @ and after @
+        //         let val_0: string;
+        //         let val_1: string;
+        //         let pref = '';
+        //         let postf = '';
+        //         if (atIndex === 0) {
+        //             val_0 = null;
+        //             val_1 = res[i].slice(1);
+        //         } else {
+        //             val_0 = res[i].slice(0, atIndex);
+        //             val_1 = res[i].slice(atIndex + 1);
+        //             while (val_0[0] === '[') {
+        //                 val_0 = val_0.substring(1, val_0.length);
+        //                 pref += '[';
+        //             }
+        //             if (val_0 === '') {
+        //                 val_0 = null;
+        //             }
+        //         }
+        //         const closeBracketMatch = (val_1.match(/\]/g) || []).length;
+        //         const openBracketMatch = (val_1.match(/\[/g) || []).length;
+        //         if (closeBracketMatch > openBracketMatch) {
+        //             val_1 = val_1.substring(0, val_1.length - (closeBracketMatch - openBracketMatch));
+        //             postf = ']'.repeat(closeBracketMatch - openBracketMatch);
+        //         }
+        //         if (openBracketMatch) {
+        //             const bracketSplit = val_1.substring(0, val_1.length - 1).split('[');
+        //             const innerVar = CodeUtils.repGetAttrib(bracketSplit.splice(1, bracketSplit.length - 1).join('['));
+        //             res[i] = `${pref}__modules__.${_parameterTypes.getattrib}` +
+        //                 `(__params__.model, ${val_0}, '${bracketSplit[0]}', ${innerVar})${postf}`;
+        //         } else {
+        //             res[i] = `${pref}__modules__.${_parameterTypes.getattrib}(__params__.model, ${val_0}, '${val_1}')${postf}`;
+        //         }
+        //     }
+        // }
+        // return res.join(' ');
     }
 
     static async getURLContent(url: string): Promise<any> {
@@ -533,7 +549,8 @@ export class CodeUtils {
 
     static getFunctionString(func: IFunction): string {
         let fullCode = '';
-        let fnCode = `function ${func.name}(__params__${func.args.map(arg => ', ' + arg.name).join('')})` + `{\nvar merged;\n`;
+
+        let fnCode = `function ${func.name}(__params__${func.args.map(arg => ', ' + arg.name + '_').join('')})` + `{\nvar merged;\n`;
 
         for (const node of func.flowchart.nodes) {
             const nodeFuncName = `${func.name}_${node.id}`;
@@ -541,7 +558,7 @@ export class CodeUtils {
                 fnCode += `let result_${nodeFuncName} = __params__.model;\n`;
             } else {
                 const codeRes = CodeUtils.getNodeCode(node, false, func.name)[0];
-                fullCode += `function ${nodeFuncName}(__params__${func.args.map(arg => ', ' + arg.name).join('')}){\n` +
+                fullCode += `function ${nodeFuncName}(__params__${func.args.map(arg => ', ' + arg.name + '_').join('')}){\n` +
                             codeRes[0].join('\n') + `\n}\n\n`;
 
                 const activeNodes = [];
@@ -553,7 +570,8 @@ export class CodeUtils {
                 }
                 fnCode += `\n__params__.model = mergeInputs([${activeNodes.map((nodeId) =>
                     `result_${func.name}_${nodeId}`).join(', ')}]);\n`;
-                fnCode += `let result_${nodeFuncName} = ${nodeFuncName}(__params__${func.args.map(arg => ', ' + arg.name).join('')});\n`;
+                fnCode += `let result_${nodeFuncName} = ${nodeFuncName}(__params__${func.args.map(arg => ', ' + arg.name + '_'
+                            ).join('')});\n`;
 
             }
             if (node.type === 'end') {
