@@ -67,8 +67,6 @@ exports.gradeFile_URL = async (event = {}) => {
 export const gradeFile = async (event: any = {}): Promise<any> => {
     try {
         // get the params and corresponding answers
-        // TODO: allowing S3
-
         const answerList = []
         var s3 = new AWS.S3();
         const params = { Bucket: "mooc-answers", Key: event.question };
@@ -138,7 +136,7 @@ export const gradeFile = async (event: any = {}): Promise<any> => {
         let missing_params;
         for (const answer of answerList) {
             if (answer.params) {
-                missing_params = checkParams(mobFile.flowchart, answerList[0].params)
+                missing_params = checkParams(mobFile.flowchart, answerList[0].params);
             }
             break;
         }
@@ -150,9 +148,12 @@ export const gradeFile = async (event: any = {}): Promise<any> => {
             };
         }
 
+        let comment = [];
+        let count = 0;
         // perform the test for each of the params set
         for (const test of answerList) {
-            const check = await resultCheck(mobFile.flowchart, test);
+            count += 1;
+            const check = await resultCheck(mobFile.flowchart, test, comment, count);
             if (!check) {
                 score = 0
             } else {
@@ -162,7 +163,8 @@ export const gradeFile = async (event: any = {}): Promise<any> => {
         return {
             "correct": score > 0,
             "score": score,
-            "comment": correct_count + '/' + answerList.length
+            // "comment": correct_count + '/' + answerList.length
+            "comment": comment.join('')
         };
     } catch(err) {
         // throw err;
@@ -174,18 +176,29 @@ export const gradeFile = async (event: any = {}): Promise<any> => {
     }
 }
 
-async function resultCheck(flowchart: IFlowchart, answer: any): Promise<boolean> {
+async function resultCheck(flowchart: IFlowchart, answer: any, comment: string[], count: number): Promise<boolean> {
     const consoleLog = [];
+    let caseComment = `<h4>Test case ${count}:</h4><br>`;
     // execute the flowchart
     if (answer.params) {
         setParams(flowchart, answer.params);
+        caseComment += `<p style='padding-left: 20px;'><b><i>Parameters:</i></b></p>`;
+        caseComment += '<ul style="padding-left: 40px;">'
+        for (const i in answer.params) {
+            caseComment += `<li> ${i} = ${answer.params[i]}</li>`
+        }
+        caseComment += '</ul>'
     }
     await execute(flowchart, consoleLog);
 
     let correct_check = true;
-    if (answer.console && answer.console !== answer.console) {
-        console.log('console logs do not match')
-        correct_check = false
+    if (answer.console) {
+        if (answer.console !== answer.console) {
+            caseComment += '<p style="padding-left: 20px;"><b><i>Console Check:</i> failed</b></p>';
+            correct_check = false    
+        } else {
+            caseComment += '<p style="padding-left: 20px;"><b><i>Console Check:</i> passed</b></p>';
+        }
     }
     if (answer.model) {
         const answer_model = new GIModel(answer.model);
@@ -193,9 +206,14 @@ async function resultCheck(flowchart: IFlowchart, answer: any): Promise<boolean>
         
         const result = answer_model.compare(student_model);
         if (!result.matches) {
+            caseComment += '<p style="padding-left: 20px;"><b><i>Model Check:</i> failed</b></p>';
             correct_check = false    
+        } else {
+            caseComment += '<p style="padding-left: 20px;"><b><i>Model Check:</i> passed</b></p>';
         }
     }
+    caseComment += '<br>';
+    comment.push(caseComment);
     return correct_check;
 }
 
