@@ -1,5 +1,5 @@
 node_modules
-dist/
+dist
 .env
 dist/core/modules/_list.js
 dist/core/modules/_model.js
