@@ -12,6 +12,14 @@ import { INode } from './model/node';
 import { GIModel } from './libs/geo-info/GIModel';
 import AWS from 'aws-sdk';
 
+export const pythonList = `
+function pythonList(x, l){
+    if (x < 0) {
+        return x + l;
+    }
+    return x;
+}
+`;
 const mergeInputsFunc = `
 function mergeInputs(models){
     let result = __modules__.${_parameterTypes.new}();
@@ -466,7 +474,7 @@ function executeNode(node: INode, funcStrings, globalVars, constantList, console
         fnString = _varString + globalVars + fnString;
 
         // add the merge input function and the print function
-        fnString = mergeInputsFunc + '\n' + printFunc + '\n' + fnString;
+        fnString = pythonList + '\n' + mergeInputsFunc + '\n' + printFunc + '\n' + fnString;
 
         // ==> generated code structure:
         //  1. mergeInputFunction
