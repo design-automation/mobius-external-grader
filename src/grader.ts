@@ -93,53 +93,25 @@ export const gradeFile = async (event: any = {}): Promise<any> => {
 
         // const answerList = require('../test_foreach.json');
 
+        let result;
         if (answerList.length === 0) {
-            return {
+            result = {
                 "correct": true,
                 "score": 0,
                 "comment": "Error: Unable to find answers for this question."
-            }
+            };
+            console.log(result);
+            return result;
+
         }
 
         // const answerList = [require('../test_foreach1.json')];
 
         // parse the mob file
         const mobFile = circularJSON.parse(event.file);
+        console.log('progress: passed .mob file parsing')
 
         let score = 1;
-        let correct_count = 0;
-
-        // if (!answer.length) {
-        //     if (answer.geometry) {
-        //         await execute(mobFile.flowchart, []);
-        //         const answer_model = new GIModel(answer);
-        //         const student_model = mobFile.flowchart.nodes[mobFile.flowchart.nodes.length - 1].output.value;
-                
-        //         const result = answer_model.compare(student_model);
-        //         if (result.matches) {
-        //             score = 1;
-        //         }
-        //         return {
-        //             "correct": score > 0,
-        //             "score": score,
-        //             "comment": score + '/1'
-        //         };
-        //     }
-        //     const missing_params = checkParams(mobFile.flowchart, answer.params)
-        //     if (missing_params.length > 0) {
-        //         return {
-        //             "correct": false,
-        //             "score": 0,
-        //             "comment": 'Error: Missing start node parameters - '+ missing_params.join(',') + '.'
-        //         };
-        //     }
-        //     score += await resultCheck(mobFile.flowchart, answer);
-        //     return {
-        //         "correct": score > 0,
-        //         "score": score,
-        //         "comment": score + '/1'
-        //     };
-        // }
 
         let missing_params;
         for (const answer of answerList) {
@@ -149,12 +121,16 @@ export const gradeFile = async (event: any = {}): Promise<any> => {
             break;
         }
         if (missing_params && missing_params.length > 0) {
-            return {
+            
+            result = {
                 "correct": false,
                 "score": 0,
                 "comment": 'Error: Missing start node parameters - '+ missing_params.join(',') + '.'
             };
+            console.log(result);
+            return result;
         }
+        console.log('progress: passed file params check')
 
         let comment = [];
         let count = 0;
@@ -164,18 +140,20 @@ export const gradeFile = async (event: any = {}): Promise<any> => {
             const check = await resultCheck(mobFile.flowchart, test, comment, count);
             if (!check) {
                 score = 0
-            } else {
-                correct_count += 1;
             }
         }
-        return {
+        console.log('progress: passed result check (console + model)')
+        result = {
             "correct": score > 0,
             "score": score,
             // "comment": correct_count + '/' + answerList.length
             "comment": comment.join('')
         };
+        console.log(result);
+        return result;
     } catch(err) {
-        // throw err;
+        console.log('Error:',err);
+        console.log('File:', event.file);
         return {
             "correct": false,
             "score": 0,
@@ -187,13 +165,14 @@ export const gradeFile = async (event: any = {}): Promise<any> => {
 async function resultCheck(flowchart: IFlowchart, answer: any, comment: string[], count: number): Promise<boolean> {
     const consoleLog = [];
     let caseComment = `<h4>Test case ${count}:</h4><br>`;
+    console.log(`  _ Test case ${count} started`);
     // execute the flowchart
     if (answer.params) {
         setParams(flowchart, answer.params);
         caseComment += `<p style='padding-left: 20px;'><b><i>Parameters:</i></b></p>`;
         caseComment += '<ul style="padding-left: 40px;">'
         for (const i in answer.params) {
-            caseComment += `<li> ${i} = ${answer.params[i]}</li>`
+            caseComment += `<li> ${i.slice(0, -1)} = ${answer.params[i]}</li>`
         }
         caseComment += '</ul>'
     }
@@ -203,9 +182,11 @@ async function resultCheck(flowchart: IFlowchart, answer: any, comment: string[]
     if (answer.console) {
         if (answer.console !== answer.console) {
             caseComment += '<p style="padding-left: 20px;"><b><i>Console Check:</i> failed</b></p>';
-            correct_check = false    
+            correct_check = false
+            console.log('    + console check: incorrect')
         } else {
             caseComment += '<p style="padding-left: 20px;"><b><i>Console Check:</i> passed</b></p>';
+            console.log('    + console check: correct')
         }
     }
     if (answer.model) {
@@ -216,12 +197,15 @@ async function resultCheck(flowchart: IFlowchart, answer: any, comment: string[]
         if (!result.matches) {
             caseComment += '<p style="padding-left: 20px;"><b><i>Model Check:</i> failed</b></p>';
             correct_check = false    
+            console.log('    + model check: incorrect')
         } else {
             caseComment += '<p style="padding-left: 20px;"><b><i>Model Check:</i> passed</b></p>';
+            console.log('    + model check: correct')
         }
     }
     caseComment += '<br>';
     comment.push(caseComment);
+    console.log(`    -> Test case ${count} ended; correct_check: ${correct_check}`);
     return correct_check;
 }
 
