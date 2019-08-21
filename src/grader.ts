@@ -55,6 +55,7 @@ exports.gradeFile_URL = async (event = {}) => {
     const p = new Promise((resolve) => {
         const request = new XMLHttpRequest();
         request.open('GET', event.file);
+        console.log(event.info);
         request.onload = async () => {
             if (request.status === 200) {
                 resolve(await exports.gradeFile({ "file": request.responseText, "question": event.question }));
