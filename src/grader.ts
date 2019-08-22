@@ -76,23 +76,23 @@ exports.gradeFile_URL = async (event = {}) => {
 export const gradeFile = async (event: any = {}): Promise<any> => {
     try {
         // get the params and corresponding answers
-        const answerList = []
-        var s3 = new AWS.S3();
-        const params = { Bucket: "mooc-answers", Key: event.question };
-        const res: any =  await s3.getObject(params).promise()
-        const answerParams = JSON.parse(res.Body.toString('utf-8'));
-        for (const param of answerParams) {
-            try {
-                const newParams = { Bucket: "mooc-answers", Key: param };
-                const answerResponse = await s3.getObject(newParams).promise()
-                answerList.push(JSON.parse(answerResponse.Body.toString('utf-8')));
-            } catch (ex) {
-                console.log(`Error: File ${param} does not exist in S3 bucket "mooc-answers"`);
-                continue;
-            }
-        }
+        // const answerList = []
+        // var s3 = new AWS.S3();
+        // const params = { Bucket: "mooc-answers", Key: event.question };
+        // const res: any =  await s3.getObject(params).promise()
+        // const answerParams = JSON.parse(res.Body.toString('utf-8'));
+        // for (const param of answerParams) {
+        //     try {
+        //         const newParams = { Bucket: "mooc-answers", Key: param };
+        //         const answerResponse = await s3.getObject(newParams).promise()
+        //         answerList.push(JSON.parse(answerResponse.Body.toString('utf-8')));
+        //     } catch (ex) {
+        //         console.log(`Error: File ${param} does not exist in S3 bucket "mooc-answers"`);
+        //         continue;
+        //     }
+        // }
 
-        // const answerList = require('../test_foreach.json');
+        const answerList = [require('../SCT_W3_Assignment.json')];
 
         let result;
         if (answerList.length === 0) {
@@ -105,8 +105,6 @@ export const gradeFile = async (event: any = {}): Promise<any> => {
             return result;
 
         }
-
-        // const answerList = [require('../test_foreach1.json')];
 
         // parse the mob file
         const mobFile = circularJSON.parse(event.file);
@@ -192,9 +190,9 @@ async function resultCheck(flowchart: IFlowchart, answer: any, comment: string[]
     }
     if (answer.model) {
         const answer_model = new GIModel(answer.model);
-        const student_model = flowchart.nodes[flowchart.nodes.length - 1].output.value;
-        
-        const result = answer_model.compare(student_model);
+        const student_model = new GIModel(flowchart.nodes[flowchart.nodes.length - 1].model.getData());
+        const result = student_model.compare(answer_model);
+        caseComment += result.comment;
         if (!result.matches) {
             caseComment += '<p style="padding-left: 20px;"><b><i>Model Check:</i> failed</b></p>';
             correct_check = false    
@@ -476,7 +474,12 @@ function executeNode(node: INode, funcStrings, globalVars, constantList, console
 
         const result = fn(Modules, params);
 
-        node.output.value = result;
+        if (node.type === 'end') {
+            node.output.value = result;
+            node.model = params['model'];
+        } else {
+            node.output.value = params['model'];
+        }
         node.hasExecuted = true;
         node.input.edges.forEach( edge => {
             const inputNode = edge.source.parentNode;
@@ -485,7 +488,7 @@ function executeNode(node: INode, funcStrings, globalVars, constantList, console
                     if (!outputEdge.target.parentNode.hasExecuted) { return; }
                 }
             }
-            inputNode.output.model = null;
+            inputNode.output.value = null;
         });
 
         // diff(node.output.value.getData(), node.input.value.getData());

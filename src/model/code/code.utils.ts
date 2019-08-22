@@ -137,7 +137,7 @@ export class CodeUtils {
                     returnArgVals.push(arg.jsValue);
                 }
                 if (!check) {
-                    codeStr.push(`return __params__['model'];`);
+                    codeStr.push(`return null;`);
                 } else {
                     codeStr.push(`let __return_value__ = __modules__.${_parameterTypes.return}(${returnArgVals.join(', ')});`);
                     if (isMainFlowchart) {
@@ -257,12 +257,6 @@ export class CodeUtils {
                 }
                 break;
 
-        }
-        if (prod.children) {
-            for (const p of prod.children) {
-                codeStr = codeStr.concat(CodeUtils.getProcedureCode(p, existingVars, isMainFlowchart, functionName, usedFunctions));
-            }
-            codeStr.push(`}`);
         }
 
         if (isMainFlowchart && prod.print && prod.args[0].jsValue) {
@@ -548,7 +542,6 @@ export class CodeUtils {
             // return [[codeStr, varsDefined], _terminateCheck];
         } else {
             codeStr.push(`__modules__.${_parameterTypes.postprocess}( __params__.model);`);
-            codeStr.push('return __params__.model;');
         }
 
         if (_terminateCheck === '') {

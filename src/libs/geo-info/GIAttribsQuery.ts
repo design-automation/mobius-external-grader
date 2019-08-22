@@ -3,7 +3,6 @@ import { TAttribDataTypes, IAttribsMaps,
     Txyz, EAttribNames, EEntType,  ESort,
     EAttribDataTypeStrs, EEntTypeStr, EFilterOperatorTypes } from './common';
 import { GIAttribMap } from './GIAttribMap';
-import { string } from '../../core/inline/_mathjs';
 
 /**
  * Class for attributes.
@@ -265,10 +264,15 @@ export class GIAttribsQuery {
         // get the map that contains all the ettributes for the ent_type
         const attribs_maps_key: string = EEntTypeStr[ent_type];
         const attribs: Map<string, GIAttribMap> = this._attribs_maps[attribs_maps_key];
-        if (!attribs)  { throw new Error('Bad sort: Attribute does not exist.'); }
+        if (!attribs)  { throw new Error('Bad sort: Entity type does not exist.'); }
+        // get the attribute from the map
+        const attrib: GIAttribMap = attribs.get(name);
+        if (attrib === undefined) {
+            // if the attribute does not exist then no sort is performed
+            return ents_i;
+        }
         // create the sort copmapre function
         function _sortCompare(ent1_i: number, ent2_i: number): number {
-            const attrib: GIAttribMap = attribs.get(name);
             let val1: TAttribDataTypes = attrib.getEntVal(ent1_i) as TAttribDataTypes;
             let val2: TAttribDataTypes = attrib.getEntVal(ent2_i) as TAttribDataTypes;
             if (index !== null) {
