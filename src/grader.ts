@@ -158,7 +158,7 @@ export const gradeFile = async (event: any = {}): Promise<any> => {
         return {
             "correct": false,
             "score": 0,
-            "comment": 'Error: ' + err.message
+            "comment": 'Error: Unable to run the Mobius code: '+ err.message
         };
     }
 }

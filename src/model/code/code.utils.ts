@@ -270,11 +270,22 @@ export class CodeUtils {
             const repGet = this.repGetAttrib(prod.args[0].jsValue);
             codeStr.push(`printFunc(__params__.console,'${prod.args[0].value}', ${repGet});`);
         }
-        if (isMainFlowchart && prod.selectGeom && prod.args[0].jsValue) {
-            // const repGet = prod.args[0].jsValue;
-            const repGet = this.repGetAttrib(prod.args[0].value);
-            const repGetJS = this.repGetAttrib(prod.args[0].jsValue);
-            codeStr.push(`__modules__.${_parameterTypes.select}(__params__.model, ${repGetJS}, "${repGet}");`);
+        // if (isMainFlowchart && prod.selectGeom && prod.args[0].jsValue) {
+        //     // const repGet = prod.args[0].jsValue;
+        //     const repGet = this.repGetAttrib(prod.args[0].value);
+        //     const repGetJS = this.repGetAttrib(prod.args[0].jsValue);
+        //     codeStr.push(`try {` +
+        //     `\t__modules__.${_parameterTypes.select}(__params__.model, ${repGetJS}, "${repGet}"); ` +
+        //     `} catch (ex) {` +
+        //     `\t__params__.message = 'Trying to select geometric entities in node "%node%", but no entity was found';` +
+        //     `}`);
+        // }
+
+        if (prod.children) {
+            for (const p of prod.children) {
+                codeStr = codeStr.concat(CodeUtils.getProcedureCode(p, existingVars, isMainFlowchart, functionName, usedFunctions));
+            }
+            codeStr.push(`}`);
         }
         return codeStr;
     }
