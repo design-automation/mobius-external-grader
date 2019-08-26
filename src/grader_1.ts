@@ -11,6 +11,7 @@ import { XMLHttpRequest } from 'xmlhttprequest';
 import { INode } from './model/node';
 import { GIModel } from './libs/geo-info/GIModel';
 import AWS from 'aws-sdk';
+import * as fs from 'fs';
 
 export const pythonList = `
 function pythonList(x, l){
@@ -76,49 +77,54 @@ exports.gradeFile_URL = async (event = {}) => {
 export const gradeFile = async (event: any = {}): Promise<any> => {
     try {
         // get the params and corresponding answers
-        const answerList = []
         var s3 = new AWS.S3();
-        const params = { Bucket: "mooc-answers", Key: event.question };
-        const res: any =  await s3.getObject(params).promise()
-        const answerParams = JSON.parse(res.Body.toString('utf-8'));
-        for (const param of answerParams) {
-            try {
-                const newParams = { Bucket: "mooc-answers", Key: param };
-                const answerResponse = await s3.getObject(newParams).promise()
-                answerList.push(JSON.parse(answerResponse.Body.toString('utf-8')));
-            } catch (ex) {
-                console.log(`Error: File ${param} does not exist in S3 bucket "mooc-answers"`);
-                continue;
-            }
-        }
+        const params1 = { Bucket: "mooc-answers", Key: event.question + '.json'};
+        const res1: any =  await s3.getObject(params1).promise();
+        const answerList = JSON.parse(res1.Body.toString('utf-8'));
+        const params2 = { Bucket: "mooc-answers", Key: event.question + '.mob'};
+        const res2: any =  await s3.getObject(params2).promise();
+        const answerFile = circularJSON.parse(res2.Body.toString('utf-8'));
 
-        // const answerList = [require('../SCT_W3_Assignment.json')];
+        // const answerName = event.question;
+        // const answerList = require(`../${answerName}.json`);
+        // const answerFile = circularJSON.parse(await new Promise((resolve) => {
+        //     fs.readFile(`${answerName}.mob`, 'utf8', function(err, contents) {resolve(contents);});
+        // }));
 
-        let result;
-        if (answerList.length === 0) {
-            result = {
+        if (!answerList || !answerFile) {
+            return {
                 "correct": true,
                 "score": 0,
-                "comment": "Error: Unable to find answers for this question."
+                "comment": "Error: Unable to find matching answers for this question."
+            };
+        }
+
+        const mobFile = circularJSON.parse(event.file);
+        let score = 1;
+        let result: { correct: boolean; score: number; comment: string; };
+        let comment = [];
+        let count = 0;
+
+        // no params ==> run result check once.
+        if (!answerList.params || answerList.params.length === 0) {
+            const check = await resultCheck(mobFile.flowchart, answerFile.flowchart, answerList.console, answerList.model, null, comment, 1);
+            if (!check) {
+                score = 0;
+            }
+            result = {
+                "correct": check,
+                "score": score,
+                "comment": comment.join('')
             };
             console.log(result);
             return result;
-
         }
 
         // parse the mob file
-        const mobFile = circularJSON.parse(event.file);
         console.log('progress: passed .mob file parsing')
 
-        let score = 1;
 
-        let missing_params;
-        for (const answer of answerList) {
-            if (answer.params) {
-                missing_params = checkParams(mobFile.flowchart, answerList[0].params);
-            }
-            break;
-        }
+        let missing_params = checkParams(mobFile.flowchart, answerList.params[0]);
         if (missing_params && missing_params.length > 0) {
             
             result = {
@@ -131,12 +137,10 @@ export const gradeFile = async (event: any = {}): Promise<any> => {
         }
         console.log('progress: passed file params check')
 
-        let comment = [];
-        let count = 0;
         // perform the test for each of the params set
-        for (const test of answerList) {
+        for (const param of answerList.params) {
             count += 1;
-            const check = await resultCheck(mobFile.flowchart, test, comment, count);
+            const check = await resultCheck(mobFile.flowchart, answerFile.flowchart, answerList.console, answerList.model, param, comment, count);
             if (!check) {
                 score = 0
             }
@@ -161,25 +165,30 @@ export const gradeFile = async (event: any = {}): Promise<any> => {
     }
 }
 
-async function resultCheck(flowchart: IFlowchart, answer: any, comment: string[], count: number): Promise<boolean> {
-    const consoleLog = [];
+async function resultCheck(studentMob: IFlowchart, answerMob: IFlowchart, checkConsole: boolean, checkModel: boolean, params: {},
+                           comment: string[], count: number): Promise<boolean> {
     let caseComment = `<h4>Test case ${count}:</h4><br>`;
     console.log(`  _ Test case ${count} started`);
     // execute the flowchart
-    if (answer.params) {
-        setParams(flowchart, answer.params);
+    if (params) {
+        setParams(studentMob, params);
+        setParams(answerMob, params);
         caseComment += `<p style='padding-left: 20px;'><b><i>Parameters:</i></b></p>`;
         caseComment += '<ul style="padding-left: 40px;">'
-        for (const i in answer.params) {
-            caseComment += `<li> ${i.slice(0, -1)} = ${answer.params[i]}</li>`
+        for (const i in params) {
+            caseComment += `<li> ${i.slice(0, -1)} = ${params[i]}</li>`
         }
         caseComment += '</ul>'
     }
-    await execute(flowchart, consoleLog);
+
+    const student_console = [];
+    const answer_console = [];
+    await execute(studentMob, student_console);
+    await execute(answerMob, answer_console);
 
     let correct_check = true;
-    if (answer.console) {
-        if (answer.console !== answer.console) {
+    if (checkConsole) {
+        if (student_console.join('') !== answer_console.join('')) {
             caseComment += '<p style="padding-left: 20px;"><b><i>Console Check:</i> failed</b></p>';
             correct_check = false
             console.log('    + console check: incorrect')
@@ -188,9 +197,9 @@ async function resultCheck(flowchart: IFlowchart, answer: any, comment: string[]
             console.log('    + console check: correct')
         }
     }
-    if (answer.model) {
-        const answer_model = new GIModel(answer.model);
-        const student_model = new GIModel(flowchart.nodes[flowchart.nodes.length - 1].model.getData());
+    if (checkModel) {
+        const student_model = studentMob.nodes[studentMob.nodes.length - 1].model;
+        const answer_model = answerMob.nodes[answerMob.nodes.length - 1].model;
         const result = student_model.compare(answer_model);
         caseComment += result.comment;
         if (!result.matches) {

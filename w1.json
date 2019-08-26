@@ -1,0 +1,8 @@
+{
+    "console": true,
+    "model": false,
+    "params": [
+        {"my_name": "\"Patrick\""},
+        {"my_name": "\"Jack\""}
+    ]
+}

@@ -1,0 +1,9 @@
+{
+    "console": true,
+    "model": false,
+    "params": [
+        {"n_xy": "[10,5]"},
+        {"n_xy": "[8,6]"},
+        {"n_xy": "[3,4]"}
+    ]
+}
