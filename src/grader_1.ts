@@ -99,9 +99,9 @@ export const gradeFile = async (event: any = {}): Promise<any> => {
             };
         }
 
-        let allowExtraGeom = false;
-        if (answerList.allowExtraGeom) {
-            allowExtraGeom = true;
+        let normalize = false;
+        if (answerList.normalize) {
+            normalize = true;
         }
 
         const mobFile = circularJSON.parse(event.file);
@@ -112,7 +112,7 @@ export const gradeFile = async (event: any = {}): Promise<any> => {
 
         // no params ==> run result check once.
         if (!answerList.params || answerList.params.length === 0) {
-            const check = await resultCheck(mobFile.flowchart, answerFile.flowchart, answerList.console, answerList.model, null, allowExtraGeom, comment, 1);
+            const check = await resultCheck(mobFile.flowchart, answerFile.flowchart, answerList.console, answerList.model, null, normalize, comment, 1);
             if (!check) {
                 score = 0;
             }
@@ -145,7 +145,7 @@ export const gradeFile = async (event: any = {}): Promise<any> => {
         // perform the test for each of the params set
         for (const param of answerList.params) {
             count += 1;
-            const check = await resultCheck(mobFile.flowchart, answerFile.flowchart, answerList.console, answerList.model, param, allowExtraGeom, comment, count);
+            const check = await resultCheck(mobFile.flowchart, answerFile.flowchart, answerList.console, answerList.model, param, normalize, comment, count);
             if (!check) {
                 score = 0
             }
@@ -171,7 +171,7 @@ export const gradeFile = async (event: any = {}): Promise<any> => {
 }
 
 async function resultCheck(studentMob: IFlowchart, answerMob: IFlowchart, checkConsole: boolean, checkModel: boolean, params: {},
-                           allowExtraGeom: boolean, comment: string[], count: number): Promise<boolean> {
+                           normalize: boolean, comment: string[], count: number): Promise<boolean> {
     let caseComment = `<h4>Test case ${count}:</h4><br>`;
     console.log(`  _ Test case ${count} started`);
     // execute the flowchart
@@ -206,10 +206,10 @@ async function resultCheck(studentMob: IFlowchart, answerMob: IFlowchart, checkC
         const student_model = studentMob.nodes[studentMob.nodes.length - 1].model;
         const answer_model = answerMob.nodes[answerMob.nodes.length - 1].model;
         let result;
-        if (allowExtraGeom) {
+        if (normalize) {
             // TODO: compare with extra geom...
         } else {
-            result = student_model.compare(answer_model);
+            result = answer_model.compare(student_model);
         }
         caseComment += result.comment;
         if (!result.matches) {
