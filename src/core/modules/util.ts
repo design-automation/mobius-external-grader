@@ -117,6 +117,7 @@ export enum _EIOExportDataFormat {
  * Export data from the model as a file.
  * This will result in a popup in your browser, asking you to save the file.
  * @param __model__
+ * @param entities Optional. Entities to be exported. If null, the whole model will be exported. 
  * @param filename Name of the file as a string.
  * @param data_format Enum, the file format.
  * @param data_target Enum, where the data is to be exported to.
@@ -289,12 +290,15 @@ export function ModelInfo(__model__: GIModel): string {
  * Compare the GI data in this model to the GI data in another model.
  *
  * @param __model__
+ * @param gi_model_data model data to compare with.
+ * @param normalizeCheck Enum.
  * @returns Text that summarises the comparison between the two models.
  */
 export function ModelCompare(__model__: GIModel, gi_model_data: string): string {
     const gi_obj: IModelData = JSON.parse(gi_model_data) as IModelData;
     const other_model = new GIModel(gi_obj);
-    const result: {matches: boolean, comment: string} = __model__.compare(other_model);
+
+    const result: {matches: boolean, comment: string} = __model__.compare(other_model, true);
     return result.comment;
 }
 // ================================================================================================

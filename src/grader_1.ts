@@ -206,11 +206,12 @@ async function resultCheck(studentMob: IFlowchart, answerMob: IFlowchart, checkC
         const student_model = studentMob.nodes[studentMob.nodes.length - 1].model;
         const answer_model = answerMob.nodes[answerMob.nodes.length - 1].model;
         let result;
-        if (normalize) {
-            // TODO: compare with extra geom...
-        } else {
-            result = answer_model.compare(student_model);
-        }
+        result = answer_model.compare(student_model, normalize);
+        // if (normalize) {
+        //     // TODO: compare with extra geom...
+        // } else {
+        //     result = answer_model.compare(student_model);
+        // }
         caseComment += result.comment;
         if (!result.matches) {
             caseComment += '<p style="padding-left: 20px;"><b><i>Model Check:</i> failed</b></p>';
