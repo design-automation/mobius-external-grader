@@ -56,10 +56,25 @@ exports.gradeFile_URL = async (event = {}) => {
     const p = new Promise((resolve) => {
         const request = new XMLHttpRequest();
         request.open('GET', event.file);
-        console.log(event.info);
+
+        console.log('submission info: ',event.info);
+
+        let localTest = false; 
+        if (event.hasOwnProperty('localTest') && event.localTest === true) {
+            localTest = true
+        }
+        let weight = 1; 
+        if (event.hasOwnProperty('weight')) {
+            weight = event.weight;
+        }
         request.onload = async () => {
             if (request.status === 200) {
-                resolve(await exports.gradeFile({ "file": request.responseText, "question": event.question }));
+                resolve(await exports.gradeFile({
+                    "file": request.responseText,
+                    "question": event.question ,
+                    "localTest": localTest,
+                    "weight": weight
+                }));
             }
             else {
                 resolve({
@@ -77,9 +92,9 @@ exports.gradeFile_URL = async (event = {}) => {
 async function getAnswer(event: any = {},fromAmazon = true): Promise<any> {
     if (!fromAmazon) {
         const answerName = event.question;
-        const answerList = require(`../${answerName}.json`);
+        const answerList = require(`../test/${answerName}.json`);
         const answerFile = circularJSON.parse(await new Promise((resolve) => {
-            fs.readFile(`${answerName}.mob`, 'utf8', function(err, contents) {resolve(contents);});
+            fs.readFile(`test/${answerName}.mob`, 'utf8', function(err, contents) {resolve(contents);});
         }));
         return [answerList, answerFile]
     }
@@ -96,24 +111,15 @@ async function getAnswer(event: any = {},fromAmazon = true): Promise<any> {
 export const gradeFile = async (event: any = {}): Promise<any> => {
     try {
         // get the params and corresponding answers
-        const r = getAnswer(event, true);
+        let fromAmazon = true; 
+        if (event.hasOwnProperty('localTest') && event.localTest === true) {
+            fromAmazon = false
+        }
+        console.log("Retrieve Answer From Amazon:", fromAmazon)
+        const r = await getAnswer(event, fromAmazon);
         const answerList = r[0];
         const answerFile = r[1];
-
-        // var s3 = new AWS.S3();
-        // const params1 = { Bucket: "mooc-answers", Key: event.question + '.json'};
-        // const res1: any =  await s3.getObject(params1).promise();
-        // const answerList = JSON.parse(res1.Body.toString('utf-8'));
-        // const params2 = { Bucket: "mooc-answers", Key: event.question + '.mob'};
-        // const res2: any =  await s3.getObject(params2).promise();
-        // const answerFile = circularJSON.parse(res2.Body.toString('utf-8'));
-
-        // const answerName = event.question;
-        // const answerList = require(`../${answerName}.json`);
-        // const answerFile = circularJSON.parse(await new Promise((resolve) => {
-        //     fs.readFile(`${answerName}.mob`, 'utf8', function(err, contents) {resolve(contents);});
-        // }));
-        
+        const total_score = event.weight;
 
         if (!answerList || !answerFile) {
             return {
@@ -123,26 +129,32 @@ export const gradeFile = async (event: any = {}): Promise<any> => {
             };
         }
 
-        let normalize = false;
-        if (answerList.normalize) {
+        let normalize: boolean;
+        if (answerList.hasOwnProperty("normalize")) {
+            normalize = answerList.normalize;
+        } else {
             normalize = true;
+        }
+        let check_equality: boolean;
+        if (answerList.hasOwnProperty("check_equality")) {
+            check_equality = answerList.check_equality;
+        } else {
+            check_equality = true;
         }
 
         const mobFile = circularJSON.parse(event.file);
-        let score = 1;
+        let score = 0;
         let result: { correct: boolean; score: number; comment: string; };
         let comment = [];
         let count = 0;
 
         // no params ==> run result check once.
         if (!answerList.params || answerList.params.length === 0) {
-            const check = await resultCheck(mobFile.flowchart, answerFile.flowchart, answerList.console, answerList.model, null, normalize, comment, 1);
-            if (!check) {
-                score = 0;
-            }
+            const check = await resultCheck(mobFile.flowchart, answerFile.flowchart, answerList.console, answerList.model, null,
+                                            normalize, check_equality, comment, 1);
             result = {
-                "correct": check,
-                "score": score,
+                "correct": check === 100,
+                "score": JSON.parse((check * total_score / 100).toFixed(2)),
                 "comment": comment.join('')
             };
             console.log(result);
@@ -169,15 +181,15 @@ export const gradeFile = async (event: any = {}): Promise<any> => {
         // perform the test for each of the params set
         for (const param of answerList.params) {
             count += 1;
-            const check = await resultCheck(mobFile.flowchart, answerFile.flowchart, answerList.console, answerList.model, param, normalize, comment, count);
-            if (!check) {
-                score = 0
-            }
+            const check = await resultCheck(mobFile.flowchart, answerFile.flowchart, answerList.console,
+                                            answerList.model, param, normalize, check_equality, comment, count);
+            score += check;
         }
+        score = score * total_score / (count * 100);
         console.log('progress: passed result check (console + model)')
         result = {
-            "correct": score > 0,
-            "score": score,
+            "correct": score === total_score,
+            "score": JSON.parse(score.toFixed(2)),
             // "comment": correct_count + '/' + answerList.length
             "comment": comment.join('')
         };
@@ -195,7 +207,8 @@ export const gradeFile = async (event: any = {}): Promise<any> => {
 }
 
 async function resultCheck(studentMob: IFlowchart, answerMob: IFlowchart, checkConsole: boolean, checkModel: boolean, params: {},
-                           normalize: boolean, comment: string[], count: number): Promise<boolean> {
+                           normalize: boolean, check_equality: boolean,
+                           comment: string[], count: number): Promise<number> {
     let caseComment = `<h4>Test case ${count}:</h4><br>`;
     console.log(`  _ Test case ${count} started`);
     // execute the flowchart
@@ -215,41 +228,45 @@ async function resultCheck(studentMob: IFlowchart, answerMob: IFlowchart, checkC
     await execute(studentMob, student_console);
     await execute(answerMob, answer_console);
 
-    let correct_check = true;
-    if (checkConsole) {
-        if (student_console.join('') !== answer_console.join('')) {
-            caseComment += '<p style="padding-left: 20px;"><b><i>Console Check:</i> failed</b></p>';
-            correct_check = false
-            console.log('    + console check: incorrect')
-        } else {
-            caseComment += '<p style="padding-left: 20px;"><b><i>Console Check:</i> passed</b></p>';
-            console.log('    + console check: correct')
-        }
-    }
     if (checkModel) {
         const student_model = studentMob.nodes[studentMob.nodes.length - 1].model;
         const answer_model = answerMob.nodes[answerMob.nodes.length - 1].model;
         let result;
-        result = answer_model.compare(student_model, normalize);
+        result = answer_model.compare(student_model, normalize, check_equality);
         // if (normalize) {
         //     // TODO: compare with extra geom...
         // } else {
         //     result = answer_model.compare(student_model);
         // }
         caseComment += result.comment;
-        if (!result.matches) {
+        if (result.score !== result.total) {
             caseComment += '<p style="padding-left: 20px;"><b><i>Model Check:</i> failed</b></p>';
-            correct_check = false    
             console.log('    + model check: incorrect')
         } else {
             caseComment += '<p style="padding-left: 20px;"><b><i>Model Check:</i> passed</b></p>';
             console.log('    + model check: correct')
         }
+        caseComment += '<br>';
+        comment.push(caseComment);
+        console.log(`    -> Test case ${count} ended; correct_check: ${result.score === result.total}`);
+        return result.percent;
     }
-    caseComment += '<br>';
-    comment.push(caseComment);
-    console.log(`    -> Test case ${count} ended; correct_check: ${correct_check}`);
-    return correct_check;
+    if (checkConsole) {
+        let score;
+        if (student_console.join('') !== answer_console.join('')) {
+            score = 0;
+            caseComment += '<p style="padding-left: 20px;"><b><i>Console Check:</i> failed</b></p>';
+            console.log('    + console check: incorrect')
+        } else {
+            score = 100;
+            caseComment += '<p style="padding-left: 20px;"><b><i>Console Check:</i> passed</b></p>';
+            console.log('    + console check: correct')
+        }
+        caseComment += '<br>';
+        comment.push(caseComment);
+        console.log(`    -> Test case ${count} ended; correct_check: ${score === 100}`);
+        return score;
+    }
 }
 
 function checkParams(flowchart: IFlowchart, params: any): string[]{
