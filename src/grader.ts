@@ -129,18 +129,14 @@ export const gradeFile = async (event: any = {}): Promise<any> => {
             };
         }
 
-        let normalize: boolean;
-        if (answerList.hasOwnProperty("normalize")) {
-            normalize = answerList.normalize;
-        } else {
-            normalize = true;
-        }
-        let check_equality: boolean;
-        if (answerList.hasOwnProperty("check_equality")) {
-            check_equality = answerList.check_equality;
-        } else {
-            check_equality = true;
-        }
+        let normalize = answerList.normalize;
+        if (normalize === undefined) { normalize = true; }
+
+        let check_geom_equality = answerList.check_geom_equality;
+        if (check_geom_equality === undefined) { check_geom_equality = true; }
+
+        let check_attrib_equality = answerList.check_attrib_equality;
+        if (check_attrib_equality === undefined) { check_attrib_equality = false; }
 
         const mobFile = circularJSON.parse(event.file);
         let score = 0;
@@ -151,7 +147,7 @@ export const gradeFile = async (event: any = {}): Promise<any> => {
         // no params ==> run result check once.
         if (!answerList.params || answerList.params.length === 0) {
             const check = await resultCheck(mobFile.flowchart, answerFile.flowchart, answerList.console, answerList.model, null,
-                                            normalize, check_equality, comment, 1);
+                                            normalize, check_geom_equality, check_attrib_equality, comment, 1);
             result = {
                 "correct": check === 100,
                 "score": JSON.parse((check * total_score / 100).toFixed(2)),
@@ -181,8 +177,8 @@ export const gradeFile = async (event: any = {}): Promise<any> => {
         // perform the test for each of the params set
         for (const param of answerList.params) {
             count += 1;
-            const check = await resultCheck(mobFile.flowchart, answerFile.flowchart, answerList.console,
-                                            answerList.model, param, normalize, check_equality, comment, count);
+            const check = await resultCheck(mobFile.flowchart, answerFile.flowchart, answerList.console, answerList.model, param,
+                                            normalize, check_geom_equality, check_attrib_equality, comment, count);
             score += check;
         }
         score = score * total_score / (count * 100);
@@ -207,7 +203,7 @@ export const gradeFile = async (event: any = {}): Promise<any> => {
 }
 
 async function resultCheck(studentMob: IFlowchart, answerMob: IFlowchart, checkConsole: boolean, checkModel: boolean, params: {},
-                           normalize: boolean, check_equality: boolean,
+                           normalize: boolean, check_geom_equality: boolean, check_attrib_equality: boolean,
                            comment: string[], count: number): Promise<number> {
     let caseComment = `<h4>Test case ${count}:</h4><br>`;
     console.log(`  _ Test case ${count} started`);
@@ -232,7 +228,7 @@ async function resultCheck(studentMob: IFlowchart, answerMob: IFlowchart, checkC
         const student_model = studentMob.nodes[studentMob.nodes.length - 1].model;
         const answer_model = answerMob.nodes[answerMob.nodes.length - 1].model;
         let result;
-        result = answer_model.compare(student_model, normalize, check_equality);
+        result = answer_model.compare(student_model, normalize, check_geom_equality, check_attrib_equality);
         // if (normalize) {
         //     // TODO: compare with extra geom...
         // } else {

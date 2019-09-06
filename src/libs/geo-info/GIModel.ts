@@ -67,17 +67,19 @@ export class GIModel {
      *
      * @param model The model to compare with.
      */
-    public compare(model: GIModel, normalize: boolean, check_equality: boolean): 
+    public compare(model: GIModel, normalize: boolean, check_geom_equality: boolean, check_attrib_equality: boolean):
             {percent: number, score: number, total: number, comment: string} {
         // create the result object
         const result: {percent: number, score: number, total: number, comment: any} = {percent: 0, score: 0, total: 0, comment: []};
-        // if equality, then check we have exact same number of positions, objects, and colletions
-        if (check_equality) {
+        console.log(result);
+        // if check_geom_equality, then check we have exact same number of positions, objects, and colletions
+        if (check_geom_equality) {
             this.geom.compare(model, result);
         }
+        console.log(result);
         // check that the attributes in this model all exist in the other model
         // at the same time get a map of all attribute names in this model
-        const attrib_names: Map<EEntType, string[]> = this.attribs.compare(model, check_equality, result);
+        const attrib_names: Map<EEntType, string[]> = this.attribs.compare(model, check_attrib_equality, result);
         // normalize the two models
         if (normalize) {
             this.normalize();
@@ -91,8 +93,10 @@ export class GIModel {
         } else {
             result.comment.push('RESULT: The two models no not match.');
         }
+        console.log(result);
         // calculate percentage score
-        result.percent = Math.round(result.score / result.total * 100);
+        result.percent = Math.round( result.score / result.total * 100);
+        if (result.percent < 0) { result.percent = 0; }
         // html formatting
         let formatted_str = '';
         formatted_str += '<p><b>Percentage: ' + result.percent + '%</b></p>';
@@ -197,6 +201,10 @@ export class GIModel {
     // ============================================================================
     /**
      * Compare the data in two models
+     * ~
+     * This will return a score, indicating how similar the models are.
+     * ~
+     * For the compareData method, total score is equal to number of points, plines, pgons and collections
      */
     private compareData(other_model: GIModel,
             result: {score: number, total: number, comment: any[]}, attrib_names: Map<EEntType, string[]>): void {
@@ -224,6 +232,7 @@ export class GIModel {
             const [other_fingerprints, other_ents_i]: [string[], number[]] = other_model.getEntsFingerprint(obj_ent_type, attrib_names);
             // console.log('other_fingerprints:', other_fingerprints, 'other_ents_i:', other_ents_i);
             // check that every entity in this model also exists in the other model
+            let num_objs_not_found = 0;
             for (let com_idx = 0; com_idx < this_fingerprints.length; com_idx++) {
                 // increment the total by 1
                 result.total += 1;
@@ -237,13 +246,21 @@ export class GIModel {
                 const found_other_idx: number = other_fingerprints.indexOf(this_fingerprint);
                 // add mismatch comment or update score
                 if (found_other_idx === -1) {
-                    data_comments.push('Mismatch: An entity of type "' + obj_ent_type_strs.get(obj_ent_type) + '"  could not be found.');
+                    num_objs_not_found++;
                 } else {
                     // we get the idx, which is common for both models
                     const other_ent_i: number = other_ents_i[found_other_idx];
                     other_to_com_idx_map.set(other_ent_i, com_idx);
                     result.score += 1;
                 }
+            }
+            if (num_objs_not_found > 0) {
+                const marks_added: number = this_fingerprints.length - num_objs_not_found;
+                data_comments.push('Mismatch: ' + num_objs_not_found + ' ' +
+                    obj_ent_type_strs.get(obj_ent_type) + ' entities could not be found.');
+            } else {
+                data_comments.push('All ' +
+                    obj_ent_type_strs.get(obj_ent_type) + ' entities have been found.');
             }
         }
         // compare collections
@@ -252,6 +269,7 @@ export class GIModel {
         const other_colls_fingerprints: string[] = other_model.getCollFingerprints(other_to_com_idx_maps, attrib_names.get(EEntType.COLL));
         // console.log('other_colls_fingerprints:', other_colls_fingerprints);
         // check that every collection in this model also exists in the other model
+        let num_colls_not_found = 0;
         for (const this_colls_fingerprint of this_colls_fingerprints) {
             // increment the total score by 1
             result.total += 1;
@@ -259,10 +277,13 @@ export class GIModel {
             const found_other_idx: number = other_colls_fingerprints.indexOf(this_colls_fingerprint);
             // add mismatch comment or update score
             if (found_other_idx === -1) {
-                data_comments.push('Mismatch: A collection could not be found.');
+                num_colls_not_found++;
             } else {
                 result.score += 1;
             }
+        }
+        if (num_colls_not_found > 0) {
+            data_comments.push('Mismatch: ' + num_colls_not_found + ' collections could not be found.');
         }
         // cpmpare model attributes
 
