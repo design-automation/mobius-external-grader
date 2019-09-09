@@ -193,7 +193,7 @@ export const gradeFile = async (event: any = {}): Promise<any> => {
         return result;
     } catch(err) {
         console.log('Error:',err);
-        console.log('File:', event.file);
+        // console.log('File:', event.file);
         return {
             "correct": false,
             "score": 0,
@@ -292,6 +292,10 @@ function setParams(flowchart: IFlowchart, params: any) {
             if (params[prod.args[0].jsValue] !== undefined) {
                 prod.args[1].jsValue = params[prod.args[0].jsValue]
                 prod.args[1].value = params[prod.args[0].jsValue]
+            }
+            if (typeof prod.args[1].jsValue === 'object') {
+                prod.args[1].jsValue = JSON.stringify(prod.args[1].jsValue);
+                prod.args[1].value = JSON.stringify(prod.args[1].jsValue);
             }
         }
     }
@@ -526,6 +530,8 @@ function executeNode(node: INode, funcStrings, globalVars, constantList, console
         _parameterTypes.mergeFn(params['model'], node.input.value);
 
         // create the function with the string: new Function ([arg1[, arg2[, ...argN]],] functionBody)
+        // console.log(fnString)
+
         const fn = new Function('__modules__', '__params__', fnString);
         // execute the function
 

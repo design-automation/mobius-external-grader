@@ -1,0 +1,9 @@
+{
+    "console": false,
+    "model": true,
+    "normalize": true,
+    "params": [
+        {"win_len": [20,50], "num_panes": [2,2], "glasspane_scale": 0.9},
+        {"win_len": [60,40], "num_panes": [3,6], "glasspane_scale": 0.8}
+    ]
+}
