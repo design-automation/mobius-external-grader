@@ -2,6 +2,7 @@ import { EEntType, TTri, TVert, TEdge, TWire, TFace,
     TColl, IGeomData, TPoint, TPline, TPgon, Txyz, IGeomArrays, IGeomCopy, TAttribDataTypes, IGeomPack } from './common';
 import { triangulate } from '../triangulate/triangulate';
 import { GIGeom } from './GIGeom';
+import { arrRem } from '../util/arrs';
 
 /**
  * Class for geometry.
@@ -263,7 +264,38 @@ export class GIGeomAdd {
             return (colls_i as number[]).map(coll_i => this.copyColls(coll_i, copy_attribs)) as number[];
         }
     }
-
+   /**
+     * Retriangulate the polygons
+     * @param pgons_i
+     */
+    public triPgons(pgons_i: number|number[]): void {
+        if (!Array.isArray(pgons_i)) {
+            const wires_i: number[] = this._geom.query.navAnyToWire(EEntType.PGON, pgons_i);
+            const outer_i: number = wires_i[0];
+            const holes_i: number[] = wires_i.slice(1);
+            // get the face
+            const face_i: number = this._geom.query.navPgonToFace(pgons_i);
+            // create the triangles
+            const tris_i: number[] = this._addTris(outer_i, holes_i);
+            // delete the old trianges
+            const old_face_tris_i: number[] = this._geom_arrays.dn_faces_wirestris[face_i][1];
+            for (const old_face_tri_i of old_face_tris_i) {
+                // verts to tris
+                for (const vertex_i of this._geom_arrays.dn_tris_verts[old_face_tri_i]) {
+                    const vert_tris_i: number[] = this._geom_arrays.up_verts_tris[vertex_i];
+                    arrRem(tris_i, old_face_tri_i);
+                }
+                // tris to verts
+                this._geom_arrays.dn_tris_verts[old_face_tri_i] = null;
+                // tris to faces
+                delete this._geom_arrays.up_tris_faces[old_face_tri_i];
+            }
+            // update down array for face to tri
+            this._geom_arrays.dn_faces_wirestris[face_i][1] = tris_i;
+        } else { // An array of pgons
+            pgons_i.forEach(pgon_i => this.triPgons(pgon_i));
+        }
+    }
     // ============================================================================
     // Methods to create the topological entities
     // These methods have been made public for access from GIGeomModify
@@ -296,22 +328,52 @@ export class GIGeomAdd {
         return vert_i;
     }
     /**
-     * Adds an edge and updates the arrays.
+     * Adds an edge from v1 to v2 and updates the up and down arrays.
+     * Each vertex passed into this function can have zero or one edges.
+     * The new edge is added to v1 and v2
+     * Any existing edges are not affected
      * @param vert_i1
      * @param vert_i2
      */
     public _addEdge(vert_i1: number, vert_i2: number): number {
         // update down arrays
         const edge_i: number = this._geom_arrays.dn_edges_verts.push([vert_i1, vert_i2]) - 1;
-        // update up arrays
+        // assume there are three edges, prev, edge_i, next
+        // for vert_i1, [prev, edge_i] or [edge_i]
+        // update up arrays for the start vertex
         if (this._geom_arrays.up_verts_edges[vert_i1] === undefined) {
             this._geom_arrays.up_verts_edges[vert_i1] = [];
         }
-        this._geom_arrays.up_verts_edges[vert_i1].push(edge_i);
+        switch (this._geom_arrays.up_verts_edges[vert_i1].length) {
+            case 0:
+                this._geom_arrays.up_verts_edges[vert_i1] = [edge_i]; // [edge_i]
+                break;
+            case 1:
+                this._geom_arrays.up_verts_edges[vert_i1][1] = edge_i; // [prev, edge_i]
+                break;
+            case 2:
+                throw new Error('Vertex must have just zero or one edges.');
+            default:
+                throw new Error('Vertex has wrong number of edges.');
+        }
+        // for vert_i2, [edge_i, next] or [edge_i]
+        // update up arrays for the end vertex
         if (this._geom_arrays.up_verts_edges[vert_i2] === undefined) {
             this._geom_arrays.up_verts_edges[vert_i2] = [];
         }
-        this._geom_arrays.up_verts_edges[vert_i2].push(edge_i);
+        switch (this._geom_arrays.up_verts_edges[vert_i2].length) {
+            case 0:
+                this._geom_arrays.up_verts_edges[vert_i2] = [edge_i]; // [edge_i]
+                break;
+            case 1:
+                const next_edge_i: number = this._geom_arrays.up_verts_edges[vert_i2][0];
+                this._geom_arrays.up_verts_edges[vert_i2] = [edge_i, next_edge_i]; // [edge_i, next]
+                break;
+            case 2:
+                throw new Error('Vertex must have just zero or one edges.');
+            default:
+                throw new Error('Vertex has wrong number of edges.');
+        }
         // return the numeric index of the edge
         return edge_i;
     }
@@ -331,6 +393,8 @@ export class GIGeomAdd {
     /**
      * Adds trangles and updates the arrays.
      * Wires are assumed to be closed!
+     * This updates the trie->verts and the verts->tris
+     * This does not update the face to which this wire belongs!
      * @param wire_i
      */
     public _addTris(wire_i: number, hole_wires_i?: number[]): number[] {
@@ -355,9 +419,9 @@ export class GIGeomAdd {
         // create the triangles
         const tris_corners: number[][] = triangulate(wire_coords, all_hole_coords);
         const tris_verts_i: TTri[] = tris_corners.map(tri_corners => tri_corners.map( corner => all_verts_i[corner] ) as TTri );
-        // update down arrays
+        // update down arrays, tris->verts
         const tris_i: number[] = tris_verts_i.map(tri_verts_i => this._geom_arrays.dn_tris_verts.push(tri_verts_i) - 1);
-        // update up arrays
+        // update up arrays, verts->tris
         for (let i = 0; i < tris_verts_i.length; i++) {
             const tri_verts_i: TTri = tris_verts_i[i];
             const tri_i: number = tris_i[i];

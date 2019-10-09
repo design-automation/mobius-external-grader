@@ -11,11 +11,11 @@
  *
  */
 
-import { TId, Txyz, EEntType, TPlane, TRay, TEntTypeIdx, TBBox } from '../../libs/geo-info/common';
-import { checkCommTypes, checkIDs, TypeCheckObj, IDcheckObj } from './_check_args';
-import { GIModel } from '../../libs/geo-info/GIModel';
-import { idsMake, idsBreak, getArrDepth } from '../../libs/geo-info/id';
-import { vecSub, vecMakeOrtho, vecNorm, vecCross, vecAdd, vecMult, vecFromTo, vecDiv, newellNorm, vecSum } from '../../libs/geom/vectors';
+import { TId, Txyz, EEntType, TPlane, TRay, TEntTypeIdx, TBBox } from '../../../libs/geo-info/common';
+import { checkCommTypes, checkIDs, TypeCheckObj, IDcheckObj } from '../_check_args';
+import { GIModel } from '../../../libs/geo-info/GIModel';
+import { idsMake, idsBreak, getArrDepth } from '../../../libs/geo-info/id';
+import { vecSub, vecMakeOrtho, vecNorm, vecCross, vecAdd, vecMult, vecFromTo, vecDiv, newellNorm, vecSum } from '../../../libs/geom/vectors';
 import { _normal } from './calc';
 
 // ================================================================================================

@@ -7,15 +7,15 @@
  *
  */
 
-import { GIModel } from '../../libs/geo-info/GIModel';
-import { importObj, exportObj } from '../../libs/geo-info/io_obj';
-import { importDae, exportDae } from '../../libs/geo-info/io_dae';
-import { importGeojson } from '../../libs/geo-info/io_geojson';
-import { download } from '../../libs/filesys/download';
-import { TId, EEntType, Txyz, TPlane, TRay, IGeomPack, IModelData } from '../../libs/geo-info/common';
-import { __merge__ } from './_model';
-import { _model } from '.';
-import { idsMake } from '../../libs/geo-info/id';
+import { GIModel } from '../../../libs/geo-info/GIModel';
+import { importObj, exportObj } from '../../../libs/geo-info/io_obj';
+import { importDae, exportDae } from '../../../libs/geo-info/io_dae';
+import { importGeojson } from '../../../libs/geo-info/io_geojson';
+import { download } from '../../../libs/filesys/download';
+import { TId, EEntType, Txyz, TPlane, TRay, IGeomPack, IModelData } from '../../../libs/geo-info/common';
+import { __merge__ } from '../_model';
+import { _model } from '..';
+import { idsMake } from '../../../libs/geo-info/id';
 
 declare global {
     interface Navigator {
@@ -285,6 +285,11 @@ export function ModelInfo(__model__: GIModel): string {
         },
     );
 }
+export enum _ECOmpareMethod {
+    THIS_IS_SUBSET = 'subset',
+    THIS_IS_SUPERSET = 'superset',
+    THIS_IS_EQUAL = 'equal'
+}
 // ================================================================================================
 /**
  * Compare the GI data in this model to the GI data in another model.
@@ -316,11 +321,6 @@ export function ModelCompare(__model__: GIModel, gi_model: string, method: _ECOm
             throw new Error('Compare method not recognised');
     }
     return result.comment;
-}
-export enum _ECOmpareMethod {
-    THIS_IS_SUBSET = 'subset',
-    THIS_IS_SUPERSET = 'superset',
-    THIS_IS_EQUAL = 'equal'
 }
 // ================================================================================================
 /**

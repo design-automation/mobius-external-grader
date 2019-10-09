@@ -321,14 +321,14 @@ async function execute(flowchart: any, consoleLog) {
             }
         }
 
+        if (!node.enabled) {
+            continue;
+        }
+
         try {
             await resolveImportedUrl(node.procedure, true);
         } catch (ex) {
             throw ex;
-        }
-
-        if (!node.enabled) {
-            continue;
         }
 
         let EmptyECheck = false;

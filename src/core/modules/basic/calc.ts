@@ -8,15 +8,19 @@
  *
  */
 
-import { GIModel } from '../../libs/geo-info/GIModel';
-import { TId, Txyz, EEntType, TEntTypeIdx } from '../../libs/geo-info/common';
-import { isPline, isWire, isEdge, isPgon, isFace, idsBreak, getArrDepth, isVert, isPosi, isPoint } from '../../libs/geo-info/id';
-import { distance } from '../../libs/geom/distance';
-import { vecSum, vecDiv, vecAdd, vecSub, vecCross, vecMult, vecFromTo, vecLen } from '../../libs/geom/vectors';
-import { triangulate } from '../../libs/triangulate/triangulate';
-import { normal, area } from '../../libs/geom/triangle';
-import { checkIDs, checkCommTypes, checkIDnTypes, IDcheckObj, TypeCheckObj} from './_check_args';
+import { GIModel } from '../../../libs/geo-info/GIModel';
+import { TId, Txyz, EEntType, TEntTypeIdx } from '../../../libs/geo-info/common';
+import { isPline, isWire, isEdge, isPgon, isFace, idsBreak, getArrDepth, isVert, isPosi, isPoint } from '../../../libs/geo-info/id';
+import { distance } from '../../../libs/geom/distance';
+import { vecSum, vecDiv, vecAdd, vecSub, vecCross, vecMult, vecFromTo, vecLen } from '../../../libs/geom/vectors';
+import { triangulate } from '../../../libs/triangulate/triangulate';
+import { normal, area } from '../../../libs/geom/triangle';
+import { checkIDs, checkCommTypes, checkIDnTypes, IDcheckObj, TypeCheckObj} from '../_check_args';
 
+export enum _EDistanceMethod {
+    P_P_DISTANCE = 'p_to_p_distance',
+    MIN_DISTANCE = 'min_distance'
+}
 // ================================================================================================
 /**
  * Calculates the distance between two positions.
@@ -40,10 +44,6 @@ export function Distance(__model__: GIModel, entities1: TId, entities2: TId|TId[
     } else if (method === _EDistanceMethod.MIN_DISTANCE) {
         return _distanceMin(__model__, ents_arr1, ents_arr2);
     }
-}
-export enum _EDistanceMethod {
-    P_P_DISTANCE = 'p_to_p_distance',
-    MIN_DISTANCE = 'min_distance'
 }
 function _distanceMin(__model__: GIModel, ent_arr1: TEntTypeIdx, ents_arr2: TEntTypeIdx|TEntTypeIdx[]): number|number[] {
     const depth2: number = getArrDepth(ents_arr2);

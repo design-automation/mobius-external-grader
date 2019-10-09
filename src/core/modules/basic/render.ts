@@ -10,12 +10,12 @@
  *
  */
 
-import { GIModel } from '../../libs/geo-info/GIModel';
-import { Txyz, TColor, EAttribNames, EAttribDataTypeStrs } from '../../libs/geo-info/common';
+import { GIModel } from '../../../libs/geo-info/GIModel';
+import { Txyz, TColor, EAttribNames, EAttribDataTypeStrs } from '../../../libs/geo-info/common';
 import * as THREE from 'three';
-import { TId, TQuery, EEntType, ESort, TEntTypeIdx } from '../../libs/geo-info/common';
-import { idsMake, getArrDepth, isEmptyArr } from '../../libs/geo-info/id';
-import { checkIDs, IDcheckObj, checkCommTypes, TypeCheckObj } from './_check_args';
+import { TId, TQuery, EEntType, ESort, TEntTypeIdx } from '../../../libs/geo-info/common';
+import { idsMake, getArrDepth, isEmptyArr } from '../../../libs/geo-info/id';
+import { checkIDs, IDcheckObj, checkCommTypes, TypeCheckObj } from '../_check_args';
 
 export enum _ESide {
     FRONT =   'front',
@@ -75,13 +75,21 @@ export function Color(__model__: GIModel, entities: TId|TId[], color: TColor): v
     if (!__model__.attribs.query.hasAttrib(EEntType.VERT, EAttribNames.COLOR)) {
         __model__.attribs.add.addAttrib(EEntType.VERT, EAttribNames.COLOR, EAttribDataTypeStrs.LIST);
     }
+    // make a list of all the verts
+    const all_verts_i: number[] = [];
     for (const ent_arr of ents_arr) {
         const [ent_type, ent_i]: [number, number] = ent_arr as TEntTypeIdx;
-        const verts_i: number[] = __model__.geom.query.navAnyToVert(ent_type, ent_i);
-        for (const vert_i of verts_i) {
-            __model__.attribs.add.setAttribVal(EEntType.VERT, vert_i, EAttribNames.COLOR, color);
+        if (ent_type === EEntType.VERT) {
+            all_verts_i.push(ent_i);
+        } else {
+            const verts_i: number[] = __model__.geom.query.navAnyToVert(ent_type, ent_i);
+            for (const vert_i of verts_i) {
+                all_verts_i.push(vert_i);
+            }
         }
     }
+    // set all verts to have same color
+    __model__.attribs.add.setAttribVal(EEntType.VERT, all_verts_i, EAttribNames.COLOR, color);
 }
 // ================================================================================================
 /**
@@ -341,8 +349,7 @@ function _setMaterialModelAttrib(__model__: GIModel, name: string, settings_obj:
     // if the material already exists, then existing settings will be added
     // but new settings will take precedence
     if (__model__.attribs.query.hasModelAttrib(name)) {
-        const exist_settings_str: string = __model__.attribs.query.getModelAttribVal(name) as string;
-        const exist_settings_obj: object = JSON.parse(exist_settings_str);
+        const exist_settings_obj: object = __model__.attribs.query.getModelAttribVal(name) as object;
         // check that the existing material is a Basic one
         if (exist_settings_obj['type'] !== _EMaterialType.BASIC) {
             if (settings_obj['type'] !== exist_settings_obj['type']) {
@@ -355,7 +362,9 @@ function _setMaterialModelAttrib(__model__: GIModel, name: string, settings_obj:
                 settings_obj[key] = exist_settings_obj[key];
             }
         }
+    } else {
+        __model__.attribs.add.addAttrib(EEntType.MOD, name, EAttribDataTypeStrs.DICT);
     }
-    const settings_str: string = JSON.stringify(settings_obj);
-    __model__.attribs.add.setModelAttribVal(name, settings_str);
+    // const settings_str: string = JSON.stringify(settings_obj);
+    __model__.attribs.add.setModelAttribVal(name, settings_obj);
 }
