@@ -9,9 +9,9 @@
  *
  */
 
-import { GIModel } from '../../../libs/geo-info/GIModel';
-import { TId, EEntType, ESort, TEntTypeIdx, EFilterOperatorTypes, TAttribDataTypes} from '../../../libs/geo-info/common';
-import { idsMake, getArrDepth, isEmptyArr } from '../../../libs/geo-info/id';
+import { GIModel } from '@libs/geo-info/GIModel';
+import { TId, EEntType, ESort, TEntTypeIdx, EFilterOperatorTypes, TAttribDataTypes} from '@libs/geo-info/common';
+import { idsMake, getArrDepth, isEmptyArr } from '@libs/geo-info/id';
 import { checkIDs, IDcheckObj } from '../_check_args';
 
 // ================================================================================================

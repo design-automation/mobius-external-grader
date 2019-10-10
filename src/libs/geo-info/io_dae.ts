@@ -1,7 +1,7 @@
 import { GIModel } from './GIModel';
 import { TColor, TNormal, TTexture, EAttribNames, Txyz, EEntType, TAttribDataTypes } from './common';
-import { area } from '../geom/triangle';
-import { distance } from '../geom/distance';
+import { area } from '@libs/geom/triangle';
+import { distance } from '@libs/geom/distance';
 
 /**
  * Import obj

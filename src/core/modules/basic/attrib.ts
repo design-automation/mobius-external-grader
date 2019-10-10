@@ -9,12 +9,12 @@
  *
  */
 import __ from 'underscore';
-import { GIModel } from '../../../libs/geo-info/GIModel';
+import { GIModel } from '@libs/geo-info/GIModel';
 import { TId, TQuery, EEntType, ESort, TEntTypeIdx,
-    EAttribPush, TAttribDataTypes, EEntTypeStr, EAttribDataTypeStrs} from '../../../libs/geo-info/common';
-import { idsMake, getArrDepth, isEmptyArr } from '../../../libs/geo-info/id';
+    EAttribPush, TAttribDataTypes, EEntTypeStr, EAttribDataTypeStrs} from '@libs/geo-info/common';
+import { idsMake, getArrDepth, isEmptyArr } from '@libs/geo-info/id';
 import { checkIDs, IDcheckObj, checkCommTypes, TypeCheckObj, checkAttribValue, checkAttribName } from '../_check_args';
-import { GIAttribMap } from '../../../libs/geo-info/GIAttribMap';
+import { GIAttribMap } from '@libs/geo-info/GIAttribMap';
 
 // ================================================================================================
 export enum _EEntTypeSel {

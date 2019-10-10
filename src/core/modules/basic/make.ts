@@ -7,16 +7,16 @@
  *
  */
 
-import { GIModel } from '../../../libs/geo-info/GIModel';
-import { EAttribNames, TId, EEntType, Txyz, TEntTypeIdx } from '../../../libs/geo-info/common';
+import { GIModel } from '@libs/geo-info/GIModel';
+import { EAttribNames, TId, EEntType, Txyz, TEntTypeIdx } from '@libs/geo-info/common';
 import { isPoint, isPline, isPgon, isDim0, isDim2, isColl, isPosi,
-    isEdge, isFace, idsMake, idIndicies, getArrDepth, isEmptyArr } from '../../../libs/geo-info/id';
+    isEdge, isFace, idsMake, idIndicies, getArrDepth, isEmptyArr } from '@libs/geo-info/id';
 import { __merge__} from '../_model';
 import { _model } from '..';
-import { vecDiv, vecMult, interpByNum, interpByLen, vecAdd, vecFromTo } from '../../../libs/geom/vectors';
+import { vecDiv, vecMult, interpByNum, interpByLen, vecAdd, vecFromTo } from '@libs/geom/vectors';
 import { checkCommTypes, checkIDs, IDcheckObj, TypeCheckObj } from '../_check_args';
-import { distance } from '../../../libs/geom/distance';
-import { arrMakeFlat } from '../../../libs/util/arrs';
+import { distance } from '@libs/geom/distance';
+import { arrMakeFlat } from '@libs/util/arrs';
 
 // ================================================================================================
 /**

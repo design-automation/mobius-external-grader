@@ -8,13 +8,13 @@
  *
  */
 
-import { GIModel } from '../../../libs/geo-info/GIModel';
-import { TId, Txyz, EEntType, TEntTypeIdx } from '../../../libs/geo-info/common';
-import { isPline, isWire, isEdge, isPgon, isFace, idsBreak, getArrDepth, isVert, isPosi, isPoint } from '../../../libs/geo-info/id';
-import { distance } from '../../../libs/geom/distance';
-import { vecSum, vecDiv, vecAdd, vecSub, vecCross, vecMult, vecFromTo, vecLen } from '../../../libs/geom/vectors';
-import { triangulate } from '../../../libs/triangulate/triangulate';
-import { normal, area } from '../../../libs/geom/triangle';
+import { GIModel } from '@libs/geo-info/GIModel';
+import { TId, Txyz, EEntType, TEntTypeIdx } from '@libs/geo-info/common';
+import { isPline, isWire, isEdge, isPgon, isFace, idsBreak, getArrDepth, isVert, isPosi, isPoint } from '@libs/geo-info/id';
+import { distance } from '@libs/geom/distance';
+import { vecSum, vecDiv, vecAdd, vecSub, vecCross, vecMult, vecFromTo, vecLen } from '@libs/geom/vectors';
+import { triangulate } from '@libs/triangulate/triangulate';
+import { normal, area } from '@libs/geom/triangle';
 import { checkIDs, checkCommTypes, checkIDnTypes, IDcheckObj, TypeCheckObj} from '../_check_args';
 
 export enum _EDistanceMethod {

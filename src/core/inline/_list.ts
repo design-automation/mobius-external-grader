@@ -2,7 +2,7 @@
  * list functions that obtain and return information from an input list. Does not modify input list.
  */
 import __ from 'underscore';
-import { arrMakeFlat } from '../../libs/util/arrs';
+import { arrMakeFlat } from '@libs/util/arrs';
 
 export function range(start: number, end: number, step?: number): number[] {
     if (start === undefined) { throw new Error('Invalid inline arg: min must be defined.'); }

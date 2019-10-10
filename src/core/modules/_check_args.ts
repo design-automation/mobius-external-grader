@@ -1,6 +1,6 @@
-import { EEntType, EAttribNames, TEntTypeIdx, EEntTypeStr } from '../../libs/geo-info/common';
-// import { isDim0, isDim1, isDim2 } from '../../libs/geo-info/id';
-import { idsBreak } from '../../libs/geo-info/id';
+import { EEntType, EAttribNames, TEntTypeIdx, EEntTypeStr } from '@libs/geo-info/common';
+// import { isDim0, isDim1, isDim2 } from '@libs/geo-info/id';
+import { idsBreak } from '@libs/geo-info/id';
 
 // =========================================================================================================================================
 // Attribute Checks

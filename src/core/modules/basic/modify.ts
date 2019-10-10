@@ -8,15 +8,15 @@
  *
  */
 
-import { GIModel } from '../../../libs/geo-info/GIModel';
-import { TId, TPlane, Txyz, EEntType, TEntTypeIdx} from '../../../libs/geo-info/common';
-import { getArrDepth, isColl, isPgon, isPline, isPoint, isPosi } from '../../../libs/geo-info/id';
+import { GIModel } from '@libs/geo-info/GIModel';
+import { TId, TPlane, Txyz, EEntType, TEntTypeIdx} from '@libs/geo-info/common';
+import { getArrDepth, isColl, isPgon, isPline, isPoint, isPosi } from '@libs/geo-info/id';
 import { vecAdd, vecSum, vecDiv, vecFromTo, vecNorm, vecCross, vecSetLen, vecLen,
-    vecAng, vecDot, vecRev, vecSub } from '../../../libs/geom/vectors';
+    vecAng, vecDot, vecRev, vecSub } from '@libs/geom/vectors';
 import { checkCommTypes, checkIDs, IDcheckObj, TypeCheckObj} from '../_check_args';
-import { rotateMatrix, multMatrix, scaleMatrix, mirrorMatrix, xfromSourceTargetMatrix } from '../../../libs/geom/matrix';
+import { rotateMatrix, multMatrix, scaleMatrix, mirrorMatrix, xfromSourceTargetMatrix } from '@libs/geom/matrix';
 import { Matrix4 } from 'three';
-import { distance } from '../../../libs/geom/distance';
+import { distance } from '@assets/libs/geom/distance';
 import __ from 'underscore';
 
 // ================================================================================================

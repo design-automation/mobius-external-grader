@@ -1,3 +1,4 @@
+require('module-alias/register')
 import { CodeUtils } from './model/code/code.utils';
 import { IFlowchart, FlowchartUtils } from './model/flowchart';
 // import { INode } from './node';

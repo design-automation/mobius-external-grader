@@ -2,7 +2,7 @@ import { GIModel } from './GIModel';
 import { IAttribsData, IModelData, IAttribData, TAttribDataTypes, EEntType,
     EAttribDataTypeStrs, IGeomData, IAttribsMaps, EAttribNames, Txyz, EEntTypeStr, EAttribPush } from './common';
 import { GIAttribMap } from './GIAttribMap';
-import { vecAdd, vecDiv, vecSum } from '../geom/vectors';
+import { vecAdd, vecDiv, vecSum } from '@libs/geom/vectors';
 import * as mathjs from 'mathjs';
 
 /**

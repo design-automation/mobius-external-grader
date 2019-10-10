@@ -10,11 +10,11 @@
  *
  */
 
-import { GIModel } from '../../../libs/geo-info/GIModel';
-import { Txyz, TColor, EAttribNames, EAttribDataTypeStrs } from '../../../libs/geo-info/common';
+import { GIModel } from '@libs/geo-info/GIModel';
+import { Txyz, TColor, EAttribNames, EAttribDataTypeStrs } from '@libs/geo-info/common';
 import * as THREE from 'three';
-import { TId, TQuery, EEntType, ESort, TEntTypeIdx } from '../../../libs/geo-info/common';
-import { idsMake, getArrDepth, isEmptyArr } from '../../../libs/geo-info/id';
+import { TId, TQuery, EEntType, ESort, TEntTypeIdx } from '@libs/geo-info/common';
+import { idsMake, getArrDepth, isEmptyArr } from '@libs/geo-info/id';
 import { checkIDs, IDcheckObj, checkCommTypes, TypeCheckObj } from '../_check_args';
 
 export enum _ESide {

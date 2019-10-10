@@ -21,6 +21,7 @@
     "circular-json": "^0.5.9",
     "env-cmd": "^9.0.1",
     "mathjs": "^5.9.0",
+    "module-alias": "^2.2.2",
     "proj4": "^2.5.0",
     "rxjs": "^6.4.0",
     "three": "^0.103.0",
@@ -31,5 +32,9 @@
     "@types/underscore": "^1.8.14",
     "@types/circular-json": "^0.4.0",
     "xmlhttprequest": "^1.8.0"
+  },
+  "_moduleAliases": {
+    "@libs": "dist/libs",
+    "@assets": "dist"
   }
 }

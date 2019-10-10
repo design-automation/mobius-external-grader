@@ -1,4 +1,4 @@
-import { GIModel } from '../../libs/geo-info/GIModel';
+import { GIModel } from '@libs/geo-info/GIModel';
 
 /**
 * Return certain value from the model for the flowchart's end node

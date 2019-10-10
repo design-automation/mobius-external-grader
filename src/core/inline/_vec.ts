@@ -1,4 +1,4 @@
-import * as vec from '../../libs/geom/vectors';
+import * as vec from '@libs/geom/vectors';
 
 export const vecAdd = vec.vecAdd;
 export const vecSub = vec.vecSub;
