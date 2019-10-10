@@ -1,4 +1,5 @@
 node_modules
+py_dependencies
 dist
 .env
 package-lock.json
