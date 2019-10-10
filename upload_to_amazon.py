@@ -1,4 +1,7 @@
-# pip install boto3 to use this file
+# TO USE THIS FILE:
+# _ do: pip install boto3
+# _ rename __AMAZON_KEY__.template.py to __AMAZON_KEY__.py and add your own amazon access id and key to the file
+
 import boto3
 import os
 import zipfile
