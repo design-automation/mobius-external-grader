@@ -1,5 +1,7 @@
 node_modules
-py_dependencies
+zipped_file
 dist
 .env
 package-lock.json
+__AMAZON_KEY__.py
+__pycache__
