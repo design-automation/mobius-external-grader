@@ -74,7 +74,8 @@ exports.gradeFile_URL = async (event = {}) => {
                     "file": request.responseText,
                     "question": event.question ,
                     "localTest": localTest,
-                    "weight": weight
+                    "weight": weight,
+                    "info": event.info
                 }));
             }
             else {
@@ -109,6 +110,22 @@ async function getAnswer(event: any = {},fromAmazon = true): Promise<any> {
     return [answerList, answerFile]
 }
 
+async function saveStudentAnswer(event: any, score: number): Promise<any> {
+    var s3 = new AWS.S3();
+    const now = new Date();
+    const question_name = event.question.split('/').slice(0, -1).join('/')
+    const dateString = now.toISOString().replace(/[\:\.]/g, '-').replace('T', '_')
+    const key = question_name + '/' + event.info + '_-_' + dateString + '.mob'
+    console.log('putting student answer:');
+    console.log('  _ key:', question_name + '/' + event.info + '_-_' + dateString + '.mob');
+    const r = await s3.putObject({
+        Bucket: "mooc-submissions",
+        Key: key,
+        Body: event.file,
+        ContentType: 'application/json'
+    }).promise()
+}
+
 export const gradeFile = async (event: any = {}): Promise<any> => {
     try {
         // get the params and corresponding answers
@@ -123,6 +140,7 @@ export const gradeFile = async (event: any = {}): Promise<any> => {
         const total_score = event.weight;
 
         if (!answerList || !answerFile) {
+            await saveStudentAnswer(event, 0);
             return {
                 "correct": true,
                 "score": 0,
@@ -149,12 +167,14 @@ export const gradeFile = async (event: any = {}): Promise<any> => {
         if (!answerList.params || answerList.params.length === 0) {
             const check = await resultCheck(mobFile.flowchart, answerFile.flowchart, answerList.console, answerList.model, null,
                                             normalize, check_geom_equality, check_attrib_equality, comment, 1);
+            const studentScore = JSON.parse((check * total_score / 100).toFixed(2))
             result = {
                 "correct": check === 100,
-                "score": JSON.parse((check * total_score / 100).toFixed(2)),
+                "score": studentScore,
                 "comment": comment.join('')
             };
             console.log(result);
+            await saveStudentAnswer(event, studentScore);
             return result;
         }
 
@@ -171,6 +191,7 @@ export const gradeFile = async (event: any = {}): Promise<any> => {
                 "comment": 'Error: Missing start node parameters - '+ missing_params.join(',') + '.'
             };
             console.log(result);
+            await saveStudentAnswer(event, 0);
             return result;
         }
         console.log('progress: passed file params check')
@@ -184,6 +205,7 @@ export const gradeFile = async (event: any = {}): Promise<any> => {
         }
         score = score * total_score / (count * 100);
         console.log('progress: passed result check (console + model)')
+        const studentScore = JSON.parse(score.toFixed(2))
         result = {
             "correct": score === total_score,
             "score": JSON.parse(score.toFixed(2)),
@@ -191,10 +213,12 @@ export const gradeFile = async (event: any = {}): Promise<any> => {
             "comment": comment.join('')
         };
         console.log(result);
+        await saveStudentAnswer(event, studentScore);
         return result;
     } catch(err) {
         console.log('Error:',err);
         // console.log('File:', event.file);
+        await saveStudentAnswer(event, 0);
         return {
             "correct": false,
             "score": 0,
