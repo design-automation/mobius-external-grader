@@ -1,6 +1,8 @@
 # TO USE THIS FILE:
 # _ install the following packages: boto3
-# _ rename __AMAZON_KEY__.template.py to __AMAZON_KEY__.py and add your own amazon access id and key to the file
+# _ rename __AMAZON_KEY__.template.py to __AMAZON_KEY__.py and add your own amazon access id, key and mobius directory to the file
+# _ change FUNC_NAME to be whichever function you want to update
+
 import git 
 import boto3
 import os
@@ -20,17 +22,19 @@ except ImportError:
     raise ImportError()
 
 
-# your mobius folder directory
-mobius_directory = 'C:\\Users\\akibdpt\\Documents\\Angular\\mobius-parametric-modeller-dev'
 dist_package_json_file = 'dist_package.json'
 
-# access id and key, getting from __AMAZON_KEY__.py file
+# access id and key and your mobius folder directory, getting from __AMAZON_KEY__.py file
 aws_access_key_id = __AMAZON_KEY__.aws_access_key_id
 aws_secret_access_key = __AMAZON_KEY__.aws_secret_access_key
+mobius_directory = __AMAZON_KEY__.mobius_directory
 
-# the lambda function name 
+# the lambda function name
 MAIN_FUNCTION = 'arn:aws:lambda:us-east-1:114056409474:function:Mobius_edx_Grader'
 DEV_FUNCTION  = 'arn:aws:lambda:us-east-1:114056409474:function:Mobius_edx_Grader_DEV'
+
+# !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+# change this FUNC_NAME to whichever function you want to update
 FUNC_NAME = DEV_FUNCTION
 
 
