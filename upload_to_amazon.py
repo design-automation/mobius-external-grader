@@ -3,7 +3,6 @@
 # _ rename __AMAZON_KEY__.template.py to __AMAZON_KEY__.py and add your own amazon access id, key and mobius directory to the file
 # _ change FUNC_NAME to be whichever function you want to update
 
-import git 
 import boto3
 import os
 import shutil
