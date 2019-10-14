@@ -8,6 +8,7 @@ import os
 import shutil
 import zipfile
 import json
+import subprocess
 
 try:
     import __AMAZON_KEY__
@@ -37,9 +38,9 @@ DEV_FUNCTION  = 'arn:aws:lambda:us-east-1:114056409474:function:Mobius_edx_Grade
 FUNC_NAME = DEV_FUNCTION
 
 
-def gitpull():
-    g = git.cmd.Git('.')
-    print(g.pull())
+# def gitpull():
+#     g = git.cmd.Git('.')
+#     print(g.pull())
 
 def copy_from_mobius():
     print('\n\nCopying files from Mobius...')
@@ -55,6 +56,8 @@ def copy_from_mobius():
 
     packageJSONFile = os.path.join(current_working_dir, dist_package_json_file)
     packageJSONDest = os.path.join(current_working_dir, 'dist\\package.json')
+    if not os.path.isdir(os.path.join(current_working_dir,'dist')):
+        os.mkdir(os.path.join(current_working_dir,'dist'))
     shutil.copy(packageJSONFile, packageJSONDest)
     print('Copying completed')
 
@@ -77,8 +80,15 @@ def copy_files(fromDir, toDir):
 
 def build_code():
     print('\n\nBuilding code...')
-    os.system("tsc -p .")
+    # os.system("tsc -p .")
+    result = subprocess.run(["tsc", "-p", '.'], shell=True, stdout=subprocess.PIPE).stdout.decode('utf-8')
+    if 'error' in result:
+        print('\nERROR: Building code failed:\n')
+        print(result)
+        return False
+    # subprocess.run(["ls", "-l"])
     print('Building code completed')
+    return True
 
 def zipdir():
     print('\n\nZipping files in dist folder...')
@@ -118,10 +128,11 @@ def upload_to_amazon(zipfile):
 if __name__ == '__main__':
     # gitpull()
     copy_from_mobius()
-    build_code()
-    zipcheck = zipdir()
-    if zipcheck:
-        zippedFile = open('zipped_file/zip_grader.zip', 'rb').read()
-        upload_to_amazon(zippedFile)
+    buildcheck = build_code()
+    if buildcheck:
+        zipcheck = zipdir()
+        if zipcheck:
+            zippedFile = open('zipped_file/zip_grader.zip', 'rb').read()
+            upload_to_amazon(zippedFile)
     
 
