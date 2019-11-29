@@ -228,6 +228,24 @@ export const gradeFile = async (event: any = {}): Promise<any> => {
         let comment = [];
         let count = 0;
 
+        // detecting invalid argument...
+        // try {
+        //     const argumentCheck = checkAllArguments(mobFile.flowchart)
+        //     if (!argumentCheck) {
+        //         return {
+        //             "correct": false,
+        //             "score": 0,
+        //             "comment": 'Invalid argument detected'
+        //         };
+        //     }
+        // } catch (ex) {
+        //     return {
+        //         "correct": false,
+        //         "score": 0,
+        //         "comment": 'Invalid argument detected'
+        //     };
+        // }
+
         // no params ==> run result check once.
         if (!answerList.params || answerList.params.length === 0) {
             const check = await resultCheck(mobFile.flowchart, answerFile.flowchart, answerList.console, answerList.model, null,
@@ -364,6 +382,9 @@ function checkAllArguments(flowchart: IFlowchart): boolean{
 }
 function checkProdsArgs(procedureList: IProcedure[]): boolean {
     for (const prod of procedureList) {
+        if (prod.type === ProcedureTypes.Comment || prod.type === ProcedureTypes.Blank) {
+            continue
+        }
         for (const arg of prod.args) {
             if (!checkArgInput(arg.jsValue)) { return false; }
         }
