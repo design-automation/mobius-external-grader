@@ -1,7 +1,8 @@
 {
     "_moduleAliases": {
       "@libs": "libs",
-      "@assets": "."
+      "@assets": ".",
+      "@models": "model"
     }
   }
   

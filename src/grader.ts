@@ -13,6 +13,7 @@ import { INode } from './model/node';
 import { GIModel } from './libs/geo-info/GIModel';
 import AWS from 'aws-sdk';
 import * as fs from 'fs';
+import { checkArgInput } from './utils/parser';
 
 export const pythonList = `
 function pythonList(x, l){
@@ -94,36 +95,98 @@ exports.gradeFile_URL = async (event = {}) => {
 async function getAnswer(event: any = {},fromAmazon = true): Promise<any> {
     if (!fromAmazon) {
         const answerName = event.question;
-        const answerList = require(`../test/${answerName}.json`);
         const answerFile = circularJSON.parse(await new Promise((resolve) => {
             fs.readFile(`test/${answerName}.mob`, 'utf8', function(err, contents) {resolve(contents);});
         }));
-        return [answerList, answerFile]
+        return answerFile
     }
     var s3 = new AWS.S3();
-    const params1 = { Bucket: "mooc-answers", Key: event.question + '.json'};
-    const res1: any =  await s3.getObject(params1).promise();
-    const answerList = JSON.parse(res1.Body.toString('utf-8'));
-    const params2 = { Bucket: "mooc-answers", Key: event.question + '.mob'};
+    // const params1 = { Bucket: "mooc-answers", Key: event.question + '.json'};
+    // const res1: any =  await s3.getObject(params1).promise();
+    // const answerList = JSON.parse(res1.Body.toString('utf-8'));
+    const params2 = { Bucket: "sct-mooc-answers", Key: event.question + '.mob'};
     const res2: any =  await s3.getObject(params2).promise();
     const answerFile = circularJSON.parse(res2.Body.toString('utf-8'));
-    return [answerList, answerFile]
+    // return [answerList, answerFile]
+    return answerFile
+}
+
+function extractAnswerList(flowchart: any): any {
+    const answerList = {'model': true, "normalize": true, 'params': []};
+    const paramList = [];
+    const lines = flowchart.description.split('\n');
+    for (const line of lines) {
+        let splittedLine = line.split(':');
+        if (splittedLine.length < 2) {
+            splittedLine = line.split('=');
+            if (splittedLine.length < 2){
+                continue;
+            }
+        }
+        const param = splittedLine[0].trim();
+        if (isParamName(param, flowchart)) {
+            let paramVal;
+            try {
+                paramVal = JSON.parse(splittedLine[1]);
+            } catch (ex) {
+                paramVal = JSON.parse('[' + splittedLine[1] + ']');
+            }
+            if (!paramVal) { continue; }
+            if (paramVal.constructor !== [].constructor) {
+                paramVal = [paramVal];
+            }
+            paramList.push([param, paramVal]);
+        } else if (param !== 'params') {
+            try {
+                answerList[param] = JSON.parse(splittedLine[1]);
+            } catch (ex) {
+                answerList[param] = JSON.parse('[' + splittedLine[1] + ']');
+            }
+        }
+    }
+    if (paramList.length === 0) {
+        return answerList;
+    }
+
+    for (let i = 0; i < paramList[0][1].length; i++) {
+        const paramSet = {};
+        let check = true;
+        for (const param of paramList) {
+            if (i >= param[1].length) {
+                check = false;
+                break;
+            }
+            paramSet[param[0]] = param[1][i];
+        }
+        if (!check) { break; }
+        answerList.params.push(paramSet);
+    }
+    return answerList;
+}
+
+function isParamName(str: string, flowchart: any): boolean {
+    for (const prod of flowchart.nodes[0].procedure) {
+        if (prod.type === ProcedureTypes.Constant && (prod.args[0].value === str || prod.args[0].jsValue === str)) {
+            return true;
+        }
+    }
+    return false;
 }
 
 async function saveStudentAnswer(event: any, score: number): Promise<any> {
-    var s3 = new AWS.S3();
-    const now = new Date();
-    const question_name = event.question.split('/').slice(0, -1).join('/')
-    const dateString = now.toISOString().replace(/[\:\.]/g, '-').replace('T', '_')
-    const key = question_name + '/' + event.info + '_-_' + dateString + '.mob'
-    console.log('putting student answer:');
-    console.log('  _ key:', question_name + '/' + event.info + '_-_' + dateString + '.mob');
-    const r = await s3.putObject({
-        Bucket: "mooc-submissions",
-        Key: key,
-        Body: event.file,
-        ContentType: 'application/json'
-    }).promise()
+    // var s3 = new AWS.S3();
+    // const now = new Date();
+    // const question_name = event.question.split('/').slice(0, -1).join('/')
+    // const dateString = now.toISOString().replace(/[\:\.]/g, '-').replace('T', '_')
+    // const key = question_name + '/' + event.info + '_-_' + dateString + '.mob'
+    // console.log('putting student answer:');
+    // console.log('  _ key:', question_name + '/' + event.info + '_-_' + dateString + '.mob');
+    // const r = await s3.putObject({
+    //     Bucket: "mooc-submissions",
+    //     Key: key,
+    //     Body: event.file,
+    //     ContentType: 'application/json'
+    // }).promise()
 }
 
 export const gradeFile = async (event: any = {}): Promise<any> => {
@@ -134,9 +197,11 @@ export const gradeFile = async (event: any = {}): Promise<any> => {
             fromAmazon = false
         }
         console.log("Retrieve Answer From Amazon:", fromAmazon)
-        const r = await getAnswer(event, fromAmazon);
-        const answerList = r[0];
-        const answerFile = r[1];
+        // const r = await getAnswer(event, fromAmazon);
+        // const answerList = r[0];
+        // const answerFile = r[1];
+        const answerFile = await getAnswer(event, fromAmazon);
+        const answerList = extractAnswerList(answerFile.flowchart);
         const total_score = event.weight;
 
         if (!answerList || !answerFile) {
@@ -173,7 +238,6 @@ export const gradeFile = async (event: any = {}): Promise<any> => {
                 "score": studentScore,
                 "comment": comment.join('')
             };
-            console.log(result);
             await saveStudentAnswer(event, studentScore);
             return result;
         }
@@ -288,6 +352,26 @@ async function resultCheck(studentMob: IFlowchart, answerMob: IFlowchart, checkC
         console.log(`    -> Test case ${count} ended; correct_check: ${score === 100}`);
         return score;
     }
+}
+
+function checkAllArguments(flowchart: IFlowchart): boolean{
+    for (const node of flowchart.nodes) {
+        if (node.type === 'start') { continue; }
+        if (!checkProdsArgs(node.procedure)) { return false; }
+        const localFuncs = node.localFunc || [];
+        if (!checkProdsArgs(localFuncs)) { return false; }
+    }
+}
+function checkProdsArgs(procedureList: IProcedure[]): boolean {
+    for (const prod of procedureList) {
+        for (const arg of prod.args) {
+            if (!checkArgInput(arg.jsValue)) { return false; }
+        }
+        if (prod.children) {
+            if (!checkProdsArgs(prod.children)) { return false; }
+        }
+    }
+    return true;
 }
 
 function checkParams(flowchart: IFlowchart, params: any): string[]{
@@ -477,7 +561,10 @@ function executeFlowchart(flowchart: IFlowchart, consoleLog) {
 async function resolveImportedUrl(prodList: IProcedure[], isMainFlowchart?: boolean) {
     for (const prod of prodList) {
         if (prod.children) {await resolveImportedUrl(prod.children); }
-        if (isMainFlowchart && prod.type === ProcedureTypes.Imported) {
+        if (!prod.enabled) {
+            continue;
+        }
+        if (isMainFlowchart && prod.type === ProcedureTypes.globalFuncCall) {
             for (let i = 1; i < prod.args.length; i++) {
                 const arg = prod.args[i];
                 // args.slice(1).map((arg) => {
@@ -486,30 +573,66 @@ async function resolveImportedUrl(prodList: IProcedure[], isMainFlowchart?: bool
             }
             continue;
         }
-        if (prod.type !== ProcedureTypes.Function) {continue; }
+        if (prod.type !== ProcedureTypes.MainFunction) {continue; }
         for (const func of _parameterTypes.urlFunctions) {
             const funcMeta = func.split('.');
             if (prod.meta.module === funcMeta[0] && prod.meta.name === funcMeta[1]) {
-                for (const arg of prod.args) {
-                    if (arg.name[0] === '_') { continue; }
-                    if (arg.value.indexOf('://') !== -1) {
-
-                    const val = <string>arg.value.replace(/ /g, '');
-
-                        const result = await CodeUtils.getURLContent(val);
-                        if (result === undefined) {
-                            prod.resolvedValue = arg.value;
-                        } else {
-                            prod.resolvedValue = '`' + result + '`';
-                        }
-                        break;
+                const arg = prod.args[2];
+                if (arg.name[0] === '_') { continue; }
+                if (arg.value.indexOf('__model_data__') !== -1) {
+                    prod.resolvedValue = arg.value.split('__model_data__').join('');
+                } else if (arg.value.indexOf('://') !== -1) {
+                    const val = <string>(arg.value).replace(/ /g, '');
+                    const result = await CodeUtils.getURLContent(val);
+                    if (result === undefined) {
+                        prod.resolvedValue = arg.value;
+                    } else {
+                        prod.resolvedValue = '`' + result + '`';
                     }
+                    break;
                 }
                 break;
             }
         }
     }
 }
+
+// async function resolveImportedUrl(prodList: IProcedure[], isMainFlowchart?: boolean) {
+//     for (const prod of prodList) {
+//         if (prod.children) {await resolveImportedUrl(prod.children); }
+//         if (isMainFlowchart && prod.type === ProcedureTypes.globalFuncCall) {
+//             for (let i = 1; i < prod.args.length; i++) {
+//                 const arg = prod.args[i];
+//                 // args.slice(1).map((arg) => {
+//                 if (arg.type.toString() !== InputType.URL.toString()) { continue; }
+//                 prod.resolvedValue = await CodeUtils.getStartInput(arg, InputType.URL);
+//             }
+//             continue;
+//         }
+//         if (prod.type !== ProcedureTypes.MainFunction) {continue; }
+//         for (const func of _parameterTypes.urlFunctions) {
+//             const funcMeta = func.split('.');
+//             if (prod.meta.module === funcMeta[0] && prod.meta.name === funcMeta[1]) {
+//                 for (const arg of prod.args) {
+//                     if (arg.name[0] === '_') { continue; }
+//                     if (arg.value.indexOf('__model_data__') !== -1) {
+//                         prod.resolvedValue = arg.value.split('__model_data__').join('');
+//                     } else if (arg.value.indexOf('://') !== -1) {
+//                         const val = <string>arg.value.replace(/ /g, '');
+//                         const result = await CodeUtils.getURLContent(val);
+//                         if (result === undefined) {
+//                             prod.resolvedValue = arg.value;
+//                         } else {
+//                             prod.resolvedValue = '`' + result + '`';
+//                         }
+//                         break;
+//                     }
+//                 }
+//                 break;
+//             }
+//         }
+//     }
+// }
 
 function executeNode(node: INode, funcStrings, globalVars, constantList, consoleLog): string {
     const params = {'currentProcedure': [''], 'console': [], 'constants': constantList};

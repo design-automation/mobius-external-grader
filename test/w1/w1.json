@@ -1,9 +1,0 @@
-{
-    "console": true,
-    "model": false,
-    "allowExtraGeom": false,
-    "params": [
-        {"my_name": "\"Patrick\""},
-        {"my_name": "\"Jack\""}
-    ]
-}

@@ -1,6 +1,7 @@
 node_modules
 zipped_file
 dist
+test
 .env
 package-lock.json
 __AMAZON_KEY__.py

@@ -1,9 +1,0 @@
-{
-    "console": false,
-    "model": true,
-    "normalize": true,
-    "params": [
-        {"win_len": [20,50]},
-        {"win_len": [40,40]}
-    ]
-}

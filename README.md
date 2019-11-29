@@ -3,6 +3,10 @@
 https://console.aws.amazon.com/lambda/home?region=us-east-1#/functions/Mobius_edx_Grader?tab=graph
 ARN: arn:aws:lambda:us-east-1:114056409474:function:Mobius_edx_Grader
 
+## Answer file template
+for the .mob file to be uploaded to s3, its description should have some extra parameters indicating how the answer files are
+to be executed and graded. [see more here.](ANSWER_FILE_STRUCTURE.md)
+
 ## Installation
 
 * Clone the project.
@@ -21,7 +25,26 @@ ARN: arn:aws:lambda:us-east-1:114056409474:function:Mobius_edx_Grader
 
 Lambda requires the code to be in javascript. So the codes have to be built before deploying on to Lambda.
 
-#### build the code
+### Deploying using python script
+The python file **upload_to_amazon.py** can be used to upload the project to amazon lambda.
+
+#### Setting up
+1. Make a copy of the **__AMAZON_KEY__.template.py** file and change its name to **__AMAZON_KEY__.py**. Fill in the 
+file with your **aws_access_key_id** and **aws_secret_access_key** as well as your local mobius project directory (e.g. 
+`C:\\Users\\UserName\\Documents\\mobius-parametric-modeller-dev`).
+2. in **upload_to_amazon.py**, change *FUNC_NAME* variable to *MAIN_FUNCTION* or *DEV_FUNCTION* to indicate which lambda 
+function for the project to be uploaded to.
+
+#### Use the script
+The script can be run with python (`python upload_to_amazon.py` or run with vs code)
+
+### Deploying manually
+If for any reason the python script does not work, the project can be compiled and uploaded to amazon manually as follow:
+
+#### Update the code
+The project relies on a number of code from mobius, namely **src/core** and **src/libs** which are copied from **src/assets/core** and **src/assets/libs** respectively from mobius project.
+
+#### Build the code
 In a command prompt in the project folder, simply do `tsc`. A *dist* folder will be created with the built javascript code.
 
 #### Deploy the code
@@ -37,6 +60,7 @@ In a command prompt in the project folder, simply do `tsc`. A *dist* folder will
     └── grader.js
     ```
 2. Go to the lambda function **Configuration** page, **Function code** panel, in the **Code entry type** dropdown menu, select "Upload a .zip file". Upload the .zip file and press **Save** on the top right corner of the page
+
 
 ## External npm packages and deploying node_modules
 External packages can be used in lambda. Just install them as per normal: `npm install <<package>>`
