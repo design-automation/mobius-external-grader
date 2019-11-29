@@ -18,15 +18,15 @@ For the param_name_x, the parameter name must exists within the start node for i
 The length of the array for each parameter should be the number of test case the file has. for example:
 
 ```
-num1: [2,3,4,5]
-num2: [2,4,6,8]
-num3: [1,1,2,2]
+numA: [2,3,4,5]
+numB: [2,4,6,8]
+numC: [1,1,2,2]
 ```
 
-the example above indicates that the mob file has 3 parameters: num1, num2, num3. The test cases would be made from
+the example above indicates that the mob file has 3 parameters: numA, numB, numC. The test cases would be made from
 combining the respective value in each of the parameter array: first values of each parameter form the first test case.
 second values form the second test case and so on. In the example above, there are 4 set of test cases:
-{num1: 2, num2: 2, num3: 1}, {num1: 3, num2: 4, num3: 1},{num1: 3, num2: 6, num3: 2} and {num1: 4, num2: 8, num3: 2}. 
+{numA: 2, numB: 2, numC: 1}, {numA: 3, numB: 4, numC: 1},{numA: 3, numB: 6, numC: 2} and {numA: 4, numB: 8, numC: 2}. 
 So both the answer file and the student file would be run 4 times with each of those parameter sets and the results 
 (either the console log or the model or both) are compared with one another for grading. 
 
@@ -34,24 +34,17 @@ In the event where there are mismatch number of values in the parameter arrays, 
 minimum number of values in a parameter array. For example if the description would be like this:
 
 ```
-num1: [2,3,4]
-num2: [2,4,6,8]
-num3: [1,1]
+numA: [2,3,4]
+numB: [2,4,6,8]
+numC: [1,1]
 ```
 
-There would only be 2 test cases: {num1: 2, num2: 2, num3: 1} and {num1: 3, num2: 4, num3: 1}
+There would only be 2 test cases: {numA: 2, numB: 2, numC: 1} and {numA: 3, numB: 4, numC: 1}
 
 If there's any other parameters in the answer file that is not indicated in the description, it will not be checked and
 modified in the student file for executing. Reversely, if there's any extra parameters in the student file that are not
 in the description, it will also not be identified and penalized.
 
 # Full description example
-```
-Creates a torus, with holes cut in the faces of the torus.
 
-console: false
-model: true
-segments: [4,6,8,10,12]
-slices: [4,5,6,10,11]
-```
 ![Description Example](zip_example/description_example.JPG)
