@@ -20,13 +20,13 @@ The length of the array for each parameter should be the number of test case the
 ```
 numA: [2,3,4,5]
 numB: [2,4,6,8]
-numC: [1,1,2,2]
+valC: ["a","b","a","b"]
 ```
 
-the example above indicates that the mob file has 3 parameters: numA, numB, numC. The test cases would be made from
+the example above indicates that the mob file has 3 parameters: numA, numB, valC. The test cases would be made from
 combining the respective value in each of the parameter array: first values of each parameter form the first test case.
 second values form the second test case and so on. In the example above, there are 4 set of test cases:
-{numA: 2, numB: 2, numC: 1}, {numA: 3, numB: 4, numC: 1},{numA: 3, numB: 6, numC: 2} and {numA: 4, numB: 8, numC: 2}. 
+{numA: 2, numB: 2, valC: "a"}, {numA: 3, numB: 4, valC: "b"}, {numA: 3, numB: 6, valC: "a"} and {numA: 4, numB: 8, valC: "b"}. 
 So both the answer file and the student file would be run 4 times with each of those parameter sets and the results 
 (either the console log or the model or both) are compared with one another for grading. 
 
@@ -36,10 +36,10 @@ minimum number of values in a parameter array. For example if the description wo
 ```
 numA: [2,3,4]
 numB: [2,4,6,8]
-numC: [1,1]
+valC: ["a","b"]
 ```
 
-There would only be 2 test cases: {numA: 2, numB: 2, numC: 1} and {numA: 3, numB: 4, numC: 1}
+There would only be 2 test cases: {numA: 2, numB: 2, valC: "a"} and {numA: 3, numB: 4, valC: "b"}
 
 If there's any other parameters in the answer file that is not indicated in the description, it will not be checked and
 modified in the student file for executing. Reversely, if there's any extra parameters in the student file that are not
