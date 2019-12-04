@@ -321,7 +321,7 @@ async function resultCheck(studentMob: IFlowchart, answerMob: IFlowchart, checkC
         caseComment += `<p style='padding-left: 20px;'><b><i>Parameters:</i></b></p>`;
         caseComment += '<ul style="padding-left: 40px;">'
         for (const i in params) {
-            caseComment += `<li> ${i.slice(0, -1)} = ${params[i]}</li>`
+            caseComment += `<li> ${i} = ${params[i]}</li>`
         }
         caseComment += '</ul>'
     }
