@@ -53,6 +53,11 @@ function printFunc(_console, name, value){
 }
 `;
 
+const CPrefix = '<div style="padding: 5px; border: 2px solid black; background-color: #F5F5F5; border-radius: 5px;">';
+const CPostfix = '</div>';
+const ErrorPrefix = '<div style="padding: 5px; border: 2px solid #E00000; background-color: #FFE9E9; border-radius: 5px; color: #E00000;"><h4>';
+const ErrorPostfix = '</h4></div>';
+
 exports.gradeFile_URL = async (event = {}) => {
     
     const p = new Promise((resolve) => {
@@ -71,7 +76,7 @@ exports.gradeFile_URL = async (event = {}) => {
         }
         request.onload = async () => {
             if (request.status === 200) {
-                resolve(await exports.gradeFile({
+                resolve(await gradeFile({
                     "file": request.responseText,
                     "question": event.question ,
                     "localTest": localTest,
@@ -83,7 +88,7 @@ exports.gradeFile_URL = async (event = {}) => {
                 resolve({
                     "correct": false,
                     "score": 0,
-                    "comment": "Unable to retrieve file."
+                    "comment": ErrorPrefix + "Error: Unable to retrieve file." + ErrorPostfix
                 });
             }
         };
@@ -104,7 +109,8 @@ async function getAnswer(event: any = {},fromAmazon = true): Promise<any> {
     // const params1 = { Bucket: "mooc-answers", Key: event.question + '.json'};
     // const res1: any =  await s3.getObject(params1).promise();
     // const answerList = JSON.parse(res1.Body.toString('utf-8'));
-    const params2 = { Bucket: "sct-mooc-answers", Key: event.question + '.mob'};
+    const params2 = { Bucket: "mooc-answers", Key: event.question + '.mob'};
+    // const params2 = { Bucket: "sct-mooc-answers", Key: event.question + '.mob'};
     const res2: any =  await s3.getObject(params2).promise();
     const answerFile = circularJSON.parse(res2.Body.toString('utf-8'));
     // return [answerList, answerFile]
@@ -209,7 +215,7 @@ export const gradeFile = async (event: any = {}): Promise<any> => {
             return {
                 "correct": true,
                 "score": 0,
-                "comment": "Error: Unable to find matching answers for this question."
+                "comment": ErrorPrefix + "Error: Unable to find matching answers for this question." + ErrorPostfix
             };
         }
 
@@ -228,24 +234,6 @@ export const gradeFile = async (event: any = {}): Promise<any> => {
         let comment = [];
         let count = 0;
 
-        // detecting invalid argument...
-        // try {
-        //     const argumentCheck = checkAllArguments(mobFile.flowchart)
-        //     if (!argumentCheck) {
-        //         return {
-        //             "correct": false,
-        //             "score": 0,
-        //             "comment": 'Invalid argument detected'
-        //         };
-        //     }
-        // } catch (ex) {
-        //     return {
-        //         "correct": false,
-        //         "score": 0,
-        //         "comment": 'Invalid argument detected'
-        //     };
-        // }
-
         // no params ==> run result check once.
         if (!answerList.params || answerList.params.length === 0) {
             const check = await resultCheck(mobFile.flowchart, answerFile.flowchart, answerList.console, answerList.model, null,
@@ -254,7 +242,7 @@ export const gradeFile = async (event: any = {}): Promise<any> => {
             result = {
                 "correct": check === 100,
                 "score": studentScore,
-                "comment": comment.join('')
+                "comment": CPrefix + comment.join('') + CPostfix
             };
             await saveStudentAnswer(event, studentScore);
             return result;
@@ -270,7 +258,7 @@ export const gradeFile = async (event: any = {}): Promise<any> => {
             result = {
                 "correct": false,
                 "score": 0,
-                "comment": 'Error: Missing start node parameters - '+ missing_params.join(',') + '.'
+                "comment": ErrorPrefix + 'Error: Missing start node parameters - '+ missing_params.join(',') + '.' + ErrorPostfix
             };
             console.log(result);
             await saveStudentAnswer(event, 0);
@@ -292,7 +280,7 @@ export const gradeFile = async (event: any = {}): Promise<any> => {
             "correct": score === total_score,
             "score": JSON.parse(score.toFixed(2)),
             // "comment": correct_count + '/' + answerList.length
-            "comment": comment.join('')
+            "comment": CPrefix + comment.join('') + CPostfix
         };
         console.log(result);
         await saveStudentAnswer(event, studentScore);
@@ -304,7 +292,7 @@ export const gradeFile = async (event: any = {}): Promise<any> => {
         return {
             "correct": false,
             "score": 0,
-            "comment": 'Error: Unable to run the Mobius code: '+ err.message
+            "comment": ErrorPrefix + 'Error: Unable to run the Mobius code: '+ err.message + ErrorPostfix
         };
     }
 }

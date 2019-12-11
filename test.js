@@ -32,6 +32,7 @@ tests.forEach(element => {
         
     ).then(r => {
         console.log('!!!!!!!!!!!!!!!!!!!!!!!!!!!',r.score)
+        console.log('!!!!!!!!!!!!!!!!!!!!!!!!!!!',r.comment)
     });
     
 });
