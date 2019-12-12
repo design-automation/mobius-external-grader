@@ -53,9 +53,9 @@ function printFunc(_console, name, value){
 }
 `;
 
-const CPrefix = '<div style="padding: 5px; border: 2px solid black; background-color: #F5F5F5; border-radius: 5px;">';
+const CPrefix = '<div style="padding-left: 20px; border: 2px solid black; background-color: #F5F5F5; border-radius: 5px;">';
 const CPostfix = '</div>';
-const ErrorPrefix = '<div style="padding: 5px; border: 2px solid #E00000; background-color: #FFE9E9; border-radius: 5px; color: #E00000;"><h4>';
+const ErrorPrefix = '<div style="padding-left: 20px; border: 2px solid #E00000; background-color: #FFE9E9; border-radius: 5px; color: #E00000;"><h4>';
 const ErrorPostfix = '</h4></div>';
 
 exports.gradeFile_URL = async (event = {}) => {
@@ -258,7 +258,7 @@ export const gradeFile = async (event: any = {}): Promise<any> => {
             result = {
                 "correct": false,
                 "score": 0,
-                "comment": ErrorPrefix + 'Error: Missing start node parameters - '+ missing_params.join(',') + '.' + ErrorPostfix
+                "comment": ErrorPrefix + 'Error: Missing start node parameters - <i>'+ missing_params.join(', ') + '</i>.' + ErrorPostfix
             };
             console.log(result);
             await saveStudentAnswer(event, 0);
