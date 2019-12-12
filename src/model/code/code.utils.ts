@@ -216,7 +216,6 @@ export class CodeUtils {
                 break;
             case ProcedureTypes.LocalFuncCall:
                 const lArgsVals: any = [];
-                console.log(functionName)
                 // let urlCheck = false;
                 if (isMainFlowchart) {
                     usedFunctions.push(prod.meta.name);
@@ -503,7 +502,6 @@ export class CodeUtils {
                                     functionName?: string, usedFunctions?: string[]): [string[][], string] {
         node.hasError = false;
         let codeStr = [];
-        const varsDefined: string[] = [];
 
         // reset terminate check to false at start node (only in main flowchart's start node).
         // for every node after that, if terminate check is true, do not execute the node.
@@ -526,13 +524,18 @@ export class CodeUtils {
         }
 
         codeStr.push(`__modules__.${_parameterTypes.preprocess}( __params__.model);`);
+
+        let varsDefined: string[];
         // procedure
-        if (node.localFunc){
-            for (const prod of node.localFunc) {
-                // if (node.type === 'start' && !isMainFlowchart) { break; }
-                codeStr = codeStr.concat(CodeUtils.getProcedureCode(prod, varsDefined, isMainFlowchart, functionName, usedFunctions));
+        for (const prod of node.localFunc) {
+            varsDefined = [];
+            for (const arg of prod.args.slice(1)) {
+                varsDefined.push(arg.jsValue);
             }
+            // if (node.type === 'start' && !isMainFlowchart) { break; }
+            codeStr = codeStr.concat(CodeUtils.getProcedureCode(prod, varsDefined, isMainFlowchart, functionName, usedFunctions));
         }
+        varsDefined = [];
         for (const prod of node.procedure) {
             // if (node.type === 'start' && !isMainFlowchart) { break; }
             codeStr = codeStr.concat(CodeUtils.getProcedureCode(prod, varsDefined, isMainFlowchart, functionName, usedFunctions));
