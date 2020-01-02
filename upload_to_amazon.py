@@ -35,7 +35,7 @@ DEV_FUNCTION  = 'arn:aws:lambda:us-east-1:114056409474:function:Mobius_edx_Grade
 
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 # change this FUNC_NAME to whichever function you want to update
-FUNC_NAME = DEV_FUNCTION
+FUNC_NAME = MAIN_FUNCTION
 
 
 # def gitpull():
@@ -127,12 +127,12 @@ def upload_to_amazon(zipfile):
 
 if __name__ == '__main__':
     # gitpull()
-    # copy_from_mobius()
+    copy_from_mobius()
     buildcheck = build_code()
-    if buildcheck:
-        zipcheck = zipdir()
-        if zipcheck:
-            zippedFile = open('zipped_file/zip_grader.zip', 'rb').read()
-            upload_to_amazon(zippedFile)
+    # if buildcheck:
+    #     zipcheck = zipdir()
+    #     if zipcheck:
+    #         zippedFile = open('zipped_file/zip_grader.zip', 'rb').read()
+    #         upload_to_amazon(zippedFile)
     
 

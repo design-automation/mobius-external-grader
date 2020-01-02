@@ -3,6 +3,7 @@ zipped_file
 dist
 test
 .env
+tmp
 package-lock.json
 __AMAZON_KEY__.py
 __pycache__

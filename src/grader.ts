@@ -58,8 +58,13 @@ const CPostfix = '</div>';
 const ErrorPrefix = '<div style="padding-left: 20px; border: 2px solid #E00000; background-color: #FFE9E9; border-radius: 5px; color: #E00000;"><h4>';
 const ErrorPostfix = '</h4></div>';
 
-exports.gradeFile_URL = async (event = {}) => {
-    
+const AMAZON_BUCKET_NAME = 'mooc-s3cf';
+
+export async function gradeFile_URL(event: {'file': String, 
+                                            'question': String,
+                                            'info': String,
+                                            'localTest'?: boolean,
+                                            'weight'?: number}) {
     const p = new Promise((resolve) => {
         const request = new XMLHttpRequest();
         request.open('GET', event.file);
@@ -97,105 +102,7 @@ exports.gradeFile_URL = async (event = {}) => {
     return await p;
 };
 
-async function getAnswer(event: any = {},fromAmazon = true): Promise<any> {
-    if (!fromAmazon) {
-        const answerName = event.question;
-        const answerFile = circularJSON.parse(await new Promise((resolve) => {
-            fs.readFile(`test/${answerName}.mob`, 'utf8', function(err, contents) {resolve(contents);});
-        }));
-        return answerFile
-    }
-    var s3 = new AWS.S3();
-    // const params1 = { Bucket: "mooc-answers", Key: event.question + '.json'};
-    // const res1: any =  await s3.getObject(params1).promise();
-    // const answerList = JSON.parse(res1.Body.toString('utf-8'));
-    const params2 = { Bucket: "mooc-answers", Key: event.question + '.mob'};
-    // const params2 = { Bucket: "sct-mooc-answers", Key: event.question + '.mob'};
-    const res2: any =  await s3.getObject(params2).promise();
-    const answerFile = circularJSON.parse(res2.Body.toString('utf-8'));
-    // return [answerList, answerFile]
-    return answerFile
-}
-
-function extractAnswerList(flowchart: any): any {
-    const answerList = {'model': true, "normalize": true, 'params': []};
-    const paramList = [];
-    const lines = flowchart.description.split('\n');
-    for (const line of lines) {
-        let splittedLine = line.split(':');
-        if (splittedLine.length < 2) {
-            splittedLine = line.split('=');
-            if (splittedLine.length < 2){
-                continue;
-            }
-        }
-        const param = splittedLine[0].trim();
-        if (isParamName(param, flowchart)) {
-            let paramVal;
-            try {
-                paramVal = JSON.parse(splittedLine[1]);
-            } catch (ex) {
-                paramVal = JSON.parse('[' + splittedLine[1] + ']');
-            }
-            if (!paramVal) { continue; }
-            if (paramVal.constructor !== [].constructor) {
-                paramVal = [paramVal];
-            }
-            paramList.push([param, paramVal]);
-        } else if (param !== 'params') {
-            try {
-                answerList[param] = JSON.parse(splittedLine[1]);
-            } catch (ex) {
-                answerList[param] = JSON.parse('[' + splittedLine[1] + ']');
-            }
-        }
-    }
-    if (paramList.length === 0) {
-        return answerList;
-    }
-
-    for (let i = 0; i < paramList[0][1].length; i++) {
-        const paramSet = {};
-        let check = true;
-        for (const param of paramList) {
-            if (i >= param[1].length) {
-                check = false;
-                break;
-            }
-            paramSet[param[0]] = param[1][i];
-        }
-        if (!check) { break; }
-        answerList.params.push(paramSet);
-    }
-    return answerList;
-}
-
-function isParamName(str: string, flowchart: any): boolean {
-    for (const prod of flowchart.nodes[0].procedure) {
-        if (prod.type === ProcedureTypes.Constant && (prod.args[0].value === str || prod.args[0].jsValue === str)) {
-            return true;
-        }
-    }
-    return false;
-}
-
-async function saveStudentAnswer(event: any, score: number): Promise<any> {
-    // var s3 = new AWS.S3();
-    // const now = new Date();
-    // const question_name = event.question.split('/').slice(0, -1).join('/')
-    // const dateString = now.toISOString().replace(/[\:\.]/g, '-').replace('T', '_')
-    // const key = question_name + '/' + event.info + '_-_' + dateString + '.mob'
-    // console.log('putting student answer:');
-    // console.log('  _ key:', question_name + '/' + event.info + '_-_' + dateString + '.mob');
-    // const r = await s3.putObject({
-    //     Bucket: "mooc-submissions",
-    //     Key: key,
-    //     Body: event.file,
-    //     ContentType: 'application/json'
-    // }).promise()
-}
-
-export const gradeFile = async (event: any = {}): Promise<any> => {
+export async function gradeFile(event: any = {}): Promise<any> {
     try {
         // get the params and corresponding answers
         let fromAmazon = true; 
@@ -296,6 +203,146 @@ export const gradeFile = async (event: any = {}): Promise<any> => {
         };
     }
 }
+
+export async function runMobFile(fileUrl: string) {
+    const p = new Promise((resolve) => {
+        const request = new XMLHttpRequest();
+        request.open('GET', fileUrl);
+        request.onload = async () => {
+            if (request.status === 200) {
+                const file = circularJSON.parse(request.responseText);
+                const resultConsole = [];
+                await execute(file.flowchart, resultConsole);
+                const s = resultConsole.join('\n');
+                resolve([file.flowchart.nodes[2].model, file.flowchart.nodes[2].output.value, s]);
+            }
+            else {
+                resolve([null,null, 'Error: Unable to retrieve file.']);
+            }
+        };
+        request.send();
+    });
+    return await p;
+}
+
+export async function runJavascriptFile(fileUrl: string) {
+    const p = new Promise((resolve) => {
+        const request = new XMLHttpRequest();
+        request.open('GET', fileUrl);
+        request.onload = async () => {
+            if (request.status === 200) {
+                console.log('~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+                const file = require(request.responseText);
+                console.log('............................')
+                resolve([]);
+            }
+            else {
+                resolve([null,null, 'Error: Unable to retrieve file.']);
+            }
+        };
+        request.send();
+    });
+    return await p;
+
+}
+
+async function getAnswer(event: any = {},fromAmazon = true): Promise<any> {
+    if (!fromAmazon) {
+        const answerName = event.question;
+        const answerFile = circularJSON.parse(await new Promise((resolve) => {
+            fs.readFile(`test/${answerName}.mob`, 'utf8', function(err, contents) { resolve(contents); });
+        }));
+        return answerFile
+    }
+    var s3 = new AWS.S3();
+    // const params1 = { Bucket: "mooc-answers", Key: event.question + '.json'};
+    // const res1: any =  await s3.getObject(params1).promise();
+    // const answerList = JSON.parse(res1.Body.toString('utf-8'));
+    const params2 = { Bucket: AMAZON_BUCKET_NAME, Key: event.question + '.mob'};
+    const res2: any =  await s3.getObject(params2).promise();
+    const answerFile = circularJSON.parse(res2.Body.toString('utf-8'));
+    // return [answerList, answerFile]
+    return answerFile
+}
+
+function extractAnswerList(flowchart: any): any {
+    const answerList = {'model': true, "normalize": true, 'params': []};
+    const paramList = [];
+    const lines = flowchart.description.split('\n');
+    for (const line of lines) {
+        let splittedLine = line.split(':');
+        if (splittedLine.length < 2) {
+            splittedLine = line.split('=');
+            if (splittedLine.length < 2){
+                continue;
+            }
+        }
+        const param = splittedLine[0].trim();
+        if (isParamName(param, flowchart)) {
+            let paramVal;
+            try {
+                paramVal = JSON.parse(splittedLine[1]);
+            } catch (ex) {
+                paramVal = JSON.parse('[' + splittedLine[1] + ']');
+            }
+            if (!paramVal) { continue; }
+            if (paramVal.constructor !== [].constructor) {
+                paramVal = [paramVal];
+            }
+            paramList.push([param, paramVal]);
+        } else if (param !== 'params') {
+            try {
+                answerList[param] = JSON.parse(splittedLine[1]);
+            } catch (ex) {
+                answerList[param] = JSON.parse('[' + splittedLine[1] + ']');
+            }
+        }
+    }
+    if (paramList.length === 0) {
+        return answerList;
+    }
+
+    for (let i = 0; i < paramList[0][1].length; i++) {
+        const paramSet = {};
+        let check = true;
+        for (const param of paramList) {
+            if (i >= param[1].length) {
+                check = false;
+                break;
+            }
+            paramSet[param[0]] = param[1][i];
+        }
+        if (!check) { break; }
+        answerList.params.push(paramSet);
+    }
+    return answerList;
+}
+
+function isParamName(str: string, flowchart: any): boolean {
+    for (const prod of flowchart.nodes[0].procedure) {
+        if (prod.type === ProcedureTypes.Constant && (prod.args[0].value === str || prod.args[0].jsValue === str)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+async function saveStudentAnswer(event: any, score: number): Promise<any> {
+    // var s3 = new AWS.S3();
+    // const now = new Date();
+    // const question_name = event.question.split('/').slice(0, -1).join('/')
+    // const dateString = now.toISOString().replace(/[\:\.]/g, '-').replace('T', '_')
+    // const key = question_name + '/' + event.info + '_-_' + dateString + '.mob'
+    // console.log('putting student answer:');
+    // console.log('  _ key:', question_name + '/' + event.info + '_-_' + dateString + '.mob');
+    // const r = await s3.putObject({
+    //     Bucket: "mooc-submissions",
+    //     Key: key,
+    //     Body: event.file,
+    //     ContentType: 'application/json'
+    // }).promise()
+}
+
 
 async function resultCheck(studentMob: IFlowchart, answerMob: IFlowchart, checkConsole: boolean, checkModel: boolean, params: {},
                            normalize: boolean, check_geom_equality: boolean, check_attrib_equality: boolean,

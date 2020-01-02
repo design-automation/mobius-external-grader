@@ -7,8 +7,8 @@ const gradeFile = grader.gradeFile_URL;
 // }).then(r => console.log(r));
 tests = [
 {
-    'file': 'https://raw.githubusercontent.com/phuongtung1/test_repo/master/w1s3t.mob',
-    'question': 'w1/w1s3t',
+    'file': 'https://raw.githubusercontent.com/phuongtung1/test_repo/master/w1st3.mob',
+    'question': 'w1_s6_u1_assignment_4squares_ans',
     'localTest': true,
     'info': 'test'
 }
