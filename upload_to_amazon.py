@@ -129,10 +129,10 @@ if __name__ == '__main__':
     # gitpull()
     copy_from_mobius()
     buildcheck = build_code()
-    # if buildcheck:
-    #     zipcheck = zipdir()
-    #     if zipcheck:
-    #         zippedFile = open('zipped_file/zip_grader.zip', 'rb').read()
-    #         upload_to_amazon(zippedFile)
+    if buildcheck:
+        zipcheck = zipdir()
+        if zipcheck:
+            zippedFile = open('zipped_file/zip_grader.zip', 'rb').read()
+            upload_to_amazon(zippedFile)
     
 

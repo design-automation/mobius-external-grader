@@ -283,7 +283,8 @@ function extractAnswerList(flowchart: any): any {
             try {
                 paramVal = JSON.parse(splittedLine[1]);
             } catch (ex) {
-                paramVal = JSON.parse('[' + splittedLine[1] + ']');
+                continue;
+                // paramVal = JSON.parse('[' + splittedLine[1] + ']');
             }
             if (!paramVal) { continue; }
             if (paramVal.constructor !== [].constructor) {
@@ -294,7 +295,8 @@ function extractAnswerList(flowchart: any): any {
             try {
                 answerList[param] = JSON.parse(splittedLine[1]);
             } catch (ex) {
-                answerList[param] = JSON.parse('[' + splittedLine[1] + ']');
+                continue;
+                // answerList[param] = JSON.parse('[' + splittedLine[1] + ']');
             }
         }
     }
