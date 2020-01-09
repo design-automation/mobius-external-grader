@@ -130,7 +130,7 @@ export async function gradeFile(event: any = {}): Promise<any> {
         if (normalize === undefined) { normalize = true; }
 
         let check_geom_equality = answerList.check_geom_equality;
-        if (check_geom_equality === undefined) { check_geom_equality = true; }
+        if (check_geom_equality === undefined) { check_geom_equality = false; }
 
         let check_attrib_equality = answerList.check_attrib_equality;
         if (check_attrib_equality === undefined) { check_attrib_equality = false; }
