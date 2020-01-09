@@ -365,10 +365,14 @@ async function resultCheck(studentMob: IFlowchart, answerMob: IFlowchart, checkC
 
     const student_console = [];
     const answer_console = [];
+    console.log(`    _ Executing the submitted file`);
     await execute(studentMob, student_console);
+    console.log(`    _ Executing the answer file`);
     await execute(answerMob, answer_console);
+    console.log(`    _ File execution finished`);
 
     if (checkModel) {
+        console.log(`    _ Checking model...`);
         const student_model = studentMob.nodes[studentMob.nodes.length - 1].model;
         const answer_model = answerMob.nodes[answerMob.nodes.length - 1].model;
         let result;
@@ -392,6 +396,7 @@ async function resultCheck(studentMob: IFlowchart, answerMob: IFlowchart, checkC
         return result.percent;
     }
     if (checkConsole) {
+        console.log(`     _ Checking console...`);
         let score;
         if (student_console.join('') !== answer_console.join('')) {
             score = 0;
