@@ -116,9 +116,9 @@ export async function gradeFile(event: any = {}): Promise<any> {
         const answerFile = await getAnswer(event, fromAmazon);
         const answerList = extractAnswerList(answerFile.flowchart);
         const total_score = event.weight;
+        await saveStudentAnswer(event);
 
         if (!answerList || !answerFile) {
-            await saveStudentAnswer(event, 0);
             return {
                 "correct": true,
                 "score": 0,
@@ -151,7 +151,6 @@ export async function gradeFile(event: any = {}): Promise<any> {
                 "score": studentScore,
                 "comment": CPrefix + comment.join('') + CPostfix
             };
-            await saveStudentAnswer(event, studentScore);
             return result;
         }
 
@@ -168,7 +167,6 @@ export async function gradeFile(event: any = {}): Promise<any> {
                 "comment": ErrorPrefix + 'Error: Missing start node parameters - <i>'+ missing_params.join(', ') + '</i>.' + ErrorPostfix
             };
             console.log(result);
-            await saveStudentAnswer(event, 0);
             return result;
         }
         console.log('progress: passed file params check')
@@ -190,12 +188,10 @@ export async function gradeFile(event: any = {}): Promise<any> {
             "comment": CPrefix + comment.join('') + CPostfix
         };
         console.log(result);
-        await saveStudentAnswer(event, studentScore);
         return result;
     } catch(err) {
         console.log('Error:',err);
         // console.log('File:', event.file);
-        await saveStudentAnswer(event, 0);
         return {
             "correct": false,
             "score": 0,
@@ -329,20 +325,20 @@ function isParamName(str: string, flowchart: any): boolean {
     return false;
 }
 
-async function saveStudentAnswer(event: any, score: number): Promise<any> {
-    // var s3 = new AWS.S3();
-    // const now = new Date();
-    // const question_name = event.question.split('/').slice(0, -1).join('/')
-    // const dateString = now.toISOString().replace(/[\:\.]/g, '-').replace('T', '_')
-    // const key = question_name + '/' + event.info + '_-_' + dateString + '.mob'
-    // console.log('putting student answer:');
-    // console.log('  _ key:', question_name + '/' + event.info + '_-_' + dateString + '.mob');
-    // const r = await s3.putObject({
-    //     Bucket: "mooc-submissions",
-    //     Key: key,
-    //     Body: event.file,
-    //     ContentType: 'application/json'
-    // }).promise()
+async function saveStudentAnswer(event: any): Promise<any> {
+    var s3 = new AWS.S3();
+    const now = new Date();
+    const question_name = event.question.split('/').slice(0, -1).join('/')
+    const dateString = now.toISOString().replace(/[\:\.]/g, '_').replace('T', '___')
+    const key = question_name + '_-_' + dateString + '.mob'
+    console.log('putting student answer:');
+    console.log('  _ key:', key);
+    const r = await s3.putObject({
+        Bucket: "mooc-submissions",
+        Key: key,
+        Body: event.file,
+        ContentType: 'application/json'
+    }).promise()
 }
 
 
