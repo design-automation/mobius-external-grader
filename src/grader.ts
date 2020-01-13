@@ -329,8 +329,12 @@ async function saveStudentAnswer(event: any): Promise<any> {
     var s3 = new AWS.S3();
     const now = new Date();
     const question_name = event.question.split('/').slice(0, -1).join('/')
-    const dateString = now.toISOString().replace(/[\:\.]/g, '_').replace('T', '___')
-    const key = question_name + '_-_' + dateString + '.mob'
+    const dateString = now.toISOString().replace(/[\:\.]/g, '-').replace('T', '_').replace('Z', '')
+    let infoString = '';
+    if (event.info && event.info.anonymous_student_id && event.info.submission_time) {
+        infoString = '_-_' + event.info.anonymous_student_id + '_' + event.info.submission_time
+    }
+    const key = question_name + infoString + '_-_' + dateString + '.mob'
     console.log('putting student answer:');
     console.log('  _ key:', key);
     const r = await s3.putObject({
