@@ -328,13 +328,13 @@ function isParamName(str: string, flowchart: any): boolean {
 async function saveStudentAnswer(event: any): Promise<any> {
     var s3 = new AWS.S3();
     const now = new Date();
-    const question_name = event.question.split('/').slice(0, -1).join('/')
+    // const question_name = event.question
     const dateString = now.toISOString().replace(/[\:\.]/g, '-').replace('T', '_').replace('Z', '')
     let infoString = '';
-    if (event.info && event.info.anonymous_student_id && event.info.submission_time) {
-        infoString = '_-_' + event.info.anonymous_student_id + '_' + event.info.submission_time
+    if (event.info && event.info.anonymous_student_id) {
+        infoString = '_-_' + event.info.anonymous_student_id
     }
-    const key = question_name + infoString + '_-_' + dateString + '.mob'
+    const key = event.question + infoString + '_-_' + dateString + '.mob'
     console.log('putting student answer:');
     console.log('  _ key:', key);
     const r = await s3.putObject({
