@@ -16,7 +16,6 @@
   "dependencies": {
     "@types/node": "^11.13.4",
     "@types/three": "^0.103.2",
-    "@types/webgl2": "0.0.5",
     "aws-sdk": "^2.461.0",
     "chroma-js": "^2.0.3",
     "circular-json": "^0.5.9",

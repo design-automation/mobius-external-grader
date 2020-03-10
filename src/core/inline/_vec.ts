@@ -20,18 +20,6 @@ import { getArrDepth2 } from '@assets/libs/util/arrs';
 
 // Overloaded vector functions
 // ================================================================================================
-export function vecSum(...v: Txyz[]): Txyz {
-    const depth1: number = getArrDepth2(v);
-    if (depth1 > 2) {
-        // @ts-ignore
-        v = v.slice().flat(depth1 - 2);
-    } else if (depth1 < 2) {
-        throw new Error('Error summing vectors: The vectors are bad.' + JSON.stringify(v));
-    }
-    // return the sum
-    return vec.vecSum(v, false) as Txyz;
-}
-// ================================================================================================
 export function vecAdd(v1: Txyz|Txyz[], v2: Txyz|Txyz[], norm: boolean = false): Txyz|Txyz[] {
     // overloaded case
     const depth1: number = getArrDepth2(v1);

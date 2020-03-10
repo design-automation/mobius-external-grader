@@ -418,7 +418,7 @@ export function Rename(__model__: GIModel, ent_type_sel: _EEntTypeAndMod, old_at
  */
 export function Push(__model__: GIModel, entities: TId|TId[],
         attrib: string|[string, number|string]|[string, number|string, string]|[string, number|string, string, number|string],
-        ent_type_sel: _EAttribPushTarget, method_sel: _EPushMethodSel): void {
+        ent_type_sel: _EEntTypeAndMod, method_sel: _EPushMethodSel): void {
     if (entities !== null) {
         const depth = getArrDepth(entities);
         if (depth === 0) {

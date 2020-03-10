@@ -119,8 +119,6 @@ export async function gradeFile(event: any = {}): Promise<any> {
         if (!event.hasOwnProperty('localTest') || event.localTest === false) {
             await saveStudentAnswer(event);
         }
-
-
         if (!answerList || !answerFile) {
             return {
                 "correct": true,
@@ -144,6 +142,18 @@ export async function gradeFile(event: any = {}): Promise<any> {
         let comment = [];
         let count = 0;
 
+        console.log(`  _ Test case ${count} started`);
+        const missingParams = updateParam(answerFile.flowchart, mobFile.flowchart)
+        if (missingParams && missingParams.length > 0) {
+            result = {
+                "correct": false,
+                "score": 0,
+                "comment": ErrorPrefix + 'Error: Missing start node parameters - <i>'+ missingParams.join(', ') + '</i>.' + ErrorPostfix
+            };
+            console.log(result);
+            return result;
+        }
+    
         // no params ==> run result check once.
         if (!answerList.params || answerList.params.length === 0) {
             const check = await resultCheck(mobFile.flowchart, answerFile.flowchart, answerList.console, answerList.model, null,
@@ -353,7 +363,6 @@ async function resultCheck(studentMob: IFlowchart, answerMob: IFlowchart, checkC
                            normalize: boolean, check_geom_equality: boolean, check_attrib_equality: boolean,
                            comment: string[], count: number): Promise<number> {
     let caseComment = `<h4>Test case ${count}:</h4><br>`;
-    console.log(`  _ Test case ${count} started`);
     // execute the flowchart
     if (params) {
         setParams(studentMob, params);
@@ -452,6 +461,28 @@ function checkParams(flowchart: IFlowchart, params: any): string[]{
         }
         if (!check) {
             missing_params.push(param);
+        }
+    }
+    return missing_params;
+}
+
+function updateParam(answerMob: IFlowchart, studentMob: IFlowchart) {
+    const missing_params = [];
+    for (const aProd of answerMob.nodes[0].procedure){
+        if (aProd.type !== ProcedureTypes.Constant) {
+            continue;
+        }
+        let check = false;
+        for (const sProd of studentMob.nodes[0].procedure){
+            if (sProd.type === ProcedureTypes.Constant && sProd.args[0].value.trim() === aProd.args[0].value.trim()) {
+                sProd.args[1].jsValue = aProd.args[1].jsValue;
+                sProd.args[1].value = aProd.args[1].value;
+                check = true;
+                break;
+            }
+        }
+        if (!check) {
+            missing_params.push(aProd.args[0].value.trim());
         }
     }
     return missing_params;

@@ -1,5 +1,5 @@
 node_modules
-zipped_file
+zipped_file/zip_grader.zip
 dist
 test
 .env
