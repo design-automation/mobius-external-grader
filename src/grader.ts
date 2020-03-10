@@ -116,7 +116,10 @@ export async function gradeFile(event: any = {}): Promise<any> {
         const answerFile = await getAnswer(event, fromAmazon);
         const answerList = extractAnswerList(answerFile.flowchart);
         const total_score = event.weight;
-        await saveStudentAnswer(event);
+        if (!event.hasOwnProperty('localTest') || event.localTest === false) {
+            await saveStudentAnswer(event);
+        }
+
 
         if (!answerList || !answerFile) {
             return {
