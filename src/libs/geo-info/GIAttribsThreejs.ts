@@ -86,6 +86,27 @@ export class GIAttribsThreejs {
                 }
             }
         });
+        // const geom_array = this._model.geom._geom_arrays;
+        // for (const e of geom_array.dn_edges_verts) {
+        //     for (const v of e) {
+        //         const vert_attrb = verts_attribs_values[v];
+        //         if (vert_attrb[0] === 1 && vert_attrb[1] === 1 && vert_attrb[2] === 1) {
+        //             verts_attribs_values[v] = [0, 0, 0];
+        //         }
+        //     }
+        // }
+
+        // for (const w of geom_array.dn_plines_wires) {
+        //     for (const e of geom_array.dn_wires_edges[w]) {
+        //         for (const v of geom_array.dn_edges_verts[e]) {
+        //             const vert_attrb = verts_attribs_values[v];
+        //             if (vert_attrb[0] === 1 && vert_attrb[1] === 1 && vert_attrb[2] === 1) {
+        //                 verts_attribs_values[v] = [0, 0, 0];
+        //             }
+        //         }
+        //     }
+        // }
+
         // @ts-ignore
         return verts_attribs_values.flat(1);
     }
@@ -129,13 +150,14 @@ export class GIAttribsThreejs {
             data_obj_map.set(ent_i, {_id: `${attribs_maps_key}${ent_i}`} );
             if (ent_type === EEntType.COLL) {
                 const coll_parent = this._model.geom.query.getCollParent(ent_i);
-                data_obj_map.get(ent_i)['_parent'] = coll_parent === -1 ? '' : coll_parent;
+                data_obj_map.get(ent_i)['_parent'] = coll_parent === -1 ? '' : 'co' + coll_parent;
             }
             i++;
         }
         // loop through all the attributes
         attribs.forEach( (attrib, attrib_name) => {
             const data_size: number = attrib.getDataLength();
+            if (!attrib.hasNonNullVal()) { return; }
             for (const ent_i of ents_i) {
                 if (attrib_name.substr(0, 1) === '_' && attrib_name !== '_parent') {
                     const attrib_value = attrib.getEntVal(ent_i);
@@ -157,12 +179,19 @@ export class GIAttribsThreejs {
                         }
                     } else {
                         if (ent_type === EEntType.POSI && Array.isArray(attrib_value)) {
-                            if (attrib_value.length < 4) {
+                            if (attrib_name === 'xyz') {
                                 for (let index = 0; index < attrib_value.length; index++) {
                                     const _v = Array.isArray(attrib_value[index]) ?
                                     JSON.stringify(attrib_value[index]) : attrib_value[index];
                                     data_obj_map.get(ent_i)[`${attrib_name}[${index}]`] = _v;
                                 }
+                            // if (attrib_value.length < 4) {
+                            //     console.log(attrib_value)
+                            //     for (let index = 0; index < attrib_value.length; index++) {
+                            //         const _v = Array.isArray(attrib_value[index]) ?
+                            //         JSON.stringify(attrib_value[index]) : attrib_value[index];
+                            //         data_obj_map.get(ent_i)[`${attrib_name}[${index}]`] = _v;
+                            //     }
                             } else {
                                 data_obj_map.get(ent_i)[attrib_name] = JSON.stringify(attrib_value);
                             }
@@ -198,14 +227,19 @@ export class GIAttribsThreejs {
             }
             i++;
         });
+        const nullAttribs = new Set();
         attribs.forEach( (attrib, attrib_name) => {
             const data_size: number = attrib.getDataLength();
+            if (!attrib.hasNonNullVal()) { return; }
+            nullAttribs.add(attrib_name);
             for (const ent_i of Array.from(selected_ents.values())) {
                 if (attrib_name.substr(0, 1) === '_') {
                     const attrib_value = attrib.getEntVal(ent_i);
                     data_obj_map.get(ent_i)[`${attrib_name}`] = attrib_value;
+                    nullAttribs.delete(attrib_name);
                 } else {
                     const attrib_value = attrib.getEntVal(ent_i);
+                    if (attrib_value !== undefined) { nullAttribs.delete(attrib_name); }
                     if ( data_size > 1 ) {
                         if (attrib_value === undefined) {
                             for (let idx = 0; idx < data_size; idx++) {
@@ -238,6 +272,14 @@ export class GIAttribsThreejs {
                 }
             }
         });
+        for (const attrib of nullAttribs) {
+            data_obj_map.forEach( (val, index) => {
+                try {
+                    // @ts-ignore
+                    delete val[attrib];
+                } catch (ex) {}
+            })
+        }
         return Array.from(data_obj_map.values());
     }
     /**

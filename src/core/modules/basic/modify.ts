@@ -556,7 +556,7 @@ export function _weld(__model__: GIModel, ents_arr: TEntTypeIdx[], method: _EWel
             __model__.geom.modify.cloneVertPositions(all_verts_i);
             break;
         case _EWeldMethod.MERGE_POSITIONS:
-            __model__.geom.modify.cloneVertPositions(all_verts_i);
+            __model__.geom.modify.mergeVertPositions(all_verts_i);
             break;
         default:
             break;
@@ -617,7 +617,7 @@ function _remesh(__model__: GIModel, ents_arr: TEntTypeIdx[]): void {
  * @example modify.Delete(polygon1)
  * @example_info Deletes polygon1 from the model.
  */
-export function Delete(__model__: GIModel, entities: TId|TId[], method: _EDeleteMethod  ): void {
+export function Delete(__model__: GIModel, entities: TId|TId[], method: _EDeleteMethod): void {
     entities = arrMakeFlat(entities) as TId[];
     if (!isEmptyArr(entities)) {
         // --- Error Check ---
@@ -650,7 +650,8 @@ function _delete(__model__: GIModel, ents_arr: TEntTypeIdx[], invert: boolean): 
     __model__.geom.del.delPgons(gp.pgons_i, true);
     __model__.geom.del.delPlines(gp.plines_i, true);
     __model__.geom.del.delPoints(gp.points_i, true);
-    __model__.geom.del.delUnusedPosis(gp.posis_i);
+    __model__.geom.del.delPosis(gp.posis_i);
+    __model__.geom.del.delUnusedPosis(gp.posis2_i);
 }
 
 
