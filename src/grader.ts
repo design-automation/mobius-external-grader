@@ -531,11 +531,7 @@ async function execute(flowchart: any, consoleLog) {
             continue;
         }
 
-        try {
-            await resolveImportedUrl(node.procedure, true);
-        } catch (ex) {
-            throw ex;
-        }
+        await resolveImportedUrl(node.procedure, true);
 
         let EmptyECheck = false;
         let InvalidECheck = false;
@@ -683,6 +679,8 @@ async function resolveImportedUrl(prodList: IProcedure[], isMainFlowchart?: bool
                     const result = await CodeUtils.getURLContent(val);
                     if (result === undefined) {
                         prod.resolvedValue = arg.value;
+                    } else if (result.indexOf('HTTP Request Error') !== -1) {
+                        throw(new Error(result));
                     } else {
                         prod.resolvedValue = '`' + result + '`';
                     }
@@ -694,42 +692,6 @@ async function resolveImportedUrl(prodList: IProcedure[], isMainFlowchart?: bool
     }
 }
 
-// async function resolveImportedUrl(prodList: IProcedure[], isMainFlowchart?: boolean) {
-//     for (const prod of prodList) {
-//         if (prod.children) {await resolveImportedUrl(prod.children); }
-//         if (isMainFlowchart && prod.type === ProcedureTypes.globalFuncCall) {
-//             for (let i = 1; i < prod.args.length; i++) {
-//                 const arg = prod.args[i];
-//                 // args.slice(1).map((arg) => {
-//                 if (arg.type.toString() !== InputType.URL.toString()) { continue; }
-//                 prod.resolvedValue = await CodeUtils.getStartInput(arg, InputType.URL);
-//             }
-//             continue;
-//         }
-//         if (prod.type !== ProcedureTypes.MainFunction) {continue; }
-//         for (const func of _parameterTypes.urlFunctions) {
-//             const funcMeta = func.split('.');
-//             if (prod.meta.module === funcMeta[0] && prod.meta.name === funcMeta[1]) {
-//                 for (const arg of prod.args) {
-//                     if (arg.name[0] === '_') { continue; }
-//                     if (arg.value.indexOf('__model_data__') !== -1) {
-//                         prod.resolvedValue = arg.value.split('__model_data__').join('');
-//                     } else if (arg.value.indexOf('://') !== -1) {
-//                         const val = <string>arg.value.replace(/ /g, '');
-//                         const result = await CodeUtils.getURLContent(val);
-//                         if (result === undefined) {
-//                             prod.resolvedValue = arg.value;
-//                         } else {
-//                             prod.resolvedValue = '`' + result + '`';
-//                         }
-//                         break;
-//                     }
-//                 }
-//                 break;
-//             }
-//         }
-//     }
-// }
 
 function executeNode(node: INode, funcStrings, globalVars, constantList, consoleLog): string {
     const params = {'currentProcedure': [''], 'console': [], 'constants': constantList};
