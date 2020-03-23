@@ -5,6 +5,7 @@ import { Observable } from 'rxjs';
 import * as circularJSON from 'circular-json';
 import { _parameterTypes } from '../../core/modules';
 import { XMLHttpRequest } from 'xmlhttprequest';
+import fetch from 'node-fetch';
 
 let _terminateCheck: string;
 
@@ -19,11 +20,12 @@ export class CodeUtils {
 
         // mark _terminateCheck to terminate all process after this
         if (prod.type === ProcedureTypes.Terminate && prod.enabled) {
-            _terminateCheck = '';
-            return ['return __params__.model;'];
+            // _terminateCheck = '';
+            return ['__params__.terminated = true;', 'return __params__.model;'];
         }
 
         prod.hasError = false;
+        let specialPrint = false;
 
         let codeStr: string[] = [];
         const args = prod.args;
@@ -56,23 +58,58 @@ export class CodeUtils {
                 break;
 
             case ProcedureTypes.If:
+                specialPrint = true;
+                if (isMainFlowchart && prod.print) {
+                    codeStr.push(`printFunc(__params__.console,` +
+                    `'Evaluating If: (${args[0].value}) = ' + (${args[0].jsValue}), '__null__');`);
+                }
                 codeStr.push(`if (${args[0].jsValue}){`);
+                if (isMainFlowchart && prod.print) {
+                    codeStr.push(`printFunc(__params__.console,'Executing If', '__null__');`);
+                }
                 break;
 
             case ProcedureTypes.Else:
+                specialPrint = true;
                 codeStr.push(`else {`);
+                if (isMainFlowchart && prod.print) {
+                    codeStr.push(`printFunc(__params__.console,'Executing Else', '__null__');`);
+                }
                 break;
 
             case ProcedureTypes.Elseif:
-                codeStr.push(`else if(${args[0].jsValue}){`);
+                specialPrint = true;
+                codeStr.push(`else {`);
+                if (isMainFlowchart) {
+                    codeStr.push(`__params__.currentProcedure[0] = "${prod.ID}";`);
+                    if (prod.print) {
+                        codeStr.push(`printFunc(__params__.console,` +
+                        `'Evaluating Else-if: (${args[0].value}) = ' + (${args[0].jsValue}), '__null__');`);
+                    }
+                }
+                codeStr.push(`if(${args[0].jsValue}){`);
+                if (isMainFlowchart && prod.print) {
+                    codeStr.push(`printFunc(__params__.console,'Executing Else-if', '__null__');`);
+                }
                 break;
 
             case ProcedureTypes.Foreach:
+                specialPrint = true;
                 codeStr.push(`for (${prefix} ${args[0].jsValue} of ${args[1].jsValue}){`);
+                if (isMainFlowchart && prod.print) {
+                    codeStr.push(`printFunc(__params__.console,` +
+                        `'Executing For-each: ${args[0].value} = ' + (${args[0].jsValue}), '__null__');`);
+                }
+                existingVars.push(args[0].jsValue);
                 break;
 
             case ProcedureTypes.While:
+                specialPrint = true;
                 codeStr.push(`while (${args[0].jsValue}){`);
+                if (isMainFlowchart && prod.print) {
+                    codeStr.push(`printFunc(__params__.console,` +
+                        `'Executing While: (${args[0].value}) = ' + (${args[0].jsValue}), '__null__');`);
+                }
                 break;
 
             case ProcedureTypes.Break:
@@ -209,7 +246,7 @@ export class CodeUtils {
                 }
                 break;
             case ProcedureTypes.LocalFuncDef:
-                codeStr.push(`function ${prod.args[0].jsValue}(__params__, ${prod.args.slice(1).map(arg => arg.jsValue).join(', ')}) {`);
+                codeStr.push(`\nfunction ${prod.args[0].jsValue}(__params__, ${prod.args.slice(1).map(arg => arg.jsValue).join(', ')}) {`);
                 break;
             case ProcedureTypes.LocalFuncReturn:
                 codeStr.push(`return ${prod.args[0].jsValue};`);
@@ -217,9 +254,6 @@ export class CodeUtils {
             case ProcedureTypes.LocalFuncCall:
                 const lArgsVals: any = [];
                 // let urlCheck = false;
-                if (isMainFlowchart) {
-                    usedFunctions.push(prod.meta.name);
-                }
                 for (let i = 1; i < args.length; i++) {
                     lArgsVals.push(args[i].jsValue);
                 }
@@ -227,6 +261,7 @@ export class CodeUtils {
                 const lfn = `${prod.meta.name}_(__params__${lArgsVals.map(val => ', ' + val).join('')})`;
                 if (args[0].name === '__none__' || !args[0].jsValue) {
                     codeStr.push(`${lfn};`);
+                    codeStr.push('if (__params__.terminated) { return __params__.model;}')
                     break;
                 }
                 const lRepImpVar = this.repSetAttrib(args[0].jsValue);
@@ -239,6 +274,7 @@ export class CodeUtils {
                 if (prefix === 'let ') {
                     existingVars.push(args[0].jsValue);
                 }
+                codeStr.push('if (__params__.terminated) { return __params__.model;}')
                 break;
 
             case ProcedureTypes.globalFuncCall:
@@ -291,7 +327,7 @@ export class CodeUtils {
 
         }
 
-        if (isMainFlowchart && prod.print && prod.args[0].jsValue) {
+        if (isMainFlowchart && prod.print && !specialPrint && prod.args[0].name !== '__none__' && prod.args[0].jsValue) {
             // const repGet = prod.args[0].jsValue;
             const repGet = this.repGetAttrib(prod.args[0].jsValue);
             codeStr.push(`printFunc(__params__.console,'${prod.args[0].value}', ${repGet});`);
@@ -308,13 +344,37 @@ export class CodeUtils {
         // }
 
         if (prod.children) {
-            for (const p of prod.children) {
-                codeStr = codeStr.concat(CodeUtils.getProcedureCode(p, existingVars, isMainFlowchart, functionName, usedFunctions));
-            }
+            codeStr = codeStr.concat(CodeUtils.getProdListCode(prod.children, existingVars, isMainFlowchart, functionName, usedFunctions))
+            // for (const p of prod.children) {
+            //     codeStr = codeStr.concat(CodeUtils.getProcedureCode(p, existingVars, isMainFlowchart, functionName, usedFunctions));
+            // }
             codeStr.push(`}`);
         }
         return codeStr;
     }
+
+    static getProdListCode(prodList: IProcedure[], existingVars: string[], isMainFlowchart: Boolean,
+                           functionName?: string, usedFunctions?: string[]): string[] {
+        let codeStr = [];
+        let elifcount = 0;
+        for (const p of prodList) {
+            codeStr = codeStr.concat(CodeUtils.getProcedureCode(p, existingVars, isMainFlowchart, functionName, usedFunctions));
+            if ( p.type === ProcedureTypes.Elseif ) {
+                elifcount++;
+            } else {
+                while (elifcount > 0) {
+                    codeStr.push('}');
+                    elifcount--;
+                }
+            }
+        }
+        while (elifcount > 0) {
+            codeStr.push('}');
+            elifcount--;
+        }
+        return codeStr;
+    }
+
     static repSetAttrib(val: string) {
         if (!val || val.indexOf('@') === -1) {
             return false;
@@ -373,6 +433,7 @@ export class CodeUtils {
     }
 
     static async getURLContent(url: string): Promise<any> {
+        url = url.replace('http://', 'https://');
         if (url.indexOf('dropbox') !== -1) {
             url = url.replace('www', 'dl').replace('dl=0', 'dl=1');
         }
@@ -383,8 +444,23 @@ export class CodeUtils {
             url = url.substring(0, url.length - 1);
         }
         const p = new Promise((resolve) => {
+            fetch(url).then(res => {
+                if (!res.ok) {
+                    resolve('HTTP Request Error: request file timeout from url ' + url);
+                    return '';
+                }
+                return res.text();
+            }).then(body => {
+                resolve(body.replace(/(\\[bfnrtv\'\"\\])/g, '\\$1'));
+            });
+
             const request = new XMLHttpRequest();
             request.open('GET', url);
+            request.onreadystatechange =  () => {
+                setTimeout(() => {
+                    resolve('HTTP Request Error: request file timeout from url ' + url);
+                }, 5000);
+            };
             // request.overrideMimeType('text/plain; charset=x-user-defined');
             request.onload = () => {
                 resolve(request.responseText.replace(/(\\[bfnrtv\'\"\\])/g, '\\$1'));
@@ -512,6 +588,16 @@ export class CodeUtils {
         } else if (_terminateCheck) {
             return [undefined, _terminateCheck];
         }
+        let varsDefined: string[];
+
+        // procedure
+        for (const prod of node.localFunc) {
+            varsDefined = [];
+            for (const arg of prod.args.slice(1)) {
+                varsDefined.push(arg.jsValue);
+            }
+            codeStr = codeStr.concat(CodeUtils.getProcedureCode(prod, varsDefined, isMainFlowchart, functionName, usedFunctions));
+        }
 
         // input initializations
         if (isMainFlowchart) {
@@ -523,23 +609,16 @@ export class CodeUtils {
             codeStr.push('__params__.constants = {};\n');
         }
 
-        codeStr.push(`__modules__.${_parameterTypes.preprocess}( __params__.model);`);
 
-        let varsDefined: string[];
-        // procedure
-        for (const prod of node.localFunc) {
-            varsDefined = [];
-            for (const arg of prod.args.slice(1)) {
-                varsDefined.push(arg.jsValue);
-            }
-            // if (node.type === 'start' && !isMainFlowchart) { break; }
-            codeStr = codeStr.concat(CodeUtils.getProcedureCode(prod, varsDefined, isMainFlowchart, functionName, usedFunctions));
-        }
+        codeStr.push('_-_-_+_-_-_')
+        codeStr.push(`__modules__.${_parameterTypes.preprocess}( __params__.model);`);
         varsDefined = [];
-        for (const prod of node.procedure) {
-            // if (node.type === 'start' && !isMainFlowchart) { break; }
-            codeStr = codeStr.concat(CodeUtils.getProcedureCode(prod, varsDefined, isMainFlowchart, functionName, usedFunctions));
-        }
+
+        codeStr = codeStr.concat(CodeUtils.getProdListCode(node.procedure, varsDefined, isMainFlowchart, functionName, usedFunctions))
+        // for (const prod of node.procedure) {
+        //     // if (node.type === 'start' && !isMainFlowchart) { break; }
+        //     codeStr = codeStr.concat(CodeUtils.getProcedureCode(prod, varsDefined, isMainFlowchart, functionName, usedFunctions));
+        // }
         if (node.type === 'end' && node.procedure.length > 0) {
             // return [[codeStr, varsDefined], _terminateCheck];
         } else {
@@ -555,18 +634,18 @@ export class CodeUtils {
     }
 
     static getFunctionString(func: IFunction): string {
-        let fullCode = '';
+        let fullCode = `function ${func.name}(__params__${func.args.map(arg => ', ' + arg.name + '_').join('')}){\n`;
 
-        let fnCode = `function ${func.name}(__params__${func.args.map(arg => ', ' + arg.name + '_').join('')})` + `{\nvar merged;\n`;
-
+        let fnCode = `var merged;\n`;
         for (const node of func.flowchart.nodes) {
             const nodeFuncName = `${func.name}_${node.id}`;
             if (node.type === 'start') {
                 fnCode += `let result_${nodeFuncName} = __params__.model;\n`;
             } else {
                 const codeRes = CodeUtils.getNodeCode(node, false, func.name)[0];
-                fullCode += `function ${nodeFuncName}(__params__${func.args.map(arg => ', ' + arg.name + '_').join('')}){\n` +
-                            codeRes[0].join('\n') + `\n}\n\n`;
+                const nodecode = codeRes[0].join('\n').split('_-_-_+_-_-_');
+                fullCode += `\n${nodecode[0]}\nfunction ${nodeFuncName}(__params__${func.args.map(arg => ', ' + arg.name + '_').join('')}){` +
+                            nodecode[1] + `\n}\n\n`;
 
                 const activeNodes = [];
                 for (const nodeEdge of node.input.edges) {
@@ -588,6 +667,7 @@ export class CodeUtils {
         }
         fnCode += '}\n\n';
         fullCode += fnCode;
+
         return fullCode;
     }
 

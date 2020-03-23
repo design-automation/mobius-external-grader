@@ -694,7 +694,12 @@ async function resolveImportedUrl(prodList: IProcedure[], isMainFlowchart?: bool
 
 
 function executeNode(node: INode, funcStrings, globalVars, constantList, consoleLog): string {
-    const params = {'currentProcedure': [''], 'console': [], 'constants': constantList};
+    const params = {
+        'currentProcedure': [''],
+        'console': [],
+        'constants': constantList
+    };
+
     let fnString = '';
     try {
         const usedFuncs: string[] = [];
@@ -703,13 +708,14 @@ function executeNode(node: INode, funcStrings, globalVars, constantList, console
         // if process is terminated, return
 
         const codeRes = codeResult[0];
-        const nodeCode = codeRes[0];
+        const nodeCode = codeRes[0].join('\n').split('_-_-_+_-_-_');
 
         // Create function string:
         // start with asembling the node's code
         fnString =  '\n\n//  ------ MAIN CODE ------\n' +
+                    nodeCode[0] +
                     '\nfunction __main_node_code__(){\n' +
-                    nodeCode.join('\n') +
+                    nodeCode[1] +
                     '\n}\nreturn __main_node_code__();';
 
         // add the user defined functions that are used in the node

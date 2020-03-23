@@ -33,10 +33,10 @@ const gradeFile = grader.gradeFile_URL;
 // ]
 tests = [
     {
-        'file': 'https://raw.githubusercontent.com/phuongtung1/test_repo/master/w3s',
-        'question': 'w3s',
+        'file': 'https://raw.githubusercontent.com/phuongtung1/test_repo/master/x1',
+        'question': 'wx',
         'localTest': true,
-        'info': 'test_w4'
+        'info': 'x'
     }
 ]
 
