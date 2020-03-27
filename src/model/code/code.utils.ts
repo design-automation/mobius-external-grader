@@ -454,21 +454,21 @@ export class CodeUtils {
                 resolve(body.replace(/(\\[bfnrtv\'\"\\])/g, '\\$1'));
             });
 
-            const request = new XMLHttpRequest();
-            request.open('GET', url);
-            request.onreadystatechange =  () => {
-                setTimeout(() => {
-                    resolve('HTTP Request Error: request file timeout from url ' + url);
-                }, 5000);
-            };
-            // request.overrideMimeType('text/plain; charset=x-user-defined');
-            request.onload = () => {
-                resolve(request.responseText.replace(/(\\[bfnrtv\'\"\\])/g, '\\$1'));
-            };
-            request.onerror = () => {
-                resolve('HTTP Request Error: unable to retrieve file from url ' + url);
-            };
-            request.send();
+            // const request = new XMLHttpRequest();
+            // request.open('GET', url);
+            // request.onreadystatechange =  () => {
+            //     setTimeout(() => {
+            //         resolve('HTTP Request Error: request file timeout from url ' + url);
+            //     }, 5000);
+            // };
+            // // request.overrideMimeType('text/plain; charset=x-user-defined');
+            // request.onload = () => {
+            //     resolve(request.responseText.replace(/(\\[bfnrtv\'\"\\])/g, '\\$1'));
+            // };
+            // request.onerror = () => {
+            //     resolve('HTTP Request Error: unable to retrieve file from url ' + url);
+            // };
+            // request.send();
         });
         return await p;
     }

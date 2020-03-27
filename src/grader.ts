@@ -8,12 +8,13 @@ import { _parameterTypes, _varString } from './core/modules';
 import { InputType } from './model/port';
 import * as Modules from './core/modules';
 import * as circularJSON from 'circular-json';
-import { XMLHttpRequest } from 'xmlhttprequest';
 import { INode } from './model/node';
 import { GIModel } from './libs/geo-info/GIModel';
 import AWS from 'aws-sdk';
 import * as fs from 'fs';
 import { checkArgInput } from './utils/parser';
+import { XMLHttpRequest } from 'xmlhttprequest';
+import fetch from 'node-fetch';
 
 export const pythonList = `
 function pythonList(x, l){
@@ -234,22 +235,33 @@ export async function runMobFile(fileUrl: string) {
     return await p;
 }
 
-export async function runJavascriptFile(fileUrl: string) {
+export async function runJavascriptFile(url: string) {
     const p = new Promise((resolve) => {
-        const request = new XMLHttpRequest();
-        request.open('GET', fileUrl);
-        request.onload = async () => {
-            if (request.status === 200) {
-                console.log('~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
-                const file = require(request.responseText);
-                console.log('............................')
-                resolve([]);
+        fetch(url).then(res => {
+            if (!res.ok) {
+                resolve('HTTP Request Error: request file timeout from url ' + url);
+                return '';
             }
-            else {
-                resolve([null,null, 'Error: Unable to retrieve file.']);
+            return res.text();
+        }).then(body => {
+            const splittedString = body.split('/** * **/');
+            const argStrings = splittedString[0].split('// Parameter:');
+            const args = [];
+            if (argStrings.length > 1) {
+                for (let i = 1; i < argStrings.length - 1; i++) {
+                    args.push(JSON.parse(argStrings[i]));
+                }
+                args.push(JSON.parse(argStrings[argStrings.length - 1].split('function')[0]));
             }
-        };
-        request.send();
+            const val0 = args.map(arg => arg.name);
+            const val1 = args.map(arg => arg.value);
+
+            console.log(args)
+            const fn = new Function('__modules__', ...val0, splittedString[1]);
+            const result = fn(Modules, ...val1);
+            console.log(result);
+            resolve(body);
+        });
     });
     return await p;
 
