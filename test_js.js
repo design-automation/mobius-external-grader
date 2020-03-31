@@ -3,8 +3,23 @@ const grader = require('./dist/grader');
 const runFunc = grader.runJavascriptFile;
 
 
-const result = runFunc('https://raw.githubusercontent.com/phuongtung1/test_repo/master/testtest.js');
-result.then(r => {
-    // console.log('result:',r);
-    console.log('>>>>>>><<<<<<<')
-})
+tests = [
+    {
+        'file': 'https://raw.githubusercontent.com/phuongtung1/test_repo/master/testtest.js',
+        'parameters': {
+            'segments': 10,
+            'slices': 10
+        }
+    }
+]
+
+
+tests.forEach(element => {
+    runFunc(
+        element
+    ).then(r => {
+        console.log('!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+        console.log(r)
+    });
+    
+});

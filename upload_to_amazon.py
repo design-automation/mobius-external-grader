@@ -32,6 +32,7 @@ mobius_directory = __AMAZON_KEY__.mobius_directory
 # the lambda function name
 MAIN_FUNCTION = 'arn:aws:lambda:us-east-1:114056409474:function:Mobius_edx_Grader'
 DEV_FUNCTION  = 'arn:aws:lambda:us-east-1:114056409474:function:Mobius_edx_Grader_DEV'
+RUN_JAVASCRIPT_FUNC = 'arn:aws:lambda:us-east-1:114056409474:function:Mobius_Run_Javascript'
 
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 # change this FUNC_NAME to whichever function you want to update

@@ -235,11 +235,11 @@ export async function runMobFile(fileUrl: string) {
     return await p;
 }
 
-export async function runJavascriptFile(url: string) {
+export async function runJavascriptFile(event: {'file': string, 'parameters': {}}) {
     const p = new Promise((resolve) => {
-        fetch(url).then(res => {
+        fetch(event.file).then(res => {
             if (!res.ok) {
-                resolve('HTTP Request Error: request file timeout from url ' + url);
+                resolve('HTTP Request Error: request file timeout from url ' + event.file);
                 return '';
             }
             return res.text();
@@ -254,13 +254,16 @@ export async function runJavascriptFile(url: string) {
                 args.push(JSON.parse(argStrings[argStrings.length - 1].split('function')[0]));
             }
             const val0 = args.map(arg => arg.name);
-            const val1 = args.map(arg => arg.value);
-
-            console.log(args)
+            const val1 = args.map(arg => {
+                if (event.parameters && event.parameters.hasOwnProperty(arg.name)) {
+                    return event.parameters[arg.name];
+                }
+                return arg.value;
+            });
             const fn = new Function('__modules__', ...val0, splittedString[1]);
             const result = fn(Modules, ...val1);
-            console.log(result);
-            resolve(body);
+            result.model = result.model.getData();
+            resolve("successful");
         });
     });
     return await p;
