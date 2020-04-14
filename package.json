@@ -23,6 +23,7 @@
     "aws-sdk": "^2.461.0",
     "chroma-js": "^2.0.3",
     "circular-json": "^0.5.9",
+    "cytoscape": "^3.14.1",
     "d3-delaunay": "^5.2.1",
     "d3-polygon": "^1.0.6",
     "d3-voronoi": "^1.1.4",

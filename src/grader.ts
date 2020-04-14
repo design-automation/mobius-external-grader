@@ -32,6 +32,9 @@ function mergeInputs(models){
     }
     return result;
 }
+function duplicateModel(model){
+    return model.clone();;
+}
 `;
 const printFunc = `
 function printFunc(_console, name, value){
@@ -664,6 +667,15 @@ function executeFlowchart(flowchart: IFlowchart, consoleLog) {
             delete node.output.value;
         }
     }
+
+    let i = 0;
+    while (i < consoleLog.length - 1) {
+        if (consoleLog[i].slice(0, 4) === '<div' && consoleLog[i + 1].slice(0, 5) === '</div') {
+            consoleLog.splice(i, 2);
+        } else {
+            i++;
+        }
+    }
 }
 
 async function resolveImportedUrl(prodList: IProcedure[], isMainFlowchart?: boolean) {
@@ -718,7 +730,7 @@ function executeNode(node: INode, funcStrings, globalVars, constantList, console
     let fnString = '';
     try {
         const usedFuncs: string[] = [];
-        const codeResult = CodeUtils.getNodeCode(node, true, undefined, usedFuncs);
+        const codeResult = CodeUtils.getNodeCode(node, true, undefined, undefined, usedFuncs);
         const usedFuncsSet = new Set(usedFuncs);
         // if process is terminated, return
 
