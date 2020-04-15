@@ -651,6 +651,7 @@ function executeFlowchart(flowchart: IFlowchart, consoleLog) {
         flowchart.nodes[i].hasExecuted = false;
     }
 
+    const nodeIndices = {}
     // execute each node
     for (let i = 0; i < flowchart.nodes.length; i++) {
     // for (const i of executeSet) {
@@ -659,7 +660,8 @@ function executeFlowchart(flowchart: IFlowchart, consoleLog) {
             node.output.value = undefined;
             continue;
         }
-        globalVars = executeNode(node, funcStrings, globalVars, constantList, consoleLog);
+        nodeIndices[node.id] = i;
+        globalVars = this.executeNode(node, funcStrings, globalVars, constantList, consoleLog, nodeIndices);
     }
 
     for (const node of flowchart.nodes) {
@@ -720,7 +722,7 @@ async function resolveImportedUrl(prodList: IProcedure[], isMainFlowchart?: bool
 }
 
 
-function executeNode(node: INode, funcStrings, globalVars, constantList, consoleLog): string {
+function executeNode(node: INode, funcStrings, globalVars, constantList, consoleLog, nodeIndices): string {
     const params = {
         'currentProcedure': [''],
         'console': [],
@@ -730,7 +732,7 @@ function executeNode(node: INode, funcStrings, globalVars, constantList, console
     let fnString = '';
     try {
         const usedFuncs: string[] = [];
-        const codeResult = CodeUtils.getNodeCode(node, true, undefined, undefined, usedFuncs);
+        const codeResult = CodeUtils.getNodeCode(node, true, nodeIndices, undefined, undefined, usedFuncs);
         const usedFuncsSet = new Set(usedFuncs);
         // if process is terminated, return
 
