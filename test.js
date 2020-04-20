@@ -33,8 +33,8 @@ const gradeFile = grader.gradeFile_URL;
 // ]
 tests = [
     {
-        'file': 'https://raw.githubusercontent.com/phuongtung1/test_repo/master/xx3_P3',
-        'question': 'xx3_P3',
+        'file': 'https://raw.githubusercontent.com/phuongtung1/test_repo/master/student_test',
+        'question': 'student_test',
         'localTest': true,
         'info': 'x'
     }

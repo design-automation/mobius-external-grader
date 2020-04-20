@@ -661,7 +661,7 @@ function executeFlowchart(flowchart: IFlowchart, consoleLog) {
             continue;
         }
         nodeIndices[node.id] = i;
-        globalVars = this.executeNode(node, funcStrings, globalVars, constantList, consoleLog, nodeIndices);
+        globalVars = executeNode(node, funcStrings, globalVars, constantList, consoleLog, nodeIndices);
     }
 
     for (const node of flowchart.nodes) {
