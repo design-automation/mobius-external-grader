@@ -1,4 +1,4 @@
-require('module-alias/register')
+require('module-alias/register');
 import { CodeUtils } from './model/code/code.utils';
 import { IFlowchart, FlowchartUtils } from './model/flowchart';
 // import { INode } from './node';
@@ -27,13 +27,20 @@ function pythonList(x, l){
 const mergeInputsFunc = `
 function mergeInputs(models){
     let result = __modules__.${_parameterTypes.new}();
+    try {
+        result.debug = __debug__;
+    } catch (ex) {}
     for (let model of models){
         __modules__.${_parameterTypes.merge}(result, model);
     }
     return result;
 }
 function duplicateModel(model){
-    return model.clone();;
+    const result = model.clone();
+    try {
+        result.debug = __debug__;
+    } catch (ex) {}
+    return result;
 }
 `;
 const printFunc = `
@@ -270,7 +277,10 @@ export async function runJavascriptFile(event: {'file': string, 'parameters': {}
         });
     });
     return await p;
+}
 
+export async function runGen(event, context, callback) {
+    console.log(event);
 }
 
 async function getAnswer(event: any = {},fromAmazon = true): Promise<any> {
@@ -413,7 +423,7 @@ async function resultCheck(studentMob: IFlowchart, answerMob: IFlowchart, checkC
         //     result = answer_model.compare(student_model);
         // }
         caseComment += result.comment;
-        if (result.score !== result.total) {
+        if (result.percent < 100) {
             caseComment += '<p style="padding-left: 20px;"><b><i>Model Check:</i> failed</b></p>';
             console.log('    + model check: incorrect')
         } else {
@@ -422,7 +432,7 @@ async function resultCheck(studentMob: IFlowchart, answerMob: IFlowchart, checkC
         }
         caseComment += '<br>';
         comment.push(caseComment);
-        console.log(`    -> Test case ${count} ended; correct_check: ${result.score === result.total}`);
+        console.log(`    -> Test case ${count} ended; correct_check: ${result.percent >= 100}`);
         return result.percent;
     }
     if (checkConsole) {
@@ -760,7 +770,7 @@ function executeNode(node: INode, funcStrings, globalVars, constantList, console
         fnString = _varString + globalVars + fnString;
 
         // add the merge input function and the print function
-        fnString = pythonList + '\n' + mergeInputsFunc + '\n' + printFunc + '\n' + fnString;
+        fnString = `\nconst __debug__ = true;` + pythonList + '\n' + mergeInputsFunc + '\n' + printFunc + '\n' + fnString;
 
         // ==> generated code structure:
         //  1. mergeInputFunction
