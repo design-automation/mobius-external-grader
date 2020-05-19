@@ -280,7 +280,13 @@ export async function runJavascriptFile(event: {'file': string, 'parameters': {}
 }
 
 export async function runGen(event, context, callback) {
-    console.log(event);
+    console.log(JSON.stringify(event, null, 2));
+    event.Records.forEach(function(record) {
+        console.log(record.eventID);
+        console.log(record.eventName);
+        console.log('DynamoDB Record: %j', record.dynamodb);
+    });
+    callback(null, "message");
 }
 
 async function getAnswer(event: any = {},fromAmazon = true): Promise<any> {

@@ -34,10 +34,11 @@ mobius_directory = __AMAZON_KEY__.mobius_directory
 MAIN_FUNCTION = 'arn:aws:lambda:us-east-1:114056409474:function:Mobius_edx_Grader'
 DEV_FUNCTION  = 'arn:aws:lambda:us-east-1:114056409474:function:Mobius_edx_Grader_DEV'
 RUN_JAVASCRIPT_FUNC = 'arn:aws:lambda:us-east-1:114056409474:function:Mobius_Run_Javascript'
+GEN_FUNC = 'arn:aws:lambda:us-east-1:114056409474:function:generate_design_func'
 
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 # change this FUNC_NAME to whichever function you want to update
-FUNC_NAME = MAIN_FUNCTION
+FUNC_NAME = GEN_FUNC
 
 
 # def gitpull():
@@ -136,5 +137,5 @@ if __name__ == '__main__':
         if zipcheck:
             zippedFile = open('zipped_file/zip_grader.zip', 'rb').read()
             upload_to_amazon(zippedFile)
-    
+
 
