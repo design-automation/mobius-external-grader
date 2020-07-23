@@ -5,7 +5,7 @@ const runFunc = grader.runJavascriptFile;
 
 tests = [
     {
-        'file': 'https://raw.githubusercontent.com/phuongtung1/test_repo/master/testtest.js',
+        'file': 'https://raw.githubusercontent.com/phuongtung1/test_repo/master/eaGen.js',
         'parameters': {
             'segments': 10,
             'slices': 10

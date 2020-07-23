@@ -28,6 +28,7 @@
     "d3-polygon": "^1.0.6",
     "d3-voronoi": "^1.1.4",
     "env-cmd": "^9.0.1",
+    "jszip": "^3.4.0",
     "mathjs": "^5.9.0",
     "module-alias": "^2.2.2",
     "proj4": "^2.5.0",

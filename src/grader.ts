@@ -15,6 +15,10 @@ import * as fs from 'fs';
 import { checkArgInput } from './utils/parser';
 import { XMLHttpRequest } from 'xmlhttprequest';
 import fetch from 'node-fetch';
+import { isArray } from 'util';
+import JSZip from 'jszip';
+import { IdGenerator } from './utils';
+import { range, random } from 'underscore';
 
 export const pythonList = `
 function pythonList(x, l){
@@ -279,14 +283,645 @@ export async function runJavascriptFile(event: {'file': string, 'parameters': {}
     return await p;
 }
 
-export async function runGen(event, context, callback) {
-    console.log(JSON.stringify(event, null, 2));
-    event.Records.forEach(function(record) {
-        console.log(record.eventID);
-        console.log(record.eventName);
-        console.log('DynamoDB Record: %j', record.dynamodb);
+
+export async function runGen(data) {
+    const docClient = new AWS.DynamoDB.DocumentClient({region: 'us-east-1'});
+    if (data.genUrl && data.evalUrl) {
+        const p = new Promise((resolve) => {
+            const request = new XMLHttpRequest();
+            request.open('GET', data.genUrl);
+            request.onload = async () => {
+                if (request.status === 200) {
+                    const splittedString = request.responseText.split('/** * **/');
+                    const argStrings = splittedString[0].split('// Parameter:');
+                    const args = [];
+                    if (argStrings.length > 1) {
+                        for (let i = 1; i < argStrings.length - 1; i++) {
+                            args.push(JSON.parse(argStrings[i]));
+                        }
+                        args.push(JSON.parse(argStrings[argStrings.length - 1].split('function')[0]));
+                    }
+                    const val0 = args.map(arg => arg.name);
+                    const val1 = args.map(arg => {
+                        if (data.params && data.params.hasOwnProperty(arg.name)) {
+                            return data.params[arg.name];
+                        }
+                        return arg.value;
+                    });
+                    const addedString = `__debug__ = false;\n__model__ = null;\n`
+                    const fn = new Function('__modules__', ...val0, addedString + splittedString[1]);
+                    const result = fn(Modules, ...val1);
+                    const model = JSON.stringify(result.model.getData()).replace(/\\/g, '\\\\');
+
+                    const params = {
+                        TableName: 'GenEvalParam',
+                        Item: {
+                            'ParamID': data.ParamID,
+                            'JobID': data.JobID,
+                            'GenID': data.GenID,
+                            'params': data.params,
+                            // 'genUrl': data.genUrl,
+                            // 'evalUrl': data.evalUrl,
+                            'model': model,
+                            'live': true
+                        }
+                    };
+                    docClient.put(params, function (err, data) {
+                        if (err) {
+                            console.log('Error placing gen data:', err);
+                            resolve(false);
+                        }
+                        else {
+                            console.log('successfully placed data');
+                            resolve(true);
+                        }
+                    });
+                }
+                else {
+                    console.log('... error getting file:', request)
+                    resolve(false);
+                }
+            };
+            request.send();
+        });
+        return await p;
+    }
+    return false
+}
+
+export async function runEval(recordInfo) {
+    const docClient = new AWS.DynamoDB.DocumentClient({region: 'us-east-1'});
+    console.log('param id:', recordInfo.ParamID);
+    const p = new Promise((resolve) => {
+        docClient.get({
+            "TableName": "GenEvalParam",
+            "Key": {
+                "ParamID":  recordInfo.ParamID
+            },
+            "ProjectionExpression": 'model',
+            "ConsistentRead": true
+        }, function(err, record) {
+            if (err) {
+              console.log("Error", err);
+              resolve(null);
+            } else {
+              resolve(record.Item);
+            }
+        });
     });
-    callback(null, "message");
+    const data: any = await p;
+    if (data === null) {
+        return false;
+    }
+
+    // console.log('DynamoDB Record: %j', record.dynamodb);
+    // const data = AWS.DynamoDB.Converter.unmarshall(record.dynamodb.NewImage);
+    if (recordInfo.genUrl && recordInfo.evalUrl) {
+        const p = new Promise((resolve) => {
+            const request = new XMLHttpRequest();
+            request.open('GET', recordInfo.evalUrl);
+            request.onload = async () => {
+                if (request.status === 200) {
+                    const splittedString = request.responseText.split('/** * **/');
+                    const argStrings = splittedString[0].split('// Parameter:');
+                    const args = [];
+                    if (argStrings.length > 1) {
+                        for (let i = 1; i < argStrings.length - 1; i++) {
+                            args.push(JSON.parse(argStrings[i]));
+                        }
+                        args.push(JSON.parse(argStrings[argStrings.length - 1].split('function')[0]));
+                    }
+                    const val0 = args.map(arg => arg.name);
+                    const val1 = args.map(arg =>arg.value);
+
+                    const addedString = `__debug__ = false;\n__model__ = \`${data.model}\`;\n`
+                    const fn = new Function('__modules__', ...val0, addedString + splittedString[1]);
+                    const result = fn(Modules, ...val1);
+                    resolve(result.result);
+
+                    // const params = {
+                    //     TableName: 'GenEvalParam',
+                    //     Key:{
+                    //         "ParamID": recordInfo.ParamID
+                    //     },
+                    //     UpdateExpression: "set score = :s",
+                    //     ExpressionAttributeValues:{
+                    //         ":s": result.result
+                    //     },
+                    //     ReturnValues: "UPDATED_NEW"
+                    // };
+
+                    // docClient.update(params, function (err, data) {
+                    //     if (err) {
+                    //         console.log('Error placing eval data:', err);
+                    //         resolve(false);
+                    //     }
+                    //     else {
+                    //         console.log('successfully placed data');
+                    //         resolve(result.result);
+                    //     }
+                    // });
+
+                }
+                else {
+                    resolve(false);
+                }
+            };
+            request.send();
+        });
+        return await p;
+    }
+    return false
+}
+
+export async function runGenTest(data, genFile) {
+    const p = new Promise((resolve) => {
+        const splittedString = genFile.split('/** * **/');
+        const argStrings = splittedString[0].split('// Parameter:');
+        const args = [];
+        if (argStrings.length > 1) {
+            for (let i = 1; i < argStrings.length - 1; i++) {
+                args.push(JSON.parse(argStrings[i]));
+            }
+            args.push(JSON.parse(argStrings[argStrings.length - 1].split('function')[0]));
+        }
+        const val0 = args.map(arg => arg.name);
+        const val1 = args.map(arg => {
+            if (data.params && data.params.hasOwnProperty(arg.name)) {
+                return data.params[arg.name];
+            }
+            return arg.value;
+        });
+        const addedString = `__debug__ = false;\n__model__ = null;\n`
+        const fn = new Function('__modules__', ...val0, addedString + splittedString[1]);
+        const result = fn(Modules, ...val1);
+        const model = JSON.stringify(result.model.getData()).replace(/\\/g, '\\\\');
+
+        const params = {
+            TableName: 'GenEvalParam',
+            Item: {
+                'ParamID': data.ParamID,
+                'params': data.params,
+                'genUrl': data.genUrl,
+                'evalUrl': data.evalUrl,
+                'model': model,
+                'live': true
+            }
+        };
+        resolve(params);
+    });
+    return await p;
+}
+
+export async function runEvalTest(recordInfo, record, evalFile) {
+    const data = record.Item
+    if (data === null) {
+        return false;
+    }
+    const p = new Promise((resolve) => {
+        const splittedString = evalFile.split('/** * **/');
+        const argStrings = splittedString[0].split('// Parameter:');
+        const args = [];
+        if (argStrings.length > 1) {
+            for (let i = 1; i < argStrings.length - 1; i++) {
+                args.push(JSON.parse(argStrings[i]));
+            }
+            args.push(JSON.parse(argStrings[argStrings.length - 1].split('function')[0]));
+        }
+        const val0 = args.map(arg => arg.name);
+        const val1 = args.map(arg =>arg.value);
+
+        const addedString = `__debug__ = false;\n__model__ = \`${data.model}\`;\n`
+        const fn = new Function('__modules__', ...val0, addedString + splittedString[1]);
+        const result = fn(Modules, ...val1);
+        resolve(result.result)
+    });
+    return await p;
+}
+
+
+function generateParamVariations(params) {
+    const paramVariations = []
+    let totalCount = 1;
+    for (const param of params) {
+        if (param.hasOwnProperty('step')) {
+            const paramList = [];
+            let steps = (param.max - param.min) / param.step;
+            for (let i = 0; i <= steps; i++) {
+                paramList.push(param.min + param.step * i);
+            }
+            paramVariations.push([param.name, paramList]);
+            totalCount = totalCount * paramList.length;
+        } else {
+            paramVariations.push([param.name, [param.value]]);
+        }
+    }
+    paramVariations.push(totalCount)
+    return paramVariations
+}
+
+function mutateDesign(existing_design, params_details, all_params, newIDNum) {
+    // const newID = existing_design.ParamID.split('_');
+    // newID[newID.length - 1] = newIDNum
+    const new_designs = {
+        'ParamID': existing_design.JobID + '_' + newIDNum,
+        'JobID': existing_design.JobID,
+        'GenID': newIDNum,
+        'genUrl': existing_design.genUrl,
+        'evalUrl': existing_design.evalUrl,
+        'params': null,
+        'score': null,
+        'live': true,
+        'scoreWritten': false,
+        'deadWritten': false,
+        'expiry': existing_design.expiry
+    };
+    while (true) {
+        const new_param = {}
+        for (const param of params_details){
+            if (param.hasOwnProperty('step')) {
+                let pos_neg = Math.floor(Math.random() * 2) == 0 ? -1 : 1
+    
+                const existing_step = (existing_design.params[param.name] - param.min) / param.step;
+                if (existing_design.params[param.name] === param.min) {
+                    pos_neg = 1
+                } else if (existing_design.params[param.name] === param.max) {
+                    pos_neg = -1
+                }
+                let added_val = Math.pow(Math.random(), 10);
+                if (pos_neg < 0) {
+                    added_val = - 1 - Math.floor(added_val * (existing_design.params[param.name] - param.min) / param.step)
+                } else {
+                    added_val = 1 + Math.floor(added_val * (param.max - existing_design.params[param.name]) / param.step) 
+                }
+                new_param[param.name] = param.min + (existing_step + added_val) * param.step;
+            } else {
+                new_param[param.name] = existing_design.params[param.name];
+            }
+        }
+        if (all_params.indexOf(new_param) === -1) {
+            new_designs.params = new_param;
+            all_params.push(new_param)
+            break;
+        }
+    }
+    return new_designs
+}
+
+// function getRandomDesign(designList, tournamentSize, eliminateSize) {
+// }
+
+function tournamentSelect(liveDesignList: any[], deadDesignList: any[], tournament_size: number, survival_size: number) {
+    // select tournamentSize number of designs from live list
+    let selectedDesigns = []
+    for (let i = 0; i < tournament_size; i++) {
+        if (liveDesignList.length === 0) { break; }
+        const randomIndex =  Math.floor(Math.random() * liveDesignList.length);
+        selectedDesigns.push(liveDesignList.splice(randomIndex, 1)[0])
+    }
+    // sort the selectedDesigns list in ascending order according to each design's score
+    selectedDesigns = selectedDesigns.sort((a, b) =>  a.score - b.score)
+    // mark the first <eliminateSize> entries as dead and add them to the deadDesignList,
+    // add the rest back to the liveDesignList
+    for (let j = 0; j < selectedDesigns.length; j++) {
+        if (j < survival_size) {
+            selectedDesigns[j].live = false;
+            deadDesignList.push(selectedDesigns[j])
+        } else {
+            liveDesignList.push(selectedDesigns[j])
+        }
+    }
+}
+
+export async function runGenEvalController(event) {
+    const docClient = new AWS.DynamoDB.DocumentClient({region: 'us-east-1'});
+    const lambda = new AWS.Lambda({region: 'us-east-1'});
+
+    if (!event.genUrl || !event.evalUrl) { return false; }
+    let population_size = 20;
+    if (event.population_size) {
+        population_size = event.population_size;
+    }
+    let maxDesigns = 500;
+    if (event.maxDesigns) {
+        maxDesigns = event.maxDesigns;
+    }
+    let tournament_size = 5;
+    if (event.tournament_size) {
+        tournament_size = event.tournament_size;
+    }
+    let survival_size = 2;
+    if (event.survival_size) {
+        survival_size = event.survival_size;
+    }
+    let expiration = 3600
+    // let expiration = 86400
+    if (event.expiration) {
+        expiration = event.expiration;
+    }
+    const expiration_time = Math.round(Date.now() / 1000) + expiration;
+
+    const genPromise = new Promise((resolve) => {
+        const request = new XMLHttpRequest();
+        request.open('GET', event.genUrl);
+        request.onload = async () => {
+            if (request.status === 200) {
+                const splittedString = request.responseText.split('/** * **/');
+                const argStrings = splittedString[0].split('// Parameter:');
+                const args = [];
+                if (argStrings.length > 1) {
+                    for (let i = 1; i < argStrings.length - 1; i++) {
+                        args.push(JSON.parse(argStrings[i]));
+                    }
+                    args.push(JSON.parse(argStrings[argStrings.length - 1].split('function')[0]));
+                }
+                args.forEach( x => {
+                    if (x.min && typeof x.min !== 'number') {
+                        x.min = Number(x.min);
+                    }
+                    if (x.max && typeof x.max !== 'number') {
+                        x.max = Number(x.max);
+                    }
+                    if (x.step && typeof x.step !== 'number') {
+                        x.step = Number(x.step);
+                    }
+                })
+                resolve([request.responseText, args]);
+            }
+            else {
+                resolve(null);
+            }
+        };
+        request.send();
+    });
+    const evalPromise = new Promise<String> ((resolve) => {
+        const request = new XMLHttpRequest();
+        request.open('GET', event.evalUrl);
+        request.onload = async () => {
+            if (request.status === 200) {
+                resolve(request.responseText);
+            }
+            else {
+                resolve(null);
+            }
+        };
+        request.send();
+    });
+    const genResult = await genPromise;
+    const evalFile = await evalPromise;
+    if (!evalFile || !genResult) {
+        return false;
+    }
+    const genFile = genResult[0];
+    const params = genResult[1];
+    const paramVariations = generateParamVariations(params)
+    const totalCount = paramVariations.pop();
+    if (!params) { return false; }
+    let paramList = []
+
+    // if total number of variations is fewer than number of maxDesigns
+    // -> find all designs
+    if (totalCount < maxDesigns) {
+        paramList.push({});
+        const newParamList = []
+        for (const p of paramVariations) {
+            const paramName = p[0]
+            const variations = p[1]
+            for (const paramSet of paramList){
+                for (const param of variations) {
+                    const newParamSet = JSON.parse(JSON.stringify(paramSet));
+                    newParamSet[paramName] = param;
+                    newParamList.push(newParamSet)
+                }
+            }
+            paramList = newParamList;
+        }
+        if (totalCount > maxDesigns) {
+            for (let i = paramList.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                const temp = paramList[i];
+                paramList[i] = paramList[j];
+                paramList[j] = temp;
+            }
+            paramList = paramList.slice(0, maxDesigns);
+        }
+
+    // if total number of variations is more than number of maxDesigns
+    // -> randomly select 20 unique parameter sets
+    } else {
+        while (paramList.length < population_size) {
+            const paramSet = {}
+            for (const p of paramVariations) {
+                const paramName = p[0]
+                const variations = p[1]
+                if (variations.length == 1) {
+                    paramSet[paramName] = variations[0];
+                    continue;
+                }
+                const randI = Math.floor(Math.random() * variations.length);
+                paramSet[paramName] = variations[randI];
+            }
+            if (paramList.indexOf(paramSet) === -1) {
+                paramList.push(paramSet)
+            }
+        }
+    }
+
+    let ID
+    if (event.id) {
+        ID = event.id
+    } else {
+        ID = process.hrtime();
+        ID = ID[0].toString() + ID[1].toString();
+    }
+
+    const liveEntries = [];
+    const deadEntries = [];
+    const updateDynamoPromises = [];
+
+    for (let i = 0; i < paramList.length; i++) {
+        const paramSet = paramList[i];
+        liveEntries.push({
+            'ParamID': ID + '_' + i,
+            'JobID': ID.toString(),
+            'GenID': i.toString(),
+            'genUrl': event.genUrl,
+            'evalUrl': event.evalUrl,
+            'params': paramSet,
+            'score': null,
+            'evalResult': null,
+            'live': true,
+            'scoreWritten': false,
+            'deadWritten': false,
+            'expiry': expiration_time
+        });
+    }
+    let designCount = liveEntries.length;
+    while (designCount < maxDesigns) {
+        const mutationNumber = liveEntries.length < (maxDesigns - designCount)? liveEntries.length : maxDesigns - designCount;
+        for (let i = 0; i < mutationNumber; i++) {
+            liveEntries.push(mutateDesign(liveEntries[i], params, paramList, designCount + i));
+        }
+        const promiseList = [];
+        for (const entry of liveEntries) {
+            if (entry.score) { continue; }
+            promiseList.push(new Promise(resolve => {
+                const entryBlob = JSON.stringify(entry);
+                lambda.invoke({
+                    FunctionName: 'generate_design_func',
+                    Payload: entryBlob
+                }, (err, successCheck) => {
+                    if (err || !successCheck) {
+                        console.log('Error:', err)
+                        resolve(null);
+                    } else {
+                        lambda.invoke({
+                            FunctionName: 'evaluate_design_func',
+                            Payload: entryBlob
+                        }, (err, response) => {
+                            if (err || !response) {
+                                console.log('Error:', err)
+                                resolve(null);
+                            } else {
+                                try {
+                                    const evalResult = JSON.parse(response.Payload.toString());
+                                    // const evalScore = new Number(response.Payload);
+                                    entry.evalResult = evalResult;
+                                    entry.score = evalResult.score;
+                                    resolve(null);
+                                } catch (ex) {
+                                    resolve(null);
+                                }
+                            }
+                        })
+                    }
+                })
+
+                // runGenTest(entry, genFile).then( result => {
+                //     if (result) {
+                //         console.log('success gen: ',entry.ParamID)
+                //         runEvalTest(entry, result, evalFile).then( (evalResult: any) => {
+                //             entry.score = evalResult.score;
+                //             entry.evalResult = evalResult;
+                //             resolve(null);
+                //         })
+                //     } else {
+                //         console.log('failed gen:', entry.ParamID)
+                //     }
+                // });
+            }));
+        }
+        await Promise.all(promiseList);
+        while (liveEntries.length > population_size) {
+            const elimSize = survival_size <= (liveEntries.length - population_size) ? survival_size : liveEntries.length - population_size;
+            tournamentSelect(liveEntries, deadEntries, tournament_size, elimSize)
+        }
+        designCount = liveEntries.length + deadEntries.length;
+
+        for (const entry of liveEntries){
+            if (!entry.scoreWritten) {
+                entry.scoreWritten = true;
+                const updateEntry = {
+                    TableName: 'GenEvalParam',
+                    Key:{
+                        "ParamID": entry.ParamID
+                    },
+                    UpdateExpression: "set score=:s, evalResult=:e",
+                    ExpressionAttributeValues:{
+                        ":s": entry.score,
+                        ":e": entry.evalResult
+                    },
+                    ReturnValues: "UPDATED_NEW"
+                };
+                const p = new Promise( resolve => {
+                    docClient.update(updateEntry, function (err, data) {
+                        if (err) {
+                            console.log('Error placing data:', err);
+                            resolve(null);
+                        }
+                        else {
+                            resolve(null);
+                        }
+                    });
+                })
+                updateDynamoPromises.push(p)
+            }
+        }
+
+        for (const entry of deadEntries){
+            if (!entry.deadWritten) {
+                entry.deadWritten = true;
+                const updateEntry = {
+                    TableName: 'GenEvalParam',
+                    Key:{
+                        "ParamID": entry.ParamID
+                    },
+                    UpdateExpression: "set live = :l, score=:s, evalResult=:e, expirationTime=:x",
+                    ExpressionAttributeValues:{
+                        ":l": false,
+                        ":s": entry.score,
+                        ":e": entry.evalResult,
+                        ":x": entry.expiry
+                    },
+                    ReturnValues: "UPDATED_NEW"
+                };
+                const p = new Promise( resolve => {
+                    docClient.update(updateEntry, function (err, data) {
+                        if (err) {
+                            console.log('Error placing data:', err);
+                            resolve(null);
+                        }
+                        else {
+                            resolve(null);
+                        }
+                    });
+                })
+                updateDynamoPromises.push(p)
+            }
+        }
+
+        // if (topScores.length < 10) { break; }
+        // topScores = topScores.sort((a,b) => b - a).slice(0,10);
+        // for (const entry of entries){
+        //     if (entry.live && entry.score < topScores[9]) {
+        //         entry.live = false
+        //         const updateEntry = {
+        //             TableName: 'GenEvalParam',
+        //             Key:{
+        //                 "ParamID": entry.ParamID
+        //             },
+        //             UpdateExpression: "set live = :s",
+        //             ExpressionAttributeValues:{
+        //                 ":s": false
+        //             },
+        //             ReturnValues: "UPDATED_NEW"
+        //         };
+        //         const p = new Promise( resolve => {
+        //             docClient.update(updateEntry, function (err, data) {
+        //                 if (err) {
+        //                     console.log('Error placing data:', err);
+        //                     resolve(null);
+        //                 }
+        //                 else {
+        //                     resolve(null);
+        //                 }
+        //             });
+        //         })
+        //         updateDynamoPromises.push(p)
+        //     }
+        // }
+    }
+    await Promise.all(updateDynamoPromises);
+    let s = '\n\nlive entries:';
+    for (const i of liveEntries) {
+        s += '\n' + i.score + ' ' + i.ParamID;
+    }
+    s += '\n\ndead entries:'
+    for (const i of deadEntries) {
+        s += '\n' + i.score + ' ' + i.ParamID;
+    }
+    console.log(s);
+    return true;
 }
 
 async function getAnswer(event: any = {},fromAmazon = true): Promise<any> {
@@ -565,7 +1200,7 @@ async function execute(flowchart: any, consoleLog) {
             continue;
         }
 
-        await resolveImportedUrl(node.procedure, true);
+        await resolveImportedUrl(node, true);
 
         let EmptyECheck = false;
         let InvalidECheck = false;
@@ -629,13 +1264,13 @@ async function execute(flowchart: any, consoleLog) {
 
     for (const func of flowchart.functions) {
         for (const node of func.flowchart.nodes) {
-            await resolveImportedUrl(node.procedure, false);
+            await resolveImportedUrl(node, false);
         }
     }
     if (flowchart.subFunctions) {
         for (const func of flowchart.subFunctions) {
             for (const node of func.flowchart.nodes) {
-                await resolveImportedUrl(node.procedure, false);
+                await resolveImportedUrl(node, false);
             }
         }
     }
@@ -696,9 +1331,16 @@ function executeFlowchart(flowchart: IFlowchart, consoleLog) {
     }
 }
 
-async function resolveImportedUrl(prodList: IProcedure[], isMainFlowchart?: boolean) {
-    for (const prod of prodList) {
-        if (prod.children) {await resolveImportedUrl(prod.children); }
+async function resolveImportedUrl(prodList: IProcedure[]|INode, isMainFlowchart?: boolean) {
+    if (!isArray(prodList)) {
+        await resolveImportedUrl(prodList.procedure, isMainFlowchart);
+        if (prodList.localFunc) {
+            await resolveImportedUrl(prodList.localFunc, isMainFlowchart);
+        }
+        return;
+    }
+    for (const prod of <IProcedure[]> prodList) {
+        if (prod.children) {await  resolveImportedUrl(prod.children); }
         if (!prod.enabled) {
             continue;
         }
@@ -718,23 +1360,44 @@ async function resolveImportedUrl(prodList: IProcedure[], isMainFlowchart?: bool
                 const arg = prod.args[2];
                 if (arg.name[0] === '_') { continue; }
                 if (arg.value.indexOf('__model_data__') !== -1) {
+                    arg.jsValue = arg.value;
                     prod.resolvedValue = arg.value.split('__model_data__').join('');
+                } else if (arg.jsValue && arg.jsValue.indexOf('__model_data__') !== -1) {
+                    prod.resolvedValue = arg.jsValue.split('__model_data__').join('');
                 } else if (arg.value.indexOf('://') !== -1) {
                     const val = <string>(arg.value).replace(/ /g, '');
                     const result = await CodeUtils.getURLContent(val);
                     if (result === undefined) {
                         prod.resolvedValue = arg.value;
-                    } else if (result.indexOf('HTTP Request Error') !== -1) {
-                        throw(new Error(result));
+                    } else if (result.indexOf && result.indexOf('HTTP Request Error') !== -1) {
+                        throw new Error(result);
+                    } else if (val.indexOf('.zip') !== -1) {
+                        prod.resolvedValue = await openZipFile(result);
                     } else {
                         prod.resolvedValue = '`' + result + '`';
                     }
+                    break;
+                } else if ((arg.value[0] !== '"' && arg.value[0] !== '\'')) {
+                    prod.resolvedValue = null;
                     break;
                 }
                 break;
             }
         }
     }
+}
+async function openZipFile(zipFile) {
+    let result = '{';
+    await JSZip.loadAsync(zipFile).then(async function (zip) {
+        for (const filename of Object.keys(zip.files)) {
+            // const splittedNames = filename.split('/').slice(1).join('/');
+            await zip.files[filename].async('text').then(function (fileData) {
+                result += `"${filename}": \`${fileData.replace(/\\/g, '\\\\')}\`,`;
+            });
+        }
+    });
+    result += '}';
+    return result;
 }
 
 
@@ -788,7 +1451,7 @@ function executeNode(node: INode, funcStrings, globalVars, constantList, console
         _parameterTypes.mergeFn(params['model'], node.input.value);
 
         // create the function with the string: new Function ([arg1[, arg2[, ...argN]],] functionBody)
-        // console.log(fnString)
+        console.log(fnString)
 
         const fn = new Function('__modules__', '__params__', fnString);
         // execute the function

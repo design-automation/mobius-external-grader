@@ -7,3 +7,4 @@ tmp
 package-lock.json
 __AMAZON_KEY__.py
 __pycache__
+/aws_credential.json

@@ -188,7 +188,7 @@ export class CodeUtils {
                 } else {
                     codeStr.push(`let __return_value__ = __modules__.${_parameterTypes.return}(${returnArgVals.join(', ')});`);
                     if (isMainFlowchart) {
-                        codeStr.push(`if (__return_value__ !== null) {` +
+                        codeStr.push(`if (__return_value__ !== undefined && __return_value__ !== null) {` +
                                      `__params__.console.push('<p><b>Return: <i>' + ` +
                                      `__return_value__.toString().replace(/,/g,', ') + '</i></b></p>');` +
                                      `} else {` +
@@ -489,9 +489,13 @@ export class CodeUtils {
                     resolve('HTTP Request Error: Unable to retrieve file from ' + url);
                     return '';
                 }
-                return res.text();
-            }).then(body => {
-                resolve(body.replace(/(\\[bfnrtv\'\"\\])/g, '\\$1'));
+                if (url.indexOf('.zip') !== -1) {
+                    res.blob().then(body => resolve(body));
+                } else {
+                    res.text().then(body => resolve(body.replace(/(\\[bfnrtv\'\"\\])/g, '\\$1')));
+                }
+            // }).then(body => {
+            //     resolve(body.replace(/(\\[bfnrtv\'\"\\])/g, '\\$1'));
             });
 
             // const request = new XMLHttpRequest();
@@ -653,6 +657,7 @@ export class CodeUtils {
 
 
         codeStr.push('_-_-_+_-_-_')
+        codeStr.push('while (true) {');
         codeStr.push(`__modules__.${_parameterTypes.preprocess}( __params__.model);`);
         varsDefined = [];
 
@@ -663,9 +668,12 @@ export class CodeUtils {
         //     codeStr = codeStr.concat(CodeUtils.getProcedureCode(prod, varsDefined, isMainFlowchart, functionName, usedFunctions));
         // }
         if (node.type === 'end' && node.procedure.length > 0) {
+            codeStr.push('break; }');
+            // codeStr.splice(codeStr.length - 2, 0, 'break; }');
             // return [[codeStr, varsDefined], _terminateCheck];
         } else {
             codeStr.push(`__modules__.${_parameterTypes.postprocess}( __params__.model);`);
+            codeStr.push('break; }');
             codeStr.push('return __params__.model;');
         }
 

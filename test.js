@@ -33,11 +33,17 @@ const gradeFile = grader.gradeFile_URL;
 // ]
 tests = [
     {
-        'file': 'https://raw.githubusercontent.com/phuongtung1/test_repo/master/pm_w1',
-        'question': 'pm_w1',
+        'file': 'https://raw.githubusercontent.com/phuongtung1/test_repo/master/test_mb/f0',
+        'question': 'assign_step1_ans',
         'localTest': true,
         'info': 'x'
     }
+    // {
+    //     'file': 'https://raw.githubusercontent.com/phuongtung1/test_repo/master/w3p',
+    //     'question': 'w3p',
+    //     'localTest': true,
+    //     'info': 'x'
+    // }
 ]
 
 
