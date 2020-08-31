@@ -1,49 +1,19 @@
 const grader = require('./dist/grader');
 const gradeFile = grader.gradeFile_URL;
-// const FILE = ``;
 
-// gradeFile({
-// 'file': FILE,
-// }).then(r => console.log(r));
-// tests = [
-//     {
-//         'file': 'https://raw.githubusercontent.com/phuongtung1/test_repo/master/w1z',
-//         'question': 'w1',
-//         'localTest': true,
-//         'info': 'test_w1'
-//     },
-//     {
-//         'file': 'https://raw.githubusercontent.com/phuongtung1/test_repo/master/w2',
-//         'question': 'w2',
-//         'localTest': true,
-//         'info': 'test_w2'
-//     },
-//     {
-//         'file': 'https://raw.githubusercontent.com/phuongtung1/test_repo/master/w3',
-//         'question': 'w3',
-//         'localTest': true,
-//         'info': 'test_w3'
-//     },
-//     {
-//         'file': 'https://raw.githubusercontent.com/phuongtung1/test_repo/master/w4',
-//         'question': 'w4',
-//         'localTest': true,
-//         'info': 'test_w4'
-//     }
-// ]
 tests = [
-    {
-        'file': 'https://raw.githubusercontent.com/phuongtung1/test_repo/master/test_mb/f1',
-        'question': 'assign_step1_ans',
-        'localTest': true,
-        'info': 'x'
-    }
     // {
-    //     'file': 'https://raw.githubusercontent.com/phuongtung1/test_repo/master/w3p',
-    //     'question': 'w3p',
+    //     'file': 'https://raw.githubusercontent.com/phuongtung1/test_repo/master/test_mb/f0',
+    //     'question': 'assign_step1_ans',
     //     'localTest': true,
     //     'info': 'x'
     // }
+    {
+        'file': 'https://raw.githubusercontent.com/phuongtung1/test_repo/master/test_mb/f1',
+        'question': 'w4_coding_assign_part2_ans',
+        'localTest': true,
+        'info': 'x'
+    }
 ]
 
 

@@ -40,7 +40,14 @@ CTRL_FUNC = 'arn:aws:lambda:us-east-1:114056409474:function:Gen_Eval_Controller'
 
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 # change this FUNC_NAME to whichever function you want to update
-FUNC_NAME = MAIN_FUNCTION
+FUNC_NAME = [
+    # MAIN_FUNCTION
+    # DEV_FUNCTION
+    # RUN_JAVASCRIPT_FUNC
+    GEN_FUNC,
+    EVAL_FUNC,
+    CTRL_FUNC
+]
 
 
 def copy_from_mobius():
@@ -113,13 +120,13 @@ def zipdir():
         return True
 
 
-def upload_to_amazon(zipfile):
+def upload_to_amazon(zipfile, funcName):
     print('\n\nUploading zipped file to amazon...')
     lambda_client = boto3.client('lambda', 
                     region_name='us-east-1',
                     aws_access_key_id = aws_access_key_id,
                     aws_secret_access_key = aws_secret_access_key)
-    r = lambda_client.update_function_code(FunctionName= FUNC_NAME, ZipFile=zipfile)
+    r = lambda_client.update_function_code(FunctionName= funcName, ZipFile=zipfile)
     print('Uploading completed')
     for i in r:
         print('   ', i ,':', r[i])
@@ -128,11 +135,12 @@ def upload_to_amazon(zipfile):
 
 if __name__ == '__main__':
     copy_from_mobius()
-    # buildcheck = build_code()
-    # if buildcheck:
-    #     zipcheck = zipdir()
-    #     if zipcheck:
-    #         zippedFile = open('zipped_file/zip_grader.zip', 'rb').read()
-    #         upload_to_amazon(zippedFile)
+    buildcheck = build_code()
+    if buildcheck:
+        zipcheck = zipdir()
+        if zipcheck:
+            zippedFile = open('zipped_file/zip_grader.zip', 'rb').read()
+            for funcName in FUNC_NAME:
+                upload_to_amazon(zippedFile, funcName)
 
 

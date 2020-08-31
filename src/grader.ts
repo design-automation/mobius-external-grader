@@ -75,6 +75,9 @@ const ErrorPostfix = '</h4></div>';
 
 const AMAZON_BUCKET_NAME = 'mooc-s3cf';
 
+const JOB_DB = 'Job-t3vtntjcprhkbk4lak5sqtfcpm-dev';
+const GEN_EVAL_DB = 'GenEvalParam-t3vtntjcprhkbk4lak5sqtfcpm-dev';
+
 export async function gradeFile_URL(event: {'file': String, 
                                             'question': String,
                                             'info': String,
@@ -287,62 +290,54 @@ export async function runJavascriptFile(event: {'file': string, 'parameters': {}
 export async function runGen(data) {
     const docClient = new AWS.DynamoDB.DocumentClient({region: 'us-east-1'});
     if (data.genUrl && data.evalUrl) {
-        const p = new Promise((resolve) => {
-            const request = new XMLHttpRequest();
-            request.open('GET', data.genUrl);
-            request.onload = async () => {
-                if (request.status === 200) {
-                    const splittedString = request.responseText.split('/** * **/');
-                    const argStrings = splittedString[0].split('// Parameter:');
-                    const args = [];
-                    if (argStrings.length > 1) {
-                        for (let i = 1; i < argStrings.length - 1; i++) {
-                            args.push(JSON.parse(argStrings[i]));
-                        }
-                        args.push(JSON.parse(argStrings[argStrings.length - 1].split('function')[0]));
-                    }
-                    const val0 = args.map(arg => arg.name);
-                    const val1 = args.map(arg => {
-                        if (data.params && data.params.hasOwnProperty(arg.name)) {
-                            return data.params[arg.name];
-                        }
-                        return arg.value;
-                    });
-                    const addedString = `__debug__ = false;\n__model__ = null;\n`
-                    const fn = new Function('__modules__', ...val0, addedString + splittedString[1]);
-                    const result = fn(Modules, ...val1);
-                    const model = JSON.stringify(result.model.getData()).replace(/\\/g, '\\\\');
+        const p = new Promise(async (resolve) => {
+            const genFile = await getGenEvalFile(data.genUrl);
+            if (!genFile) { resolve(false); }
 
-                    const params = {
-                        TableName: 'GenEvalParam',
-                        Item: {
-                            'ParamID': data.ParamID,
-                            'JobID': data.JobID,
-                            'GenID': data.GenID,
-                            'params': data.params,
-                            // 'genUrl': data.genUrl,
-                            // 'evalUrl': data.evalUrl,
-                            'model': model,
-                            'live': true
-                        }
-                    };
-                    docClient.put(params, function (err, data) {
-                        if (err) {
-                            console.log('Error placing gen data:', err);
-                            resolve(false);
-                        }
-                        else {
-                            console.log('successfully placed data');
-                            resolve(true);
-                        }
-                    });
+            const splittedString = genFile.split('/** * **/');
+            const argStrings = splittedString[0].split('// Parameter:');
+            const args = [];
+            if (argStrings.length > 1) {
+                for (let i = 1; i < argStrings.length - 1; i++) {
+                    args.push(JSON.parse(argStrings[i]));
                 }
-                else {
-                    console.log('... error getting file:', request)
-                    resolve(false);
+                args.push(JSON.parse(argStrings[argStrings.length - 1].split('function')[0]));
+            }
+            const val0 = args.map(arg => arg.name);
+            const val1 = args.map(arg => {
+                if (data.params && data.params.hasOwnProperty(arg.name)) {
+                    return data.params[arg.name];
+                }
+                return arg.value;
+            });
+            const addedString = `__debug__ = false;\n__model__ = null;\n`
+            const fn = new Function('__modules__', ...val0, addedString + splittedString[1]);
+            const result = fn(Modules, ...val1);
+            const model = JSON.stringify(result.model.getData()).replace(/\\/g, '\\\\');
+
+            const params = {
+                TableName: GEN_EVAL_DB,
+                Item: {
+                    'id': data.id,
+                    'JobID': data.JobID,
+                    'GenID': data.GenID,
+                    'params': data.params,
+                    // 'genUrl': data.genUrl,
+                    // 'evalUrl': data.evalUrl,
+                    'model': model,
+                    'live': true
                 }
             };
-            request.send();
+            docClient.put(params, function (err, data) {
+                if (err) {
+                    console.log('Error placing gen data:', err);
+                    resolve(false);
+                }
+                else {
+                    console.log('successfully placed data');
+                    resolve(true);
+                }
+            });
         });
         return await p;
     }
@@ -351,12 +346,12 @@ export async function runGen(data) {
 
 export async function runEval(recordInfo) {
     const docClient = new AWS.DynamoDB.DocumentClient({region: 'us-east-1'});
-    console.log('param id:', recordInfo.ParamID);
+    console.log('param id:', recordInfo.id);
     const p = new Promise((resolve) => {
         docClient.get({
-            "TableName": "GenEvalParam",
+            "TableName": GEN_EVAL_DB,
             "Key": {
-                "ParamID":  recordInfo.ParamID
+                "id":  recordInfo.id
             },
             "ProjectionExpression": 'model',
             "ConsistentRead": true
@@ -373,131 +368,98 @@ export async function runEval(recordInfo) {
     if (data === null) {
         return false;
     }
-
     // console.log('DynamoDB Record: %j', record.dynamodb);
     // const data = AWS.DynamoDB.Converter.unmarshall(record.dynamodb.NewImage);
     if (recordInfo.genUrl && recordInfo.evalUrl) {
-        const p = new Promise((resolve) => {
-            const request = new XMLHttpRequest();
-            request.open('GET', recordInfo.evalUrl);
-            request.onload = async () => {
-                if (request.status === 200) {
-                    const splittedString = request.responseText.split('/** * **/');
-                    const argStrings = splittedString[0].split('// Parameter:');
-                    const args = [];
-                    if (argStrings.length > 1) {
-                        for (let i = 1; i < argStrings.length - 1; i++) {
-                            args.push(JSON.parse(argStrings[i]));
-                        }
-                        args.push(JSON.parse(argStrings[argStrings.length - 1].split('function')[0]));
-                    }
-                    const val0 = args.map(arg => arg.name);
-                    const val1 = args.map(arg =>arg.value);
-
-                    const addedString = `__debug__ = false;\n__model__ = \`${data.model}\`;\n`
-                    const fn = new Function('__modules__', ...val0, addedString + splittedString[1]);
-                    const result = fn(Modules, ...val1);
-                    resolve(result.result);
-
-                    // const params = {
-                    //     TableName: 'GenEvalParam',
-                    //     Key:{
-                    //         "ParamID": recordInfo.ParamID
-                    //     },
-                    //     UpdateExpression: "set score = :s",
-                    //     ExpressionAttributeValues:{
-                    //         ":s": result.result
-                    //     },
-                    //     ReturnValues: "UPDATED_NEW"
-                    // };
-
-                    // docClient.update(params, function (err, data) {
-                    //     if (err) {
-                    //         console.log('Error placing eval data:', err);
-                    //         resolve(false);
-                    //     }
-                    //     else {
-                    //         console.log('successfully placed data');
-                    //         resolve(result.result);
-                    //     }
-                    // });
-
+        const p = new Promise(async (resolve) => {
+            const evalFile = await getGenEvalFile(recordInfo.evalUrl);
+            if (!evalFile) { return false; }
+            const splittedString = evalFile.split('/** * **/');
+            const argStrings = splittedString[0].split('// Parameter:');
+            const args = [];
+            if (argStrings.length > 1) {
+                for (let i = 1; i < argStrings.length - 1; i++) {
+                    args.push(JSON.parse(argStrings[i]));
                 }
-                else {
-                    resolve(false);
-                }
-            };
-            request.send();
+                args.push(JSON.parse(argStrings[argStrings.length - 1].split('function')[0]));
+            }
+            const val0 = args.map(arg => arg.name);
+            const val1 = args.map(arg =>arg.value);
+    
+            const addedString = `__debug__ = false;\n__model__ = \`${data.model}\`;\n`
+            const fn = new Function('__modules__', ...val0, addedString + splittedString[1]);
+            const result = fn(Modules, ...val1);
+            resolve(result.result);
         });
         return await p;
     }
     return false
 }
 
-export async function runGenTest(data, genFile) {
-    const p = new Promise((resolve) => {
-        const splittedString = genFile.split('/** * **/');
-        const argStrings = splittedString[0].split('// Parameter:');
-        const args = [];
-        if (argStrings.length > 1) {
-            for (let i = 1; i < argStrings.length - 1; i++) {
-                args.push(JSON.parse(argStrings[i]));
-            }
-            args.push(JSON.parse(argStrings[argStrings.length - 1].split('function')[0]));
-        }
-        const val0 = args.map(arg => arg.name);
-        const val1 = args.map(arg => {
-            if (data.params && data.params.hasOwnProperty(arg.name)) {
-                return data.params[arg.name];
-            }
-            return arg.value;
-        });
-        const addedString = `__debug__ = false;\n__model__ = null;\n`
-        const fn = new Function('__modules__', ...val0, addedString + splittedString[1]);
-        const result = fn(Modules, ...val1);
-        const model = JSON.stringify(result.model.getData()).replace(/\\/g, '\\\\');
+// export async function runGenTest(data, genFile) {
+//     const p = new Promise((resolve) => {
+//         const splittedString = genFile.split('/** * **/');
+//         const argStrings = splittedString[0].split('// Parameter:');
+//         const args = [];
+//         if (argStrings.length > 1) {
+//             for (let i = 1; i < argStrings.length - 1; i++) {
+//                 args.push(JSON.parse(argStrings[i]));
+//             }
+//             args.push(JSON.parse(argStrings[argStrings.length - 1].split('function')[0]));
+//         }
+//         const val0 = args.map(arg => arg.name);
+//         const val1 = args.map(arg => {
+//             if (data.params && data.params.hasOwnProperty(arg.name)) {
+//                 return data.params[arg.name];
+//             }
+//             return arg.value;
+//         });
+//         const addedString = `__debug__ = false;\n__model__ = null;\n`
+//         const fn = new Function('__modules__', ...val0, addedString + splittedString[1]);
+//         const result = fn(Modules, ...val1);
+//         const model = JSON.stringify(result.model.getData()).replace(/\\/g, '\\\\');
 
-        const params = {
-            TableName: 'GenEvalParam',
-            Item: {
-                'ParamID': data.ParamID,
-                'params': data.params,
-                'genUrl': data.genUrl,
-                'evalUrl': data.evalUrl,
-                'model': model,
-                'live': true
-            }
-        };
-        resolve(params);
-    });
-    return await p;
-}
+//         const params = {
+//             TableName: GEN_EVAL_DB,
+//             Item: {
+//                 'id': data.id,
+//                 'params': data.params,
+//                 'genUrl': data.genUrl,
+//                 'evalUrl': data.evalUrl,
+//                 'model': model,
+//                 'live': true
+//             }
+//         };
+//         resolve(params);
+//     });
+//     return await p;
+// }
 
-export async function runEvalTest(recordInfo, record, evalFile) {
-    const data = record.Item
-    if (data === null) {
-        return false;
-    }
-    const p = new Promise((resolve) => {
-        const splittedString = evalFile.split('/** * **/');
-        const argStrings = splittedString[0].split('// Parameter:');
-        const args = [];
-        if (argStrings.length > 1) {
-            for (let i = 1; i < argStrings.length - 1; i++) {
-                args.push(JSON.parse(argStrings[i]));
-            }
-            args.push(JSON.parse(argStrings[argStrings.length - 1].split('function')[0]));
-        }
-        const val0 = args.map(arg => arg.name);
-        const val1 = args.map(arg =>arg.value);
+// export async function runEvalTest(recordInfo, record, evalFile) {
+//     const data = record.Item
+//     if (data === null) {
+//         return false;
+//     }
+//     const p = new Promise((resolve) => {
+//         const splittedString = evalFile.split('/** * **/');
+//         const argStrings = splittedString[0].split('// Parameter:');
+//         const args = [];
+//         if (argStrings.length > 1) {
+//             for (let i = 1; i < argStrings.length - 1; i++) {
+//                 args.push(JSON.parse(argStrings[i]));
+//             }
+//             args.push(JSON.parse(argStrings[argStrings.length - 1].split('function')[0]));
+//         }
+//         const val0 = args.map(arg => arg.name);
+//         const val1 = args.map(arg =>arg.value);
 
-        const addedString = `__debug__ = false;\n__model__ = \`${data.model}\`;\n`
-        const fn = new Function('__modules__', ...val0, addedString + splittedString[1]);
-        const result = fn(Modules, ...val1);
-        resolve(result.result)
-    });
-    return await p;
-}
+//         const addedString = `__debug__ = false;\n__model__ = \`${data.model}\`;\n`
+//         const fn = new Function('__modules__', ...val0, addedString + splittedString[1]);
+//         const result = fn(Modules, ...val1);
+//         resolve(result.result)
+//     });
+//     return await p;
+// }
 
 
 function generateParamVariations(params) {
@@ -521,10 +483,10 @@ function generateParamVariations(params) {
 }
 
 function mutateDesign(existing_design, params_details, all_params, newIDNum) {
-    // const newID = existing_design.ParamID.split('_');
+    // const newID = existing_design.id.split('_');
     // newID[newID.length - 1] = newIDNum
     const new_designs = {
-        'ParamID': existing_design.JobID + '_' + newIDNum,
+        'id': existing_design.JobID + '_' + newIDNum,
         'JobID': existing_design.JobID,
         'GenID': newIDNum,
         'genUrl': existing_design.genUrl,
@@ -593,10 +555,109 @@ function tournamentSelect(liveDesignList: any[], deadDesignList: any[], tourname
     }
 }
 
-export async function runGenEvalController(event) {
+async function getGenEvalFile(fileUrl): Promise<any> {
+    const s3 = new AWS.S3();
+    const filePromise = new Promise((resolve) => {
+        if (fileUrl.indexOf('s3.amazonaws') !== -1) {
+            const urlSplit = decodeURIComponent(fileUrl).split('.s3.amazonaws.com/');
+            const item = {
+                Bucket: urlSplit[0].replace('https://', ''), 
+                Key: urlSplit[1]
+            };
+            s3.getObject(item, function(err, data) {
+                if (err) {
+                    console.log(err, err.stack);
+                    resolve(null)
+                }
+                else     {
+                    resolve(data.Body.toString('utf-8'));
+                }
+            });
+        } else {
+            const request = new XMLHttpRequest();
+            request.open('GET', fileUrl);
+            request.onload = async () => {
+                if (request.status === 200) {
+                    resolve(request.responseText);
+                }
+                else {
+                    resolve(null);
+                }
+            };
+            request.send();
+        }
+    });
+    return filePromise;
+}
+
+async function getParentParam(parentJobID: string, paramList) {
+    const docClient = new AWS.DynamoDB.DocumentClient({region: 'us-east-1'});
+    const p = new Promise(resolve => {
+        docClient.query({
+            TableName: GEN_EVAL_DB,
+            IndexName: 'JobID-index',
+            KeyConditionExpression: 'JobID = :job ',
+            ExpressionAttributeValues: {
+                ':job': parentJobID
+            }
+        }, function (err, response) {
+            if (err) {
+                console.log('Error retrieving parent data:', err);
+                resolve(null);
+            }
+            else {
+                console.log('_____',response)
+                resolve(response.Items);
+            }
+        });
+    })
+    let parentItems: any = await p;
+    if (!parentItems) { return; }
+    parentItems = parentItems.filter( (item: any) => item.live !== undefined && item.score !== undefined )
+    parentItems = parentItems.sort((a: any, b: any) => {
+        if (a.live !== b.live) { return b.live - a.live; }
+        return b.score - a.score;
+    })
+    console.log('parent items: ',parentItems)
+    for (let i = 0; i < paramList.length; i++) {
+        if (i >= parentItems.length) {
+            break;
+        }
+        paramList[i].params = parentItems[i].params;
+    }
+}
+
+async function updateJobDB(jobID: string, run: boolean, status: string): Promise<boolean> {
+    const docClient = new AWS.DynamoDB.DocumentClient({region: 'us-east-1'});
+    const jobDBUpdatePromise = new Promise<boolean> (resolve => {
+        docClient.update({
+            TableName : JOB_DB,
+            Key: {
+                id: jobID
+            },
+            UpdateExpression: "set endedAt=:t, run=:r, jobStatus=:s",
+            ExpressionAttributeValues:{
+                ":t": (new Date()).toISOString(),
+                ":r": run,
+                ":s": status,
+            },
+            ReturnValues: "UPDATED_NEW"
+        }, (err, record) => {
+            if (err) { console.log('error updating job db',err); resolve(false)}
+            else { console.log('successfully updating job db'); resolve(true)}
+        })
+    });
+    return jobDBUpdatePromise;
+}
+
+export async function runGenEvalController(input) {
     const docClient = new AWS.DynamoDB.DocumentClient({region: 'us-east-1'});
     const lambda = new AWS.Lambda({region: 'us-east-1'});
-
+    console.log('~~~ input: ',input)
+    const record = input.Records[0];
+    if (record.eventName !== 'INSERT') { return; }
+    console.log('DynamoDB Record: %j', record.dynamodb);
+    const event = AWS.DynamoDB.Converter.unmarshall(record.dynamodb.NewImage);
     if (!event.genUrl || !event.evalUrl) { return false; }
     let population_size = 20;
     if (event.population_size) {
@@ -621,59 +682,38 @@ export async function runGenEvalController(event) {
     }
     const expiration_time = Math.round(Date.now() / 1000) + expiration;
 
-    const genPromise = new Promise((resolve) => {
-        const request = new XMLHttpRequest();
-        request.open('GET', event.genUrl);
-        request.onload = async () => {
-            if (request.status === 200) {
-                const splittedString = request.responseText.split('/** * **/');
-                const argStrings = splittedString[0].split('// Parameter:');
-                const args = [];
-                if (argStrings.length > 1) {
-                    for (let i = 1; i < argStrings.length - 1; i++) {
-                        args.push(JSON.parse(argStrings[i]));
-                    }
-                    args.push(JSON.parse(argStrings[argStrings.length - 1].split('function')[0]));
-                }
-                args.forEach( x => {
-                    if (x.min && typeof x.min !== 'number') {
-                        x.min = Number(x.min);
-                    }
-                    if (x.max && typeof x.max !== 'number') {
-                        x.max = Number(x.max);
-                    }
-                    if (x.step && typeof x.step !== 'number') {
-                        x.step = Number(x.step);
-                    }
-                })
-                resolve([request.responseText, args]);
-            }
-            else {
-                resolve(null);
-            }
-        };
-        request.send();
-    });
-    const evalPromise = new Promise<String> ((resolve) => {
-        const request = new XMLHttpRequest();
-        request.open('GET', event.evalUrl);
-        request.onload = async () => {
-            if (request.status === 200) {
-                resolve(request.responseText);
-            }
-            else {
-                resolve(null);
-            }
-        };
-        request.send();
-    });
-    const genResult = await genPromise;
-    const evalFile = await evalPromise;
-    if (!evalFile || !genResult) {
+    const genFile = await getGenEvalFile(event.genUrl);
+    const evalFile = await getGenEvalFile(event.evalUrl);
+    if (!genFile) {
+        console.log('Error: Unable to Retrieve Gen File!')
         return false;
     }
-    const genFile = genResult[0];
-    const params = genResult[1];
+    if (!evalFile) {
+        console.log('Error: Unable to Retrieve Eval File!')
+        return false;
+    }
+    // const genFile = genResult[0];
+    const splittedString = genFile.split('/** * **/');
+    const argStrings = splittedString[0].split('// Parameter:');
+    const params = [];
+    if (argStrings.length > 1) {
+        for (let i = 1; i < argStrings.length - 1; i++) {
+            params.push(JSON.parse(argStrings[i]));
+        }
+        params.push(JSON.parse(argStrings[argStrings.length - 1].split('function')[0]));
+    }
+    params.forEach( x => {
+        if (x.min && typeof x.min !== 'number') {
+            x.min = Number(x.min);
+        }
+        if (x.max && typeof x.max !== 'number') {
+            x.max = Number(x.max);
+        }
+        if (x.step && typeof x.step !== 'number') {
+            x.step = Number(x.step);
+        }
+    })
+
     const paramVariations = generateParamVariations(params)
     const totalCount = paramVariations.pop();
     if (!params) { return false; }
@@ -727,6 +767,10 @@ export async function runGenEvalController(event) {
         }
     }
 
+    if (event.parentID) {
+        await getParentParam(event.parentID, paramList)
+    }
+
     let ID
     if (event.id) {
         ID = event.id
@@ -742,7 +786,7 @@ export async function runGenEvalController(event) {
     for (let i = 0; i < paramList.length; i++) {
         const paramSet = paramList[i];
         liveEntries.push({
-            'ParamID': ID + '_' + i,
+            'id': ID + '_' + i,
             'JobID': ID.toString(),
             'GenID': i.toString(),
             'genUrl': event.genUrl,
@@ -758,6 +802,28 @@ export async function runGenEvalController(event) {
     }
     let designCount = liveEntries.length;
     while (designCount < maxDesigns) {
+        const runCheckPromise = new Promise(resolve => {
+            docClient.get({
+                TableName : JOB_DB,
+                Key: {
+                    id: event.id
+                }
+            }, (err, record) => {
+                if (err) {
+                    console.log(err);
+                    resolve(null);
+                }
+                else {
+                    resolve(record.Item.run);}
+            })
+        });
+        const runCheck = await runCheckPromise;
+        if (!runCheck) {
+            await Promise.all(updateDynamoPromises);
+            await updateJobDB(event.id, false, 'cancelled')
+            return false;
+        }
+
         const mutationNumber = liveEntries.length < (maxDesigns - designCount)? liveEntries.length : maxDesigns - designCount;
         for (let i = 0; i < mutationNumber; i++) {
             liveEntries.push(mutateDesign(liveEntries[i], params, paramList, designCount + i));
@@ -796,19 +862,6 @@ export async function runGenEvalController(event) {
                         })
                     }
                 })
-
-                // runGenTest(entry, genFile).then( result => {
-                //     if (result) {
-                //         console.log('success gen: ',entry.ParamID)
-                //         runEvalTest(entry, result, evalFile).then( (evalResult: any) => {
-                //             entry.score = evalResult.score;
-                //             entry.evalResult = evalResult;
-                //             resolve(null);
-                //         })
-                //     } else {
-                //         console.log('failed gen:', entry.ParamID)
-                //     }
-                // });
             }));
         }
         await Promise.all(promiseList);
@@ -822,9 +875,9 @@ export async function runGenEvalController(event) {
             if (!entry.scoreWritten) {
                 entry.scoreWritten = true;
                 const updateEntry = {
-                    TableName: 'GenEvalParam',
+                    TableName: GEN_EVAL_DB,
                     Key:{
-                        "ParamID": entry.ParamID
+                        "id": entry.id
                     },
                     UpdateExpression: "set score=:s, evalResult=:e",
                     ExpressionAttributeValues:{
@@ -852,9 +905,9 @@ export async function runGenEvalController(event) {
             if (!entry.deadWritten) {
                 entry.deadWritten = true;
                 const updateEntry = {
-                    TableName: 'GenEvalParam',
+                    TableName: GEN_EVAL_DB,
                     Key:{
-                        "ParamID": entry.ParamID
+                        "id": entry.id
                     },
                     UpdateExpression: "set live = :l, score=:s, evalResult=:e, expirationTime=:x",
                     ExpressionAttributeValues:{
@@ -879,48 +932,18 @@ export async function runGenEvalController(event) {
                 updateDynamoPromises.push(p)
             }
         }
-
-        // if (topScores.length < 10) { break; }
-        // topScores = topScores.sort((a,b) => b - a).slice(0,10);
-        // for (const entry of entries){
-        //     if (entry.live && entry.score < topScores[9]) {
-        //         entry.live = false
-        //         const updateEntry = {
-        //             TableName: 'GenEvalParam',
-        //             Key:{
-        //                 "ParamID": entry.ParamID
-        //             },
-        //             UpdateExpression: "set live = :s",
-        //             ExpressionAttributeValues:{
-        //                 ":s": false
-        //             },
-        //             ReturnValues: "UPDATED_NEW"
-        //         };
-        //         const p = new Promise( resolve => {
-        //             docClient.update(updateEntry, function (err, data) {
-        //                 if (err) {
-        //                     console.log('Error placing data:', err);
-        //                     resolve(null);
-        //                 }
-        //                 else {
-        //                     resolve(null);
-        //                 }
-        //             });
-        //         })
-        //         updateDynamoPromises.push(p)
-        //     }
-        // }
     }
     await Promise.all(updateDynamoPromises);
-    let s = '\n\nlive entries:';
-    for (const i of liveEntries) {
-        s += '\n' + i.score + ' ' + i.ParamID;
-    }
-    s += '\n\ndead entries:'
-    for (const i of deadEntries) {
-        s += '\n' + i.score + ' ' + i.ParamID;
-    }
-    console.log(s);
+    await updateJobDB(event.id, false, 'completed')
+    // let s = '\n\nlive entries:';
+    // for (const i of liveEntries) {
+    //     s += '\n' + i.score + ' ' + i.id;
+    // }
+    // s += '\n\ndead entries:'
+    // for (const i of deadEntries) {
+    //     s += '\n' + i.score + ' ' + i.id;
+    // }
+    // console.log(s);
     return true;
 }
 
