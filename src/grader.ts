@@ -76,7 +76,8 @@ const ErrorPostfix = '</h4></div>';
 const AMAZON_BUCKET_NAME = 'mooc-s3cf';
 
 const JOB_DB = 'Job-t3vtntjcprhkbk4lak5sqtfcpm-dev';
-const GEN_EVAL_DB = 'GenEvalParam-t3vtntjcprhkbk4lak5sqtfcpm-dev';
+const GEN_EVAL_PARAM_DB = 'GenEvalParam-t3vtntjcprhkbk4lak5sqtfcpm-dev';
+const GEN_EVAL_MODEL_DB = 'GenEvalModel';
 
 export async function gradeFile_URL(event: {'file': String, 
                                             'question': String,
@@ -315,27 +316,49 @@ export async function runGen(data) {
             const result = fn(Modules, ...val1);
             const model = JSON.stringify(result.model.getData()).replace(/\\/g, '\\\\');
 
-            const params = {
-                TableName: GEN_EVAL_DB,
+            let checkModelDB = false;
+            let checkParamDB = false;
+            const models = {
+                TableName: GEN_EVAL_MODEL_DB,
                 Item: {
                     'id': data.id,
-                    'JobID': data.JobID,
-                    'GenID': data.GenID,
-                    'params': data.params,
-                    // 'genUrl': data.genUrl,
-                    // 'evalUrl': data.evalUrl,
-                    'model': model,
-                    'live': true
+                    'model': model
                 }
             };
-            docClient.put(params, function (err, data) {
+            docClient.put(models, function (err, result) {
                 if (err) {
                     console.log('Error placing gen data:', err);
                     resolve(false);
                 }
                 else {
-                    console.log('successfully placed data');
-                    resolve(true);
+                    checkModelDB = true;
+                    if (checkParamDB) {
+                        resolve(true)
+                    }
+                }
+            });
+            const params = {
+                TableName: GEN_EVAL_PARAM_DB,
+                Item: {
+                    'id': data.id,
+                    'JobID': data.JobID,
+                    'GenID': data.GenID,
+                    'params': data.params,
+                    'owner': data.owner,
+                    'live': true
+                }
+            };
+            docClient.put(params, function (err, result) {
+                if (err) {
+                    console.log('Error placing gen data:', err);
+                    resolve(false);
+                }
+                else {
+                    checkParamDB = true;
+                    if (checkModelDB) {
+                        console.log('successfully placed data');
+                        resolve(true);
+                    }
                 }
             });
         });
@@ -349,7 +372,7 @@ export async function runEval(recordInfo) {
     console.log('param id:', recordInfo.id);
     const p = new Promise((resolve) => {
         docClient.get({
-            "TableName": GEN_EVAL_DB,
+            "TableName": GEN_EVAL_MODEL_DB,
             "Key": {
                 "id":  recordInfo.id
             },
@@ -420,7 +443,7 @@ export async function runEval(recordInfo) {
 //         const model = JSON.stringify(result.model.getData()).replace(/\\/g, '\\\\');
 
 //         const params = {
-//             TableName: GEN_EVAL_DB,
+//             TableName: GEN_EVAL_PARAM_DB,
 //             Item: {
 //                 'id': data.id,
 //                 'params': data.params,
@@ -491,6 +514,7 @@ function mutateDesign(existing_design, params_details, all_params, newIDNum) {
         'GenID': newIDNum,
         'genUrl': existing_design.genUrl,
         'evalUrl': existing_design.evalUrl,
+        'owner': existing_design.owner,
         'params': null,
         'score': null,
         'live': true,
@@ -594,8 +618,8 @@ async function getParentParam(parentJobID: string, paramList) {
     const docClient = new AWS.DynamoDB.DocumentClient({region: 'us-east-1'});
     const p = new Promise(resolve => {
         docClient.query({
-            TableName: GEN_EVAL_DB,
-            IndexName: 'JobID-index',
+            TableName: GEN_EVAL_PARAM_DB,
+            IndexName: 'byJobID',
             KeyConditionExpression: 'JobID = :job ',
             ExpressionAttributeValues: {
                 ':job': parentJobID
@@ -791,6 +815,7 @@ export async function runGenEvalController(input) {
             'GenID': i.toString(),
             'genUrl': event.genUrl,
             'evalUrl': event.evalUrl,
+            'owner': event.owner,
             'params': paramSet,
             'score': null,
             'evalResult': null,
@@ -874,20 +899,20 @@ export async function runGenEvalController(input) {
         for (const entry of liveEntries){
             if (!entry.scoreWritten) {
                 entry.scoreWritten = true;
-                const updateEntry = {
-                    TableName: GEN_EVAL_DB,
+                const updateParamEntry = {
+                    TableName: GEN_EVAL_PARAM_DB,
                     Key:{
                         "id": entry.id
                     },
-                    UpdateExpression: "set score=:s, evalResult=:e",
+                    UpdateExpression: "set score=:sc, evalResult=:ev",
                     ExpressionAttributeValues:{
-                        ":s": entry.score,
-                        ":e": entry.evalResult
+                        ":sc": entry.score,
+                        ":ev": entry.evalResult
                     },
                     ReturnValues: "UPDATED_NEW"
                 };
                 const p = new Promise( resolve => {
-                    docClient.update(updateEntry, function (err, data) {
+                    docClient.update(updateParamEntry, function (err, data) {
                         if (err) {
                             console.log('Error placing data:', err);
                             resolve(null);
@@ -904,8 +929,8 @@ export async function runGenEvalController(input) {
         for (const entry of deadEntries){
             if (!entry.deadWritten) {
                 entry.deadWritten = true;
-                const updateEntry = {
-                    TableName: GEN_EVAL_DB,
+                const updateParamEntry = {
+                    TableName: GEN_EVAL_PARAM_DB,
                     Key:{
                         "id": entry.id
                     },
@@ -918,14 +943,42 @@ export async function runGenEvalController(input) {
                     },
                     ReturnValues: "UPDATED_NEW"
                 };
+                const updateModelEntry = {
+                    TableName: GEN_EVAL_MODEL_DB,
+                    Key:{
+                        "id": entry.id
+                    },
+                    UpdateExpression: "set expirationTime=:ex",
+                    ExpressionAttributeValues:{
+                        ":ex": entry.expiry
+                    },
+                    ReturnValues: "UPDATED_NEW"
+                };
                 const p = new Promise( resolve => {
-                    docClient.update(updateEntry, function (err, data) {
+                    let checkParamDB = false;
+                    let checkModelDB = false;
+                    docClient.update(updateParamEntry, function (err, data) {
                         if (err) {
                             console.log('Error placing data:', err);
                             resolve(null);
                         }
                         else {
+                            checkParamDB = true;
+                            if (checkModelDB) {
+                                resolve(null);
+                            }
+                        }
+                    });
+                    docClient.update(updateModelEntry, function (err, data) {
+                        if (err) {
+                            console.log('Error placing data:', err);
                             resolve(null);
+                        }
+                        else {
+                            checkModelDB = true;
+                            if (checkParamDB) {
+                                resolve(null);
+                            }
                         }
                     });
                 })
