@@ -1,5 +1,5 @@
 import { GIModel } from './GIModel';
-import { IGeomArrays, EEntType, TFace } from './common';
+import { IGeomMaps, EEntType, TFace } from './common';
 import { GIGeom } from './GIGeom';
 
 /**
@@ -7,13 +7,13 @@ import { GIGeom } from './GIGeom';
  */
 export class GIGeomCompare {
     private _geom: GIGeom;
-    private _geom_arrays: IGeomArrays;
+    private _geom_maps: IGeomMaps;
     /**
      * Constructor
      */
-    constructor(geom: GIGeom, geom_arrays: IGeomArrays) {
+    constructor(geom: GIGeom, geom_arrays: IGeomMaps) {
         this._geom = geom;
-        this._geom_arrays = geom_arrays;
+        this._geom_maps = geom_arrays;
     }
 
     /**
@@ -42,8 +42,8 @@ export class GIGeomCompare {
         for (const ent_type of eny_types) {
             // total marks is not updated, we deduct marks
             // get the number of entitoes in each model
-            const this_num_ents: number = this._geom.query.numEnts(ent_type, false);
-            const other_num_ents: number = other_model.geom.query.numEnts(ent_type, false);
+            const this_num_ents: number = this._geom.query.numEnts(ent_type);
+            const other_num_ents: number = other_model.modeldata.geom.query.numEnts(ent_type);
             if (this_num_ents > other_num_ents) {
                 geom_comments.push([
                     'Mismatch: Model has too few entities of type:',
@@ -76,11 +76,11 @@ export class GIGeomCompare {
      * For making holes in faces, it is safer to use the cutFaceHoles method.
      */
     public setPgonHoles(face_i: number, holes_i: number[]): void {
-        const face: TFace = this._geom_arrays.dn_faces_wirestris[face_i];
-        const boundary_i: number = face[0][0];
-        face[0] = [boundary_i];
+        const face: TFace = this._geom_maps.dn_faces_wires.get(face_i);
+        const wires_i: number[] = [face[0]];
         for (let i = 0; i < holes_i.length; i++) {
-            face[0][i + 1] = holes_i[i];
+            wires_i.push( holes_i[i] );
         }
+        this._geom_maps.dn_faces_wires.set(face_i, wires_i);
     }
 }

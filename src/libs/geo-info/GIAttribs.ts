@@ -2,9 +2,10 @@ import { GIAttribsAdd } from './GIAttribsAdd';
 import { GIAttribsThreejs } from './GIAttribsThreejs';
 import { GIAttribsQuery } from './GIAttribsQuery';
 import { GIModel } from './GIModel';
-import { EEntType, EAttribNames,  IAttribsData, EAttribDataTypeStrs, IAttribsMaps } from './common';
+import { EEntType, EAttribNames,  IAttribsJSONData, EAttribDataTypeStrs, IAttribsMaps, TAttribMap } from './common';
 import { GIAttribsIO } from './GIAttribsIO';
 import { GIAttribsModify } from './GIAttribModify';
+import { GIModelData } from './GIModelData';
 
 function hashCode(s: string) {
     let h: number;
@@ -14,12 +15,35 @@ function hashCode(s: string) {
     }
     return h;
 }
-
+const eny_type_array: EEntType[] = [
+    EEntType.POSI,
+    EEntType.VERT,
+    EEntType.EDGE,
+    EEntType.WIRE,
+    EEntType.FACE,
+    EEntType.POINT,
+    EEntType.PLINE,
+    EEntType.PGON,
+    EEntType.COLL,
+    EEntType.MOD
+];
+const ent_type_strs: Map<EEntType, string> = new Map([
+    [EEntType.POSI, 'positions'],
+    [EEntType.VERT, 'vertices'],
+    [EEntType.EDGE, 'edges'],
+    [EEntType.WIRE, 'wires'],
+    [EEntType.FACE, 'faces'],
+    [EEntType.POINT, 'points'],
+    [EEntType.PLINE, 'polylines'],
+    [EEntType.PGON, 'polygons'],
+    [EEntType.COLL, 'collections'],
+    [EEntType.MOD, 'model']
+]);
 /**
  * Class for attributes.
  */
 export class GIAttribs {
-    private _model: GIModel;
+    private _modeldata: GIModelData;
     // maps, the key is the name, the value is the attrib map clas
     public _attribs_maps: IAttribsMaps = { // TODO this should not be public
         ps: new Map(),
@@ -41,15 +65,16 @@ export class GIAttribs {
     public threejs: GIAttribsThreejs;
    /**
      * Creates an object to store the attribute data.
-     * @param model The JSON data
+     * @param modeldata The JSON data
      */
-    constructor(model: GIModel) {
-        this._model = model;
-        this.io = new GIAttribsIO(model, this._attribs_maps);
-        this.add = new GIAttribsAdd(model, this._attribs_maps);
-        this.modify = new GIAttribsModify(model, this._attribs_maps);
-        this.query = new GIAttribsQuery(model, this._attribs_maps);
-        this.threejs = new GIAttribsThreejs(model, this._attribs_maps);
+    constructor(modeldata: GIModelData) {
+        this._modeldata = modeldata;
+        this.io = new GIAttribsIO(modeldata, this._attribs_maps);
+        this.add = new GIAttribsAdd(modeldata, this._attribs_maps);
+        this.modify = new GIAttribsModify(modeldata, this._attribs_maps);
+        this.query = new GIAttribsQuery(modeldata, this._attribs_maps);
+        this.threejs = new GIAttribsThreejs(modeldata, this._attribs_maps);
+        // create xyz on posis
         this.add.addAttrib(EEntType.POSI, EAttribNames.COORDS, EAttribDataTypeStrs.LIST);
     }
     /**
@@ -65,30 +90,6 @@ export class GIAttribs {
      */
     compare(other_model: GIModel, result: {score: number, total: number, comment: any[]}): void {
         result.comment.push('Comparing attribute names and types.');
-        const eny_type_array: EEntType[] = [
-            EEntType.POSI,
-            EEntType.VERT,
-            EEntType.EDGE,
-            EEntType.WIRE,
-            EEntType.FACE,
-            EEntType.POINT,
-            EEntType.PLINE,
-            EEntType.PGON,
-            EEntType.COLL,
-            EEntType.MOD
-        ];
-        const ent_type_strs: Map<EEntType, string> = new Map([
-            [EEntType.POSI, 'positions'],
-            [EEntType.VERT, 'vertices'],
-            [EEntType.EDGE, 'edges'],
-            [EEntType.WIRE, 'wires'],
-            [EEntType.FACE, 'faces'],
-            [EEntType.POINT, 'points'],
-            [EEntType.PLINE, 'polylines'],
-            [EEntType.PGON, 'polygons'],
-            [EEntType.COLL, 'collections'],
-            [EEntType.MOD, 'model']
-        ]);
         // compare all attributes except model attributes
         // check that this model is a subset of other model
         // all the attributes in this model must also be in other model
@@ -98,8 +99,8 @@ export class GIAttribs {
         for (const ent_type of eny_type_array) {
             // get the attrib names
             const ent_type_str: string = ent_type_strs.get(ent_type);
-            const this_attrib_names: string[] = this._model.attribs.query.getAttribNames(ent_type);
-            const other_attrib_names: string[] = other_model.attribs.query.getAttribNames(ent_type);
+            const this_attrib_names: string[] = this._modeldata.attribs.query.getAttribNames(ent_type);
+            const other_attrib_names: string[] = other_model.modeldata.attribs.query.getAttribNames(ent_type);
             attrib_names.set(ent_type, this_attrib_names);
             // check that each attribute in this model exists in the other model
             for (const this_attrib_name of this_attrib_names) {
@@ -116,8 +117,10 @@ export class GIAttribs {
                     attrib_comments.push('The "' + this_attrib_name + '" ' + ent_type_str + ' attribute is missing.');
                 } else {
                     // get the data types
-                    const data_type_1: EAttribDataTypeStrs = this._model.attribs.query.getAttribDataType(ent_type, this_attrib_name);
-                    const data_type_2: EAttribDataTypeStrs = other_model.attribs.query.getAttribDataType(ent_type, this_attrib_name);
+                    const data_type_1: EAttribDataTypeStrs =
+                        this._modeldata.attribs.query.getAttribDataType(ent_type, this_attrib_name);
+                    const data_type_2: EAttribDataTypeStrs =
+                        other_model.modeldata.attribs.query.getAttribDataType(ent_type, this_attrib_name);
                     // compare data types
                     if (data_type_1 !== data_type_2) {
                         matches = false;
@@ -154,5 +157,25 @@ export class GIAttribs {
         }
         // add to result
         result.comment.push(attrib_comments);
+    }
+    /**
+     * Generate a string for debugging
+     */
+    public toStr(): string {
+        let result = '';
+        for (const ent_type of eny_type_array) {
+            const ent_type_str: string = ent_type_strs.get(ent_type);
+            result += ent_type_str + ': ';
+            if (ent_type === EEntType.MOD) {
+                // TODO
+            } else {
+                const attrib_names: string[] = this.query.getAttribNames(ent_type);
+                for (const attrib_name of attrib_names) {
+                    result += JSON.stringify(this.query.getAttrib(ent_type, attrib_name).getJSONData());
+                    result += '\n';
+                }
+            }
+        }
+        return result;
     }
 }

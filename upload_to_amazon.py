@@ -23,12 +23,16 @@ except ImportError:
     raise ImportError()
 
 
+
 dist_package_json_file = 'dist_package.json'
 
 # access id and key and your mobius folder directory, getting from __AMAZON_KEY__.py file
 aws_access_key_id = __AMAZON_KEY__.aws_access_key_id
 aws_secret_access_key = __AMAZON_KEY__.aws_secret_access_key
-mobius_directory = __AMAZON_KEY__.mobius_directory
+
+# mobius_directory = 'C:\\Users\\akibdpt\\Documents\\Angular\\mobius-parametric-modeller'
+# mobius_directory = 'C:\\Users\\akibdpt\\Documents\\Angular\\mobius-parametric-modeller-dev'
+mobius_directory = 'C:\\Users\\akibdpt\\Documents\\Angular\\mobius-parametric-modeller-dev-0-6'
 
 # the lambda function name
 MAIN_FUNCTION = 'arn:aws:lambda:us-east-1:114056409474:function:Mobius_edx_Grader'
@@ -46,9 +50,12 @@ FUNC_NAME = [
     # DEV_FUNCTION
     # RUN_JAVASCRIPT_FUNC
 
-    GEN_FUNC,
     EVAL_FUNC,
-    CTRL_FUNC
+    GEN_FUNC,
+    CTRL_FUNC,
+
+    # GEN_FUNC,
+    # EVAL_FUNC
 ]
 
 
@@ -60,6 +67,17 @@ def copy_from_mobius():
     core_dir = mobius_directory + '\\src\\assets\\core'
     libs_dir = mobius_directory + '\\src\\assets\\libs'
     destination = current_working_dir + '\\src'
+
+    try:
+        shutil.rmtree(current_working_dir + '\\src\\core')
+    except Exception:
+        pass
+    try:
+        shutil.rmtree(current_working_dir + '\\src\\libs')
+    except Exception:
+        pass
+    os.mkdir(current_working_dir + '\\src\\core')
+    os.mkdir(current_working_dir + '\\src\\libs')
 
     copy_files(core_dir, destination)
     copy_files(libs_dir, destination)

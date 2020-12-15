@@ -1,20 +1,18 @@
-import { EEntType, TTri, TEdge, TWire, TFace, IGeomArrays, Txyz, TColl, TVert, EWireType } from './common';
+import { EEntType, IGeomMaps, EWireType } from './common';
 import { GIGeom } from './GIGeom';
-import { arrRem, arrIdxAdd } from '../util/arrs';
-import { vecDot } from '../geom/vectors';
 
 /**
  * Class for deleting geometry.
  */
 export class GIGeomDelEdge {
     private _geom: GIGeom;
-    private _geom_arrays: IGeomArrays;
+    private _geom_maps: IGeomMaps;
     /**
      * Constructor
      */
-    constructor(geom: GIGeom, geom_arrays: IGeomArrays) {
+    constructor(geom: GIGeom, geom_arrays: IGeomMaps) {
         this._geom = geom;
-        this._geom_arrays = geom_arrays;
+        this._geom_maps = geom_arrays;
     }
     /**
      * Delete edges.
@@ -24,7 +22,7 @@ export class GIGeomDelEdge {
      */
     public delEdges(edges_i: number|number[], del_unused_posis: boolean, heal: boolean): void {
         // del attribs
-        this._geom.model.attribs.add.delEntFromAttribs(EEntType.EDGE, edges_i);
+        this._geom.modeldata.attribs.add.delEntFromAttribs(EEntType.EDGE, edges_i);
         // create array
         edges_i = (Array.isArray(edges_i)) ? edges_i : [edges_i];
         if (!edges_i.length) { return; }

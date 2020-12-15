@@ -94,7 +94,10 @@ const lists = [
     ['listCull(list)', 'Returns a new list of all the values that evaluate to true.'],
     ['listCull(list1, list2)', 'Returns a new list of all the values in list1 that evaluate to true in list2.'],
     ['listZip(lists)', 'Converts a set of lists from rows into columns, based on the shortest list'],
-    ['listZip2(lists)', 'Converts a set of lists from rows into columns, based on the longest list']
+    ['listZip2(lists)', 'Converts a set of lists from rows into columns, based on the longest list'],
+    ['listSort(list)', 'Returns a new list of sorted items in ascending order.'],
+    ['listSort(list, index)', 'Returns a new list of sorted lists, in ascending order of the index in the sub-lists.'],
+    ['listRev(list)', 'Returns a new list, with the items in reverse order.']
  ];
 
  const sets = [

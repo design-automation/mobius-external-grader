@@ -1,7 +1,7 @@
 
-import {  EEntType, IGeomArrays, EEntStrToGeomArray, TWire, Txyz, TColl, TEntTypeIdx,
-    IGeomPack, TFace, EWireType, Txy, TEdge, TPosi, TVert } from './common';
-import { isPosi, isVert, isPoint, isEdge, isWire, isPline, isFace, isPgon, isColl, isTri } from './id';
+import {  EEntType, IGeomMaps, EEntStrToGeomMaps, TWire, Txyz, TEntTypeIdx,
+    TFace, EWireType, TEdge, IEntSets } from './common';
+import { isPosi, isPoint, isPline, isPgon, isColl } from './id';
 import { GIGeom } from './GIGeom';
 import { vecFromTo, vecCross, vecDiv, vecNorm, vecLen, vecDot } from '../geom/vectors';
 import * as Mathjs from 'mathjs';
@@ -10,132 +10,48 @@ import * as Mathjs from 'mathjs';
  */
 export class GIGeomQuery {
     private _geom: GIGeom;
-    private _geom_arrays: IGeomArrays;
+    private _geom_maps: IGeomMaps;
     /**
      * Constructor
      */
-    constructor(geom: GIGeom, geom_arrays: IGeomArrays) {
+    constructor(geom: GIGeom, geom_arrays: IGeomMaps) {
         this._geom = geom;
-        this._geom_arrays = geom_arrays;
+        this._geom_maps = geom_arrays;
     }
     // ============================================================================
     // Entities
     // ============================================================================
-
     /**
-     * Returns a list of indices for all.
-     * ~
-     * If include_deleted=true, it will include ents that are null.
+     * Returns a list of indices for ents.
      * @param ent_type
      */
-    public getEnts(ent_type: EEntType, include_deleted: boolean): number[] {
-        // get posis indices array from up array: up_posis_verts
-        if (isPosi(ent_type)) {
-            const posis: number[][] = this._geom_arrays.up_posis_verts;
-            const posis_i: number[] = [];
-            if (include_deleted) {
-                let i = 0; const i_max = posis.length;
-                for (; i < i_max; i++ ) {
-                    const posi = posis[i];
-                    if (posi !== null) {
-                        posis_i.push(i);
-                    } else {
-                        posis_i.push(null); // TODO
-                    }
-                }
-            } else {
-                let i = 0; const i_max = posis.length;
-                for (; i < i_max; i++ ) {
-                    const posi = posis[i];
-                    if (posi !== null) {
-                        posis_i.push(i);
-                    }
-                }
-            }
-            return posis_i;
-        }
+    public getEnts(ent_type: EEntType): number[] {
         // get ents indices array from down arrays
-        const geom_array_key: string = EEntStrToGeomArray[ent_type];
-        const geom_array: any[] = this._geom_arrays[geom_array_key];
-        const ents_i: number[] = [];
-        if (include_deleted) {
-            let i = 0; const i_max = geom_array.length;
-            for (; i < i_max; i++ ) {
-                const ent = geom_array[i];
-                if (ent !== null) {
-                    ents_i.push(i);
-                } else {
-                    ents_i.push(null); // TODO
-                }
-            }
-        } else {
-            let i = 0; const i_max = geom_array.length;
-            for (; i < i_max; i++ ) {
-                const ent = geom_array[i];
-                if (ent !== null) {
-                    ents_i.push(i);
-                }
-            }
-        }
-        return ents_i;
+        const geom_map_key: string = EEntStrToGeomMaps[ent_type];
+        const geom_map: Map<number, any> = this._geom_maps[geom_map_key];
+        return Array.from(geom_map.keys());
+        // const ents_i: number[] = [];
+        // geom_map.forEach( (_, i) => ents_i.push(i) );
+        // return ents_i;
     }
     /**
      * Returns the number of entities
      */
-    public numEnts(ent_type: EEntType, include_deleted: boolean): number {
-        if (include_deleted) {
-            return this.getNumEntsInclDel(ent_type);
-        }
-        return this.getNumEntsExcDel(ent_type);
+    public numEnts(ent_type: EEntType): number {
+        const geom_array_key: string = EEntStrToGeomMaps[ent_type];
+        return this._geom_maps[geom_array_key].size;
     }
     /**
      * Returns the number of entities for [posis, point, polylines, polygons, collections].
      */
-    public numEntsAll(include_deleted: boolean): number[] {
-        if (include_deleted) {
-            return [
-                this.getNumEntsInclDel(EEntType.POSI),
-                this.getNumEntsInclDel(EEntType.POINT),
-                this.getNumEntsInclDel(EEntType.PLINE),
-                this.getNumEntsInclDel(EEntType.PGON),
-                this.getNumEntsInclDel(EEntType.COLL)
-            ];
-        }
+    public numEntsAll(): number[] {
         return [
-            this.getNumEntsExcDel(EEntType.POSI),
-            this.getNumEntsExcDel(EEntType.POINT),
-            this.getNumEntsExcDel(EEntType.PLINE),
-            this.getNumEntsExcDel(EEntType.PGON),
-            this.getNumEntsExcDel(EEntType.COLL)
+            this.numEnts(EEntType.POSI),
+            this.numEnts(EEntType.POINT),
+            this.numEnts(EEntType.PLINE),
+            this.numEnts(EEntType.PGON),
+            this.numEnts(EEntType.COLL)
         ];
-    }
-    private getNumEntsInclDel(ent_type: EEntType): number {
-        // get posis count from up array: up_posis_verts
-        if (isPosi(ent_type)) {
-            return this._geom_arrays.up_posis_verts.length;
-        }
-        // get ents count from down arrays
-        const geom_array_key: string = EEntStrToGeomArray[ent_type];
-        const geom_array: any[] = this._geom_arrays[geom_array_key];
-        return geom_array.length;
-    }
-    private getNumEntsExcDel(ent_type: EEntType): number {
-        let count = 0;
-        let geom_array: any[] = null;
-        if (isPosi(ent_type)) {
-            // get posis count from up array: up_posis_verts
-            geom_array = this._geom_arrays.up_posis_verts;
-        } else {
-            // get ents count from down arrays
-            const geom_array_key: string = EEntStrToGeomArray[ent_type];
-            geom_array = this._geom_arrays[geom_array_key];
-        }
-        for (let i = 0; i < geom_array.length; i++) {
-            if (geom_array[i] !== null) {
-                count += 1;
-            }
-        }
-        return count;
     }
     /**
      * Check if an entity exists
@@ -143,20 +59,14 @@ export class GIGeomQuery {
      * @param index
      */
     public entExists(ent_type: EEntType, index: number): boolean {
-        if (ent_type === EEntType.POSI) {
-            return (
-                this._geom_arrays.up_posis_verts[index] !== undefined &&
-                this._geom_arrays.up_posis_verts[index] !== null
-            );
-        }
-        const geom_arrays_key: string = EEntStrToGeomArray[ent_type];
-        return (
-            this._geom_arrays[geom_arrays_key][index] !== undefined &&
-            this._geom_arrays[geom_arrays_key][index] !== null
-        );
+        // if (ent_type === EEntType.POSI) {
+        //     return this._geom_maps.up_posis_verts.has(index);
+        // }
+        const geom_maps_key: string = EEntStrToGeomMaps[ent_type];
+        return this._geom_maps[geom_maps_key].has(index);
     }
     /**
-     * Returns a geompack of unique indexes, given an array of TEntTypeIdx.
+     * Returns sets of unique indexes, given an array of TEntTypeIdx.
      * ~
      * Object positions are added to the geompack.
      * ~
@@ -166,9 +76,9 @@ export class GIGeomQuery {
      * ~
      * Used for deleting all entities.
      */
-    public createGeomPack(ents: TEntTypeIdx[], invert: boolean = false): IGeomPack {
+    public getDelEntSets(ents: TEntTypeIdx[]): IEntSets {
         const set_posis_i: Set<number> = new Set();
-        const set_posis2_i: Set<number> = new Set();
+        const set_ent_posis_i: Set<number> = new Set();
         const set_points_i: Set<number> = new Set();
         const set_plines_i: Set<number> = new Set();
         const set_pgons_i: Set<number> = new Set();
@@ -182,13 +92,13 @@ export class GIGeomQuery {
                 coll_and_desc_i.splice(0, 0, ent_i);
                 // get all the objs
                 for (const one_coll_i of coll_and_desc_i) {
-                    for (const point_i of this._geom_arrays.dn_colls_objs[one_coll_i][1]) {
+                    for (const point_i of this._geom_maps.dn_colls_points.get(one_coll_i)) {
                         set_points_i.add(point_i);
                     }
-                    for (const pline_i of this._geom_arrays.dn_colls_objs[one_coll_i][2]) {
+                    for (const pline_i of this._geom_maps.dn_colls_plines.get(one_coll_i)) {
                         set_plines_i.add(pline_i);
                     }
-                    for (const pgon_i of this._geom_arrays.dn_colls_objs[one_coll_i][3]) {
+                    for (const pgon_i of this._geom_maps.dn_colls_pgons.get(one_coll_i)) {
                         set_pgons_i.add(pgon_i);
                     }
                     set_colls_i.add(one_coll_i);
@@ -207,65 +117,68 @@ export class GIGeomQuery {
         set_points_i.forEach( point_i => {
             const posis_i: number[] = this._geom.nav.navAnyToPosi(EEntType.POINT, point_i);
             for (const posi_i of posis_i) {
-                set_posis2_i.add(posi_i);
+                set_ent_posis_i.add(posi_i);
             }
         });
         set_plines_i.forEach( pline_i => {
             const posis_i: number[] = this._geom.nav.navAnyToPosi(EEntType.PLINE, pline_i);
             for (const posi_i of posis_i) {
-                set_posis2_i.add(posi_i);
+                set_ent_posis_i.add(posi_i);
             }
         });
         set_pgons_i.forEach( pgon_i => {
             const posis_i: number[] = this._geom.nav.navAnyToPosi(EEntType.PGON, pgon_i);
             for (const posi_i of posis_i) {
-                set_posis2_i.add(posi_i);
+                set_ent_posis_i.add(posi_i);
             }
         });
         // if no invert, then return the result
-        if (!invert) {
-            return {
-                posis_i: Array.from(set_posis_i),
-                posis2_i: Array.from(set_posis2_i),
-                points_i: Array.from(set_points_i),
-                plines_i: Array.from(set_plines_i),
-                pgons_i: Array.from(set_pgons_i),
-                colls_i: Array.from(set_colls_i)
-            };
-        }
-        // invert
-        const inv_colls_i: number[] = [];
-        for (let i = 0; i < this._geom_arrays.dn_colls_objs.length; i++) {
-            if (this._geom_arrays.dn_colls_objs[i] !== null && !set_colls_i.has(i)) { inv_colls_i.push(i); }
-        }
-        const inv_pgons_i: number[] = [];
-        for (let i = 0; i < this._geom_arrays.dn_pgons_faces.length; i++) {
-            if (this._geom_arrays.dn_pgons_faces[i] !== null && !set_pgons_i.has(i)) { inv_pgons_i.push(i); }
-        }
-        const inv_plines_i: number[] = [];
-        for (let i = 0; i < this._geom_arrays.dn_plines_wires.length; i++) {
-            if (this._geom_arrays.dn_plines_wires[i] !== null && !set_plines_i.has(i)) { inv_plines_i.push(i); }
-        }
-        const inv_points_i: number[] = [];
-        for (let i = 0; i < this._geom_arrays.dn_points_verts.length; i++) {
-            if (this._geom_arrays.dn_points_verts[i] !== null && !set_points_i.has(i)) { inv_points_i.push(i); }
-        }
-        const inv_posis2_i: number[] = [];
-        for (let i = 0; i < this._geom_arrays.up_posis_verts.length; i++) {
-            if (
-                this._geom_arrays.up_posis_verts[i] !== null &&
-                !set_posis2_i.has(i) && !set_posis_i.has(i) ) {
-                    inv_posis2_i.push(i);
-                }
-        }
         return {
-            posis_i: [],
-            posis2_i: inv_posis2_i,
-            points_i: inv_points_i,
-            plines_i: inv_plines_i,
-            pgons_i: inv_pgons_i,
-            colls_i: inv_colls_i
+            posis_i: set_posis_i,
+            points_i: set_points_i,
+            plines_i: set_plines_i,
+            pgons_i: set_pgons_i,
+            colls_i: set_colls_i,
+            obj_posis_i: set_ent_posis_i
         };
+    }
+    /**
+     * Fill a map of sets of unique indexes
+     */
+    public getEntSets(ents: TEntTypeIdx[], ent_types: number[]): Map<number, Set<number>> {
+        const set_ent_types: Set<number> = new Set(ent_types);
+        const map: Map<number, Set<number>> = new Map();
+        ent_types.forEach( ent_type => map.set(ent_type, new Set()) );
+        for (const [ent_type, ent_i] of ents) {
+            if (set_ent_types.has(EEntType.COLL)) {
+                this._geom.nav.navAnyToColl(ent_type, ent_i).forEach( coll_i => map.get(EEntType.COLL).add(coll_i) );
+            }
+            if (set_ent_types.has(EEntType.PGON)) {
+                this._geom.nav.navAnyToPgon(ent_type, ent_i).forEach( pgon_i => map.get(EEntType.PGON).add(pgon_i) );
+            }
+            if (set_ent_types.has(EEntType.PLINE)) {
+                this._geom.nav.navAnyToPline(ent_type, ent_i).forEach( pline_i => map.get(EEntType.PLINE).add(pline_i) );
+            }
+            if (set_ent_types.has(EEntType.POINT)) {
+                this._geom.nav.navAnyToPoint(ent_type, ent_i).forEach( point_i => map.get(EEntType.POINT).add(point_i) );
+            }
+            if (set_ent_types.has(EEntType.FACE)) {
+                this._geom.nav.navAnyToFace(ent_type, ent_i).forEach( face_i => map.get(EEntType.FACE).add(face_i) );
+            }
+            if (set_ent_types.has(EEntType.WIRE)) {
+                this._geom.nav.navAnyToWire(ent_type, ent_i).forEach( wire_i => map.get(EEntType.WIRE).add(wire_i) );
+            }
+            if (set_ent_types.has(EEntType.EDGE)) {
+                this._geom.nav.navAnyToEdge(ent_type, ent_i).forEach( edge_i => map.get(EEntType.EDGE).add(edge_i) );
+            }
+            if (set_ent_types.has(EEntType.VERT)) {
+                this._geom.nav.navAnyToVert(ent_type, ent_i).forEach( vert_i => map.get(EEntType.VERT).add(vert_i) );
+            }
+            if (set_ent_types.has(EEntType.POSI)) {
+                this._geom.nav.navAnyToPosi(ent_type, ent_i).forEach( posi_i => map.get(EEntType.POSI).add(posi_i) );
+            }
+        }
+        return map;
     }
     // ============================================================================
     // Posis
@@ -273,27 +186,11 @@ export class GIGeomQuery {
     /**
      * Returns a list of indices for all posis that have no verts
      */
-    public getUnusedPosis(include_deleted: boolean): number[] {
-        // get posis indices array from up array: up_posis_verts
-        const posis: number[][] = this._geom_arrays.up_posis_verts;
+    public getUnusedPosis(): number[] {
         const posis_i: number[] = [];
-        if (include_deleted) {
-            for (let i = 0; i < posis.length; i++ ) {
-                const posi = posis[i];
-                if (posi !== null) {
-                    if (posi.length === 0) { posis_i.push(i); }
-                } else {
-                    posis_i.push(null);
-                }
-            }
-        } else {
-            for (let i = 0; i < posis.length; i++ ) {
-                const posi = posis[i];
-                if (posi !== null) {
-                    if (posi.length === 0) { posis_i.push(i); }
-                }
-            }
-        }
+        this._geom_maps.up_posis_verts.forEach( (posi, posi_i) => {
+            if (posi.length === 0) { posis_i.push(posi_i); }
+        });
         return posis_i;
     }
     // ============================================================================
@@ -310,7 +207,7 @@ export class GIGeomQuery {
      */
     public getVertNonZeroEdges(vert_i: number): number[] {
         // get the wire start and end verts
-        const edges_i: number[] = this._geom_arrays.up_verts_edges[vert_i];
+        const edges_i: number[] = this._geom_maps.up_verts_edges.get(vert_i);
         const posi_coords: Txyz[] = [];
         // get the first edge
         let edge0 = null;
@@ -318,24 +215,24 @@ export class GIGeomQuery {
             let prev_edge_i: number = edges_i[0];
             while (edge0 === null) {
                 if (prev_edge_i === edges_i[1]) { break; }
-                const edge_verts_i: number[] = this._geom_arrays.dn_edges_verts[prev_edge_i];
+                const edge_verts_i: number[] = this._geom_maps.dn_edges_verts.get(prev_edge_i);
                 // first
-                const posi0_i: number =  this._geom_arrays.dn_verts_posis[edge_verts_i[0]];
+                const posi0_i: number =  this._geom_maps.dn_verts_posis.get(edge_verts_i[0]);
                 if ( posi_coords[posi0_i] === undefined) {
-                    posi_coords[posi0_i] = this._geom.model.attribs.query.getPosiCoords(posi0_i);
+                    posi_coords[posi0_i] = this._geom.modeldata.attribs.query.getPosiCoords(posi0_i);
                 }
                 const xyz0: Txyz = posi_coords[posi0_i];
                 // second
-                const posi1_i: number =  this._geom_arrays.dn_verts_posis[edge_verts_i[1]];
+                const posi1_i: number =  this._geom_maps.dn_verts_posis.get(edge_verts_i[1]);
                 if ( posi_coords[posi1_i] === undefined) {
-                    posi_coords[posi1_i] = this._geom.model.attribs.query.getPosiCoords(posi1_i);
+                    posi_coords[posi1_i] = this._geom.modeldata.attribs.query.getPosiCoords(posi1_i);
                 }
                 const xyz1: Txyz = posi_coords[posi1_i];
                 // check
                 if (Math.abs(xyz0[0] - xyz1[0]) > 0 || Math.abs(xyz0[1] - xyz1[1]) > 0 || Math.abs(xyz0[2] - xyz1[2]) > 0) {
                     edge0 = prev_edge_i;
                 } else {
-                    prev_edge_i = this._geom_arrays.up_verts_edges[edge_verts_i[0]][0];
+                    prev_edge_i = this._geom_maps.up_verts_edges.get(edge_verts_i[0])[0];
                     if (prev_edge_i === null || prev_edge_i === undefined) { break; }
                 }
             }
@@ -346,24 +243,24 @@ export class GIGeomQuery {
             let next_edge_i: number = edges_i[1];
             while (edge1 === null) {
                 if (next_edge_i === edges_i[0]) { break; }
-                const edge_verts_i: number[] = this._geom_arrays.dn_edges_verts[next_edge_i];
+                const edge_verts_i: number[] = this._geom_maps.dn_edges_verts.get(next_edge_i);
                 // first
-                const posi0_i: number =  this._geom_arrays.dn_verts_posis[edge_verts_i[0]];
+                const posi0_i: number =  this._geom_maps.dn_verts_posis.get(edge_verts_i[0]);
                 if ( posi_coords[posi0_i] === undefined) {
-                    posi_coords[posi0_i] = this._geom.model.attribs.query.getPosiCoords(posi0_i);
+                    posi_coords[posi0_i] = this._geom.modeldata.attribs.query.getPosiCoords(posi0_i);
                 }
                 const xyz0: Txyz = posi_coords[posi0_i];
                 // second
-                const posi1_i: number =  this._geom_arrays.dn_verts_posis[edge_verts_i[1]];
+                const posi1_i: number =  this._geom_maps.dn_verts_posis.get(edge_verts_i[1]);
                 if ( posi_coords[posi1_i] === undefined) {
-                    posi_coords[posi1_i] = this._geom.model.attribs.query.getPosiCoords(posi1_i);
+                    posi_coords[posi1_i] = this._geom.modeldata.attribs.query.getPosiCoords(posi1_i);
                 }
                 const xyz1: Txyz = posi_coords[posi1_i];
                 // check
                 if (Math.abs(xyz0[0] - xyz1[0]) > 0 || Math.abs(xyz0[1] - xyz1[1]) > 0 || Math.abs(xyz0[2] - xyz1[2]) > 0) {
                     edge1 = next_edge_i;
                 } else {
-                    next_edge_i = this._geom_arrays.up_verts_edges[edge_verts_i[1]][1];
+                    next_edge_i = this._geom_maps.up_verts_edges.get(edge_verts_i[1])[1];
                     if (next_edge_i === null || next_edge_i === undefined) { break; }
                 }
             }
@@ -380,8 +277,8 @@ export class GIGeomQuery {
      */
     public getNextEdge(edge_i: number): number {
         // get the wire start and end verts
-        const edge: TEdge = this._geom_arrays.dn_edges_verts[edge_i];
-        const edges_i: number[] = this._geom_arrays.up_verts_edges[edge[1]];
+        const edge: TEdge = this._geom_maps.dn_edges_verts.get(edge_i);
+        const edges_i: number[] = this._geom_maps.up_verts_edges.get(edge[1]);
         if (edges_i.length === 1) { return null; }
         return edges_i[1];
     }
@@ -391,8 +288,8 @@ export class GIGeomQuery {
      */
     public getPrevEdge(edge_i: number): number {
         // get the wire start and end verts
-        const edge: TEdge = this._geom_arrays.dn_edges_verts[edge_i];
-        const edges_i: number[] = this._geom_arrays.up_verts_edges[edge[0]];
+        const edge: TEdge = this._geom_maps.dn_edges_verts.get(edge_i);
+        const edges_i: number[] = this._geom_maps.up_verts_edges.get(edge[0]);
         if (edges_i.length === 1) { return null; }
         return edges_i[1];
     }
@@ -403,9 +300,9 @@ export class GIGeomQuery {
      */
     public getNeighborEdges(edge_i: number): number[] {
         // get the wire start and end verts
-        const edge: TEdge = this._geom_arrays.dn_edges_verts[edge_i];
-        const start_posi_i: number = this._geom_arrays.dn_verts_posis[edge[0]];
-        const end_posi_i: number = this._geom_arrays.dn_verts_posis[edge[1]];
+        const edge: TEdge = this._geom_maps.dn_edges_verts.get(edge_i);
+        const start_posi_i: number = this._geom_maps.dn_verts_posis.get(edge[0]);
+        const end_posi_i: number = this._geom_maps.dn_verts_posis.get(edge[1]);
         const start_edges_i: number[] = this._geom.nav.navAnyToEdge(EEntType.POSI, start_posi_i);
         const end_edges_i: number[] = this._geom.nav.navAnyToEdge(EEntType.POSI, end_posi_i);
         return Mathjs.setIntersect(start_edges_i, end_edges_i);
@@ -419,7 +316,7 @@ export class GIGeomQuery {
      */
     public isWireClosed(wire_i: number): boolean {
         // get the wire start and end verts
-        const wire: TWire = this._geom_arrays.dn_wires_edges[wire_i];
+        const wire: TWire = this._geom_maps.dn_wires_edges.get(wire_i);
         const num_edges: number = wire.length;
         const start_edge_i: number = wire[0];
         const end_edge_i: number = wire[num_edges - 1];
@@ -433,13 +330,13 @@ export class GIGeomQuery {
      */
     public getWireType(wire_i: number): EWireType {
         // get the wire start and end verts
-        const wire: TWire = this._geom_arrays.dn_wires_edges[wire_i];
+        const wire: TWire = this._geom_maps.dn_wires_edges.get(wire_i);
         if (this._geom.nav.navWireToPline(wire_i) !== undefined) {
             return EWireType.PLINE;
         }
         const face_i: number = this._geom.nav.navWireToFace(wire_i);
-        const face: TFace = this._geom.nav.getFace(face_i);
-        const index: number = face[0].indexOf(wire_i);
+        const face: TFace = this._geom_maps.dn_faces_wires.get(face_i); // nav.getFace(face_i);
+        const index: number = face.indexOf(wire_i);
         if (index === 0) { return EWireType.PGON; }
         if (index > 0) { return EWireType.PGON_HOLE; }
         throw new Error('Inconsistencies found in the internal data structure.');
@@ -451,12 +348,12 @@ export class GIGeomQuery {
      * @param wire_i
      */
     public getWireVerts(wire_i: number): number[] {
-        const edges_i: number[] = this._geom_arrays.dn_wires_edges[wire_i];
+        const edges_i: number[] = this._geom_maps.dn_wires_edges.get(wire_i);
         const verts_i: number[] = [];
         // walk the edges chain
         let next_edge_i: number = edges_i[0];
         for (let i = 0; i < edges_i.length; i++) {
-            const edge_verts_i: number[] = this._geom_arrays.dn_edges_verts[next_edge_i];
+            const edge_verts_i: number[] = this._geom_maps.dn_edges_verts.get(next_edge_i);
             verts_i.push(edge_verts_i[0]);
             next_edge_i = this.getNextEdge(next_edge_i);
             // are we at the end of the chain
@@ -472,95 +369,95 @@ export class GIGeomQuery {
     // ============================================================================
     // Objects
     // ============================================================================
-    /**
-     * Returns three arrays of pairs of maps, for points, plines, and pgons.
-     * This is used for creating a timeline, and is based on an attribute called "visible"
-     * on collections.
-     * The visible attribute is an array of strings, where each string is a time-stamp label.
-     * ~
-     * For the first map in each pair, keys are the group names, and values are a set of entitie IDs.
-     * For the second map in each pair, keys are the time-stamp names, and values are a set of group names.
-     * @return Array of arrays of maps.
-     */
-    public getObjVisGroups(): [ {}, Map<string, Set<string>> ] {
-        if (!this._geom.model.attribs.query.hasAttrib(EEntType.COLL, 'visible')) {
-            return null;
-        }
-        // return the result
-        const colls_i: number[] = this.getEnts(EEntType.COLL, false);
+    // /**
+    //  * Returns three arrays of pairs of maps, for points, plines, and pgons.
+    //  * This is used for creating a timeline, and is based on an attribute called "visible"
+    //  * on collections.
+    //  * The visible attribute is an array of strings, where each string is a time-stamp label.
+    //  * ~
+    //  * For the first map in each pair, keys are the group names, and values are a set of entitie IDs.
+    //  * For the second map in each pair, keys are the time-stamp names, and values are a set of group names.
+    //  * @return Array of arrays of maps.
+    //  */
+    // public getObjVisGroups(): [ {}, Map<string, Set<string>> ] {
+    //     if (!this._geom.modeldata.attribs.query.hasAttrib(EEntType.COLL, 'visible')) {
+    //         return null;
+    //     }
+    //     // return the result
+    //     const colls_i: number[] = this.getEnts(EEntType.COLL);
 
-        const full_obj_grp = {'default': []};
-        const full_lbl_grp = new Map<string, Set<string>>();
-        const grps = [  this._getObjVisGroups(colls_i, EEntType.POINT),
-                        this._getObjVisGroups(colls_i, EEntType.EDGE),
-                        this._getObjVisGroups(colls_i, EEntType.TRI)];
-        for (let i = 0; i < grps.length; i ++) {
-            const grp = grps[i];
-            console.log(grp)
-            full_obj_grp['default'][i] = grp[0].get('default');
-            grp[1].forEach((val, key) => {
-                let lbl_grp = full_lbl_grp.get(key);
-                if (!lbl_grp) { lbl_grp = new Set<string>(); }
-                for (const v of val) {
-                    lbl_grp.add(v);
-                    if (!full_obj_grp[v]) {
-                        full_obj_grp[v] = [null, null, null];
-                    }
-                    full_obj_grp[v][i] = grp[0].get(v);
-                }
-                full_lbl_grp.set(key, lbl_grp);
-            });
-        }
-        return [full_obj_grp, full_lbl_grp];
-    }
-    private _getObjVisGroups(colls_i: number[], ent_type: EEntType): [Map<string, Set<number>>, Map<string, Set<string>>] {
-        // get objects
-        const objs_i: number[] = this.getEnts(ent_type, false);
-        // create overlapping groups of objects
-        // keys are for example "2020", "2021" etc
-        // objects can be in more than one group
-        const obj_groups: Map<string, Set<number>> = new Map();
-        for (const coll_i of colls_i) {
-            const visibility: string[] = this._geom.model.attribs.query.getAttribVal(EEntType.COLL, 'visible', coll_i) as string[];
-            if (visibility !== undefined) {
-                // points
-                const coll_objs_i: number[] = this._geom.nav.navAnyToAny(EEntType.COLL, ent_type, coll_i);
-                if (coll_objs_i.length > 0) {
-                    for (const label of visibility) {
-                        if (!obj_groups.has(label)) { obj_groups.set(label, new Set()); }
-                    }
-                    for (const i of coll_objs_i) {
-                        for (const label of visibility) { obj_groups.get(label).add(i); }
-                    }
-                }
-            }
-        }
-        // create non-overlapping groups of objects
-        // keys are for example "2020_2021", "2022_2023_2024" etc
-        // objects will only be in one group
-        const obj_groups2: Map<string, Set<number>> = new Map();
-        const obj_labels2: Map<string, Set<string>> = new Map();
-        obj_groups2.set('default', new Set());
-        for (const i of objs_i) {
-            const labels: string[] = [];
-            obj_groups.forEach( (group, label) => {
-                if (group.has(i)) { labels.push(label); }
-            });
-            if (labels.length > 0) {
-                const label2 = labels.sort().join('_');
-                if (!obj_groups2.has(label2)) { obj_groups2.set(label2, new Set()); }
-                obj_groups2.get(label2).add(i);
-                for (const label of labels) {
-                    if (!obj_labels2.has(label)) { obj_labels2.set(label, new Set()); }
-                    obj_labels2.get(label).add(label2);
-                }
-            } else {
-                obj_groups2.get('default').add(i);
-            }
-        }
-        // return the result
-        return [obj_groups2, obj_labels2];
-    }
+    //     const full_obj_grp = {'default': []};
+    //     const full_lbl_grp = new Map<string, Set<string>>();
+    //     const grps = [  this._getObjVisGroups(colls_i, EEntType.POINT),
+    //                     this._getObjVisGroups(colls_i, EEntType.EDGE),
+    //                     this._getObjVisGroups(colls_i, EEntType.TRI)];
+    //     for (let i = 0; i < grps.length; i ++) {
+    //         const grp = grps[i];
+    //         console.log(grp)
+    //         full_obj_grp['default'][i] = grp[0].get('default');
+    //         grp[1].forEach((val, key) => {
+    //             let lbl_grp = full_lbl_grp.get(key);
+    //             if (!lbl_grp) { lbl_grp = new Set<string>(); }
+    //             for (const v of val) {
+    //                 lbl_grp.add(v);
+    //                 if (!full_obj_grp[v]) {
+    //                     full_obj_grp[v] = [null, null, null];
+    //                 }
+    //                 full_obj_grp[v][i] = grp[0].get(v);
+    //             }
+    //             full_lbl_grp.set(key, lbl_grp);
+    //         });
+    //     }
+    //     return [full_obj_grp, full_lbl_grp];
+    // }
+    // private _getObjVisGroups(colls_i: number[], ent_type: EEntType): [Map<string, Set<number>>, Map<string, Set<string>>] {
+    //     // get objects
+    //     const objs_i: number[] = this.getEnts(ent_type);
+    //     // create overlapping groups of objects
+    //     // keys are for example "2020", "2021" etc
+    //     // objects can be in more than one group
+    //     const obj_groups: Map<string, Set<number>> = new Map();
+    //     for (const coll_i of colls_i) {
+    //         const visibility: string[] = this._geom.modeldata.attribs.query.getAttribVal(EEntType.COLL, 'visible', coll_i) as string[];
+    //         if (visibility !== undefined) {
+    //             // points
+    //             const coll_objs_i: number[] = this._geom.nav.navAnyToAny(EEntType.COLL, ent_type, coll_i);
+    //             if (coll_objs_i.length > 0) {
+    //                 for (const label of visibility) {
+    //                     if (!obj_groups.has(label)) { obj_groups.set(label, new Set()); }
+    //                 }
+    //                 for (const i of coll_objs_i) {
+    //                     for (const label of visibility) { obj_groups.get(label).add(i); }
+    //                 }
+    //             }
+    //         }
+    //     }
+    //     // create non-overlapping groups of objects
+    //     // keys are for example "2020_2021", "2022_2023_2024" etc
+    //     // objects will only be in one group
+    //     const obj_groups2: Map<string, Set<number>> = new Map();
+    //     const obj_labels2: Map<string, Set<string>> = new Map();
+    //     obj_groups2.set('default', new Set());
+    //     for (const i of objs_i) {
+    //         const labels: string[] = [];
+    //         obj_groups.forEach( (group, label) => {
+    //             if (group.has(i)) { labels.push(label); }
+    //         });
+    //         if (labels.length > 0) {
+    //             const label2 = labels.sort().join('_');
+    //             if (!obj_groups2.has(label2)) { obj_groups2.set(label2, new Set()); }
+    //             obj_groups2.get(label2).add(i);
+    //             for (const label of labels) {
+    //                 if (!obj_labels2.has(label)) { obj_labels2.set(label, new Set()); }
+    //                 obj_labels2.get(label).add(label2);
+    //             }
+    //         } else {
+    //             obj_groups2.get('default').add(i);
+    //         }
+    //     }
+    //     // return the result
+    //     return [obj_groups2, obj_labels2];
+    // }
     // ============================================================================
     // Collections
     // ============================================================================
@@ -569,7 +466,7 @@ export class GIGeomQuery {
      * @param coll_i
      */
     public getCollParent(coll_i: number): number {
-        return this._geom_arrays.dn_colls_objs[coll_i][0];
+        return this._geom_maps.up_colls_colls.get(coll_i);
     }
     /**
      * Get the children collections of a collection.
@@ -577,12 +474,11 @@ export class GIGeomQuery {
      */
     public getCollChildren(coll_i: number): number[] {
         const children: number[] = [];
-        for (let i = 0; i < this._geom_arrays.dn_colls_objs.length; i++) {
-            const coll: TColl = this._geom_arrays.dn_colls_objs[i];
-            if (coll !== null && coll[0] === coll_i) {
-                children.push(i);
+        this._geom_maps.up_colls_colls.forEach( (coll2_parent, coll2_i) => {
+            if (coll2_parent === coll_i) {
+                children.push(coll2_i);
             }
-        }
+        });
         return children;
     }
     /**
@@ -591,10 +487,10 @@ export class GIGeomQuery {
      */
     public getCollAncestors(coll_i: number): number[] {
         const ancestor_colls_i: number[] = [];
-        let parent_coll_i: number = this._geom_arrays.dn_colls_objs[coll_i][0];
-        while (parent_coll_i !== -1) {
+        let parent_coll_i: number = this._geom_maps.up_colls_colls.get(coll_i);
+        while (parent_coll_i !== null) {
             ancestor_colls_i.push(parent_coll_i);
-            parent_coll_i = this._geom_arrays.dn_colls_objs[parent_coll_i][0];
+            parent_coll_i = this._geom_maps.up_colls_colls.get(parent_coll_i);
         }
         return ancestor_colls_i;
     }
@@ -604,14 +500,13 @@ export class GIGeomQuery {
      */
     public getCollDescendents(coll_i: number): number[] {
         const descendent_colls_i: number[] = [];
-        for (let i = 0; i < this._geom_arrays.dn_colls_objs.length; i++) {
-            const coll: TColl = this._geom_arrays.dn_colls_objs[i];
-            if (coll !== null && coll[0] !== -1 && i !== coll_i) {
-                if (this.isCollDescendent(i, coll_i)) {
-                    descendent_colls_i.push(i);
+        this._geom_maps.up_colls_colls.forEach( (coll2_parent, coll2_i) => {
+            if (coll2_parent !== null && coll2_i !== coll_i) {
+                if (this.isCollDescendent(coll2_i, coll_i)) {
+                    descendent_colls_i.push(coll2_i);
                 }
             }
-        }
+        });
         return descendent_colls_i;
     }
     /**
@@ -619,10 +514,16 @@ export class GIGeomQuery {
      * @param coll_i
      */
     public isCollDescendent(coll1_i: number, coll2_i: number): boolean {
-        let parent_coll_i: number = this._geom_arrays.dn_colls_objs[coll1_i][0];
-        while (parent_coll_i !== -1) {
+        let parent_coll_i: number = this._geom_maps.up_colls_colls.get(coll1_i);
+        while (parent_coll_i !== null) {
+            // START TEMPORARY FIX
+            if (parent_coll_i === undefined) {
+                console.log("=== ERROR PARENT OF COLLECTION IS UNDEFINED ===");
+                return false;
+            }
+            // END TEMPORARY FIX
             if (parent_coll_i === coll2_i) { return true; }
-            parent_coll_i = this._geom_arrays.dn_colls_objs[parent_coll_i][0];
+            parent_coll_i = this._geom_maps.up_colls_colls.get(parent_coll_i);
         }
         return false;
     }
@@ -631,24 +532,13 @@ export class GIGeomQuery {
      * @param coll_i
      */
     public isCollAncestor(coll1_i: number, coll2_i: number): boolean {
-        let parent_coll_i: number = this._geom_arrays.dn_colls_objs[coll2_i][0];
-        while (parent_coll_i !== -1) {
+        let parent_coll_i: number = this._geom_maps.up_colls_colls.get(coll2_i);
+        while (parent_coll_i !== null) {
             if (parent_coll_i === coll1_i) { return true; }
-            parent_coll_i = this._geom_arrays.dn_colls_objs[parent_coll_i][0];
+            parent_coll_i = this._geom_maps.up_colls_colls.get(parent_coll_i);
         }
         return false;
     }
-    // /**
-    //  * I am not sure what this is... TODO
-    //  * A collection can only have one parent
-    //  * @param coll_i
-    //  */
-    // public getCollParents(coll_i: number) {
-    //     const coll: TColl = this._geom_arrays.dn_colls_objs[coll_i];
-    //     // @ts-ignore
-    //     const _parents = coll.flat(1).filter(function (el) {return el != null; });
-    //     return _parents;
-    // }
     // ============================================================================
     // Faces
     // ============================================================================
@@ -657,16 +547,14 @@ export class GIGeomQuery {
      * @param face_i
      */
     public getFaceBoundary(face_i: number): number {
-        const wires_i: number[] = this._geom_arrays.dn_faces_wirestris[face_i][0];
-        return wires_i[0];
+        return this._geom_maps.dn_faces_wires.get(face_i)[0];
     }
     /**
      *
      * @param face_i
      */
     public getFaceHoles(face_i: number): number[] {
-        const wires_i: number[] = this._geom_arrays.dn_faces_wirestris[face_i][0];
-        return wires_i.slice(1);
+        return this._geom_maps.dn_faces_wires.get(face_i).slice(1);
     }
     /**
      *
@@ -674,11 +562,11 @@ export class GIGeomQuery {
      */
     public getFaceNormal(face_i: number): Txyz {
         const normal: Txyz = [0, 0, 0];
-        const tris_i: number[] = this._geom._geom_arrays.dn_faces_wirestris[face_i][1];
+        const tris_i: number[] = this._geom._geom_maps.dn_faces_tris.get(face_i);
         let count = 0;
         for (const tri_i of tris_i) {
-            const posis_i: number[] = this._geom_arrays.dn_tris_verts[tri_i].map(vert_i => this._geom_arrays.dn_verts_posis[vert_i]);
-            const xyzs: Txyz[] = posis_i.map(posi_i => this._geom.model.attribs.query.getPosiCoords(posi_i));
+            const posis_i: number[] = this._geom_maps.dn_tris_verts.get(tri_i).map(vert_i => this._geom_maps.dn_verts_posis.get(vert_i));
+            const xyzs: Txyz[] = posis_i.map(posi_i => this._geom.modeldata.attribs.query.getPosiCoords(posi_i));
             const vec_a: Txyz = vecFromTo(xyzs[0], xyzs[1]);
             const vec_b: Txyz = vecFromTo(xyzs[0], xyzs[2]); // CCW
             const tri_normal: Txyz = vecCross(vec_a, vec_b, true);
@@ -703,7 +591,7 @@ export class GIGeomQuery {
         const posis_i: number[] = this._geom.nav.navAnyToPosi(ent_type, ent_i);
         const centroid: Txyz = [0, 0, 0];
         for (const posi_i of posis_i) {
-            const xyz: Txyz = this._geom.model.attribs.query.getPosiCoords(posi_i);
+            const xyz: Txyz = this._geom.modeldata.attribs.query.getPosiCoords(posi_i);
             centroid[0] += xyz[0];
             centroid[1] += xyz[1];
             centroid[2] += xyz[2];
@@ -722,12 +610,13 @@ export class GIGeomQuery {
      * @param wire_i
      */
     public getWireNormal(wire_i: number): Txyz {
-        const edges_i: number[] = this._geom._geom_arrays.dn_wires_edges[wire_i];
+        const edges_i: number[] = this._geom._geom_maps.dn_wires_edges.get(wire_i);
         // deal with special case, just a single edge
         if (edges_i.length === 1) {
-            const posis_i: number[] = this._geom_arrays.dn_edges_verts[edges_i[0]].map(vert_i => this._geom_arrays.dn_verts_posis[vert_i]);
-            const xyz0: Txyz = this._geom.model.attribs.query.getPosiCoords(posis_i[0]);
-            const xyz1: Txyz = this._geom.model.attribs.query.getPosiCoords(posis_i[1]);
+            const posis_i: number[] = this._geom_maps.dn_edges_verts.get(edges_i[0]).map(
+                vert_i => this._geom_maps.dn_verts_posis.get(vert_i));
+            const xyz0: Txyz = this._geom.modeldata.attribs.query.getPosiCoords(posis_i[0]);
+            const xyz1: Txyz = this._geom.modeldata.attribs.query.getPosiCoords(posis_i[1]);
             if (xyz0[2] === xyz1[2]) { return [0, 0, 1]; }
             if (xyz0[1] === xyz1[1]) { return [0, 1, 0]; }
             if (xyz0[0] === xyz1[0]) { return [1, 0, 0]; }
@@ -739,8 +628,9 @@ export class GIGeomQuery {
         const tri_normals: Txyz[] = [];
         // let count = 0;
         for (const edge_i of edges_i) {
-            const posis_i: number[] = this._geom_arrays.dn_edges_verts[edge_i].map(vert_i => this._geom_arrays.dn_verts_posis[vert_i]);
-            const xyzs: Txyz[] = posis_i.map(posi_i => this._geom.model.attribs.query.getPosiCoords(posi_i));
+            const posis_i: number[] = this._geom_maps.dn_edges_verts.get(edge_i).map(
+                vert_i => this._geom_maps.dn_verts_posis.get(vert_i));
+            const xyzs: Txyz[] = posis_i.map(posi_i => this._geom.modeldata.attribs.query.getPosiCoords(posi_i));
             const vec_a: Txyz = vecFromTo(centroid, xyzs[0]);
             const vec_b: Txyz = vecFromTo(centroid, xyzs[1]); // CCW
             const tri_normal: Txyz = vecCross(vec_a, vec_b, true);
@@ -761,8 +651,9 @@ export class GIGeomQuery {
         let len_b = 0;
         let first_normal_a = null;
         for (const edge_i of edges_i) {
-            const posis_i: number[] = this._geom_arrays.dn_edges_verts[edge_i].map(vert_i => this._geom_arrays.dn_verts_posis[vert_i]);
-            const xyzs: Txyz[] = posis_i.map(posi_i => this._geom.model.attribs.query.getPosiCoords(posi_i));
+            const posis_i: number[] = this._geom_maps.dn_edges_verts.get(edge_i).map(
+                vert_i => this._geom_maps.dn_verts_posis.get(vert_i));
+            const xyzs: Txyz[] = posis_i.map(posi_i => this._geom.modeldata.attribs.query.getPosiCoords(posi_i));
             const vec_a: Txyz = vecFromTo(centroid, xyzs[0]);
             const vec_b: Txyz = vecFromTo(centroid, xyzs[1]); // CCW
             const tri_normal: Txyz = vecCross(vec_a, vec_b, true);
@@ -844,27 +735,70 @@ export class GIGeomQuery {
         return Array.from(perimeter_ents_i);
     }
     /**
+     * Get the object of a topo entity.
+     * Returns a point, pline, or pgon. (no posis)
+     * @param ent_type
+     * @param ent_i
+     */
+    public getTopoObj(ent_type: EEntType, ent_i: number): TEntTypeIdx {
+        switch (ent_type) {
+            case EEntType.FACE:
+                return [EEntType.PGON, this._geom.nav.navFaceToPgon(ent_i)];
+            case EEntType.WIRE:
+            case EEntType.EDGE:
+            case EEntType.VERT:
+                const pgons_i: number[] = this._geom.nav.navAnyToPgon(ent_type, ent_i);
+                if (pgons_i.length !== 0) {
+                    return [EEntType.PGON, pgons_i[0]];
+                }
+                const plines_i: number[] = this._geom.nav.navAnyToPline(ent_type, ent_i);
+                if (plines_i.length !== 0) {
+                    return [EEntType.PLINE, plines_i[0]];
+                }
+                const points_i: number[] = this._geom.nav.navAnyToPoint(ent_type, ent_i);
+                if (this._geom.nav.navAnyToVert(ent_type, ent_i).length !== 0) {
+                    return [EEntType.POINT, points_i[0]];
+                }
+                break;
+            default:
+                throw new Error('Invalid entity type: Must be a topo entity.');
+        }
+    }
+    /**
      * Get the object type of a topo entity.
      * @param ent_type
-     * @param index
+     * @param ent_i
      */
-    public getTopoObjType(ent_type: EEntType, index: number): EEntType {
+    public getTopoObjType(ent_type: EEntType, ent_i: number): EEntType {
         switch (ent_type) {
             case EEntType.FACE:
                 return EEntType.PGON;
             case EEntType.WIRE:
             case EEntType.EDGE:
             case EEntType.VERT:
-                if (this._geom.nav.navAnyToFace(ent_type, index).length !== 0) {
+                if (this._geom.nav.navAnyToFace(ent_type, ent_i).length !== 0) {
                     return EEntType.PGON;
-                } else if (this._geom.nav.navAnyToWire(ent_type, index).length !== 0) {
+                } else if (this._geom.nav.navAnyToWire(ent_type, ent_i).length !== 0) {
                     return EEntType.PLINE;
-                } else if (this._geom.nav.navAnyToVert(ent_type, index).length !== 0) {
+                } else if (this._geom.nav.navAnyToVert(ent_type, ent_i).length !== 0) {
                     return EEntType.POINT;
                 }
                 break;
             default:
                 throw new Error('Invalid entity type: Must be a topo entity.');
         }
+    }
+    /**
+     * Get the topo entities of an object
+     * @param ent_type
+     * @param ent_i
+     */
+    public getObjTopo(ent_type: EEntType, ent_i: number): [number[], number[], number[], number[]] {
+        return [
+            this._geom.nav.navAnyToVert(ent_type, ent_i),
+            this._geom.nav.navAnyToEdge(ent_type, ent_i),
+            this._geom.nav.navAnyToWire(ent_type, ent_i),
+            this._geom.nav.navAnyToFace(ent_type, ent_i),
+        ];
     }
 }

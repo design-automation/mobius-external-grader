@@ -78,6 +78,7 @@ const AMAZON_BUCKET_NAME = 'mooc-s3cf';
 const JOB_DB = 'Job-t3vtntjcprhkbk4lak5sqtfcpm-dev';
 const GEN_EVAL_PARAM_DB = 'GenEvalParam-t3vtntjcprhkbk4lak5sqtfcpm-dev';
 const GEN_EVAL_MODEL_DB = 'GenEvalModel';
+const GEN_EVAL_MODEL_BUCKET = 'mobius-evo-userfiles131353-dev';
 
 export async function gradeFile_URL(event: {'file': String, 
                                             'question': String,
@@ -117,6 +118,8 @@ export async function gradeFile_URL(event: {'file': String,
             }
         };
         request.send();
+    }).catch(err => {
+        throw err;
     });
     return await p;
 };
@@ -249,11 +252,18 @@ export async function runMobFile(fileUrl: string) {
             }
         };
         request.send();
+    }).catch(err => {
+        throw err;
     });
     return await p;
 }
 
-export async function runJavascriptFile(event: {'file': string, 'parameters': {}}) {
+function getModelString(model): string {
+    let model_data = model.getJSONStr();
+    model_data = model_data.replace(/\\/g, '\\\\\\'); // TODO temporary fix
+    return model_data;
+}
+export async function runJavascriptFile(event: {'file': string, 'parameters': {}, 'model': string}) {
     const p = new Promise((resolve) => {
         fetch(event.file).then(res => {
             if (!res.ok) {
@@ -261,7 +271,7 @@ export async function runJavascriptFile(event: {'file': string, 'parameters': {}
                 return '';
             }
             return res.text();
-        }).then(body => {
+        }).then(async body => {
             const splittedString = body.split('/** * **/');
             const argStrings = splittedString[0].split('// Parameter:');
             const args = [];
@@ -269,7 +279,7 @@ export async function runJavascriptFile(event: {'file': string, 'parameters': {}
                 for (let i = 1; i < argStrings.length - 1; i++) {
                     args.push(JSON.parse(argStrings[i]));
                 }
-                args.push(JSON.parse(argStrings[argStrings.length - 1].split('function')[0]));
+                args.push(JSON.parse(argStrings[argStrings.length - 1].split('function')[0].split('async')[0]));
             }
             const val0 = args.map(arg => arg.name);
             const val1 = args.map(arg => {
@@ -278,18 +288,101 @@ export async function runJavascriptFile(event: {'file': string, 'parameters': {}
                 }
                 return arg.value;
             });
-            const fn = new Function('__modules__', ...val0, splittedString[1]);
-            const result = fn(Modules, ...val1);
-            result.model = result.model.getData();
+            let prefixString = `async function __main_func(__modules__, ` + val0 + `) {\n__debug__ = false;\n__model__ = null;\n`;
+            if (event.model) {
+                prefixString = `async function __main_func(__modules__, ` + val0 + `) {\n__debug__ = false;\n__model__ = ` + event.model + `;\n`;
+            }
+            const postfixString = `\n}\nreturn __main_func;`;
+            const fn = new Function(prefixString + splittedString[1] + postfixString);
+            const result = await fn()(Modules, ...val1);
+            result.model = getModelString(result.model);
+            console.log(result.model)
             resolve("successful");
         });
+    }).catch(err => {
+        throw err;
     });
     return await p;
+}
+
+export async function runJavascriptFileTest(event: {'file': string, 'parameters': []}) {
+    fetch(event.file).then(res => {
+        if (!res.ok) {
+            return '';
+        }
+        return res.text();
+    }).then( async dataFile => {
+        const fn = new Function(dataFile.replace(/\\/g, ''));
+        const result = await fn()(Modules);
+        console.log(result.result)
+    })
+}
+async function testExecuteJSFile(file, model = null) {
+    const splittedString = file.split('/** * **/');
+    const argStrings = splittedString[0].split('// Parameter:');
+    const args = [];
+    if (argStrings.length > 1) {
+        for (let i = 1; i < argStrings.length - 1; i++) {
+            args.push(JSON.parse(argStrings[i]));
+        }
+        args.push(JSON.parse(argStrings[argStrings.length - 1].split('function')[0].split('async')[0]));
+    }
+    const val0 = args.map(arg => arg.name);
+    const val1 = args.map(arg => {return arg.value;});
+    let prefixString = `async function __main_func(__modules__, ` + val0 + `) {\n__debug__ = false;\n__model__ = null;\n`;
+    if (model) {
+        prefixString = `async function __main_func(__modules__, ` + val0 + `) {\n__debug__ = false;\n__model__ = \`${model}\`;\n`;
+    }
+    const postfixString = `\n}\nreturn __main_func;`;
+    const fn = new Function(prefixString + splittedString[1] + postfixString);
+    const result = await fn()(Modules, ...val1);
+    return result
+}
+export async function testGenEval(event: {'genFile': string, 'evalFile': string}) {
+    const promiseList = [];
+    let genFile;
+    let evalFile;
+    promiseList.push(new Promise((resolve) => {
+        fetch(event.genFile).then(res => {
+            if (!res.ok) {
+                resolve('HTTP Request Error: request file timeout from url ' + event.genFile);
+                return '';
+            }
+            return res.text();
+        }).then(async body => {
+            genFile = body
+            resolve(null)
+        });
+    }).catch(err => {
+        throw err;
+    }))
+    promiseList.push(new Promise((resolve) => {
+        fetch(event.evalFile).then(res => {
+            if (!res.ok) {
+                resolve('HTTP Request Error: request file timeout from url ' + event.evalFile);
+                return '';
+            }
+            return res.text();
+        }).then(async body => {
+            evalFile = body
+            resolve(null)
+        });
+    }).catch(err => {
+        throw err;
+    }))
+    await Promise.all(promiseList);
+    const genResult = await testExecuteJSFile(genFile)
+    const genModel = getModelString(genResult.model);
+
+    const evalResult = await testExecuteJSFile(evalFile, genModel);
+    console.log(evalResult.result);
+    return 'successful';
 }
 
 
 export async function runGen(data) {
     const docClient = new AWS.DynamoDB.DocumentClient({region: 'us-east-1'});
+    const s3 = new AWS.S3();
     if (data.genUrl && data.evalUrl) {
         const p = new Promise(async (resolve) => {
             const genFile = await getGenEvalFile(data.genUrl);
@@ -302,7 +395,7 @@ export async function runGen(data) {
                 for (let i = 1; i < argStrings.length - 1; i++) {
                     args.push(JSON.parse(argStrings[i]));
                 }
-                args.push(JSON.parse(argStrings[argStrings.length - 1].split('function')[0]));
+                args.push(JSON.parse(argStrings[argStrings.length - 1].split('function')[0].split('async')[0]));
             }
             const val0 = args.map(arg => arg.name);
             const val1 = args.map(arg => {
@@ -311,32 +404,64 @@ export async function runGen(data) {
                 }
                 return arg.value;
             });
-            const addedString = `__debug__ = false;\n__model__ = null;\n`
-            const fn = new Function('__modules__', ...val0, addedString + splittedString[1]);
-            const result = fn(Modules, ...val1);
-            const model = JSON.stringify(result.model.getData()).replace(/\\/g, '\\\\');
+            // const addedString = `__debug__ = false;\n__model__ = null;\n`
+            // const fn = new Function('__modules__', ...val0, addedString + splittedString[1]);
+            // const result = fn(Modules, ...val1);
+            // const model = JSON.stringify(result.model.getData()).replace(/\\/g, '\\\\');
+
+            const prefixString = `async function __main_func(__modules__, ` + val0 + `) {\n__debug__ = false;\n__model__ = null;\n`;
+            const postfixString = `\n}\nreturn __main_func;`;
+            const fn = new Function(prefixString + splittedString[1] + postfixString);
+            const result = await fn()(Modules, ...val1);
+            // const model = JSON.stringify(result.model.getModelData()).replace(/\\/g, '\\\\');
+            // const model = result.model.getModelDataJSONStr().replace(/\\/g, '\\\\');
+            // const model = result.model.getModelDataJSONStr();
+            const model = getModelString(result.model).replace(/\\/g, '');
 
             let checkModelDB = false;
             let checkParamDB = false;
-            const models = {
-                TableName: GEN_EVAL_MODEL_DB,
-                Item: {
-                    'id': data.id,
-                    'model': model
-                }
-            };
-            docClient.put(models, function (err, result) {
+
+            s3.putObject({
+                Bucket: GEN_EVAL_MODEL_BUCKET,
+                Key: 'models/' + data.id + '.gi',
+                Body: model,
+                ContentType: 'text/plain',
+                ACL: 'public-read'
+            }, function (err, result) {
                 if (err) {
-                    console.log('Error placing gen data:', err);
+                    console.log('Error placing gen model:', err);
                     resolve(false);
                 }
                 else {
+                    console.log('successfully placed model');
                     checkModelDB = true;
                     if (checkParamDB) {
+                        console.log('ending function (model side)...')
                         resolve(true)
                     }
                 }
-            });
+            })
+
+            // const models = {
+            //     TableName: GEN_EVAL_MODEL_DB,
+            //     Item: {
+            //         'id': data.id,
+            //         'model': model
+            //     }
+            // };
+            // docClient.put(models, function (err, result) {
+            //     if (err) {
+            //         console.log('Error placing gen data:', err);
+            //         resolve(false);
+            //     }
+            //     else {
+            //         checkModelDB = true;
+            //         if (checkParamDB) {
+            //             resolve(true)
+            //         }
+            //     }
+            // });
+
             const params = {
                 TableName: GEN_EVAL_PARAM_DB,
                 Item: {
@@ -354,13 +479,16 @@ export async function runGen(data) {
                     resolve(false);
                 }
                 else {
+                    console.log('successfully placed data');
                     checkParamDB = true;
                     if (checkModelDB) {
-                        console.log('successfully placed data');
+                        console.log('ending function (data side)...')
                         resolve(true);
                     }
                 }
             });
+        }).catch(err => {
+            throw err;
         });
         return await p;
     }
@@ -369,25 +497,19 @@ export async function runGen(data) {
 
 export async function runEval(recordInfo) {
     const docClient = new AWS.DynamoDB.DocumentClient({region: 'us-east-1'});
+    const s3 = new AWS.S3();
     console.log('param id:', recordInfo.id);
-    const p = new Promise((resolve) => {
-        docClient.get({
-            "TableName": GEN_EVAL_MODEL_DB,
-            "Key": {
-                "id":  recordInfo.id
-            },
-            "ProjectionExpression": 'model',
-            "ConsistentRead": true
-        }, function(err, record) {
-            if (err) {
-              console.log("Error", err);
-              resolve(null);
-            } else {
-              resolve(record.Item);
-            }
-        });
-    });
-    const data: any = await p;
+    const params = { Bucket: GEN_EVAL_MODEL_BUCKET, Key: 'models/' + recordInfo.id + '.gi'};
+    const r = await s3.getObject(params).promise();
+    if (!r) {
+        console.log('No data retrieved!')
+        return false;
+    }
+    const data = r.Body.toString('utf-8')
+    if (!data) {
+        console.log('No data retrieved!')
+        return false;
+    }
     if (data === null) {
         return false;
     }
@@ -404,85 +526,50 @@ export async function runEval(recordInfo) {
                 for (let i = 1; i < argStrings.length - 1; i++) {
                     args.push(JSON.parse(argStrings[i]));
                 }
-                args.push(JSON.parse(argStrings[argStrings.length - 1].split('function')[0]));
+                args.push(JSON.parse(argStrings[argStrings.length - 1].split('function')[0].split('async')[0]));
             }
             const val0 = args.map(arg => arg.name);
             const val1 = args.map(arg =>arg.value);
     
-            const addedString = `__debug__ = false;\n__model__ = \`${data.model}\`;\n`
-            const fn = new Function('__modules__', ...val0, addedString + splittedString[1]);
-            const result = fn(Modules, ...val1);
-            resolve(result.result);
+            // const addedString = `__debug__ = false;\n__model__ = \`${data.model}\`;\n`
+            // const fn = new Function('__modules__', ...val0, addedString + splittedString[1]);
+            // const result = fn(Modules, ...val1);
+
+            const prefixString = `async function __main_func(__modules__, ` + val0 + ') {\n__debug__ = false;\n__model__ = \`'+ data + '\`;\n';
+            const postfixString = `\n}\nreturn __main_func;`;
+            try {
+                const fn = new Function(prefixString + splittedString[1] + postfixString);
+                const result = await fn()(Modules, ...val1);
+                resolve(result.result);
+            } catch (err) {
+                console.log('error:',err);
+                s3.putObject({
+                    Bucket: GEN_EVAL_MODEL_BUCKET,
+                    Key: 'errors/' + recordInfo.id,
+                    Body: prefixString + splittedString[1] + postfixString,
+                    ContentType: 'text/plain',
+                    ACL: 'public-read'
+                }, function (err, result) {
+                    if (err) {
+                        console.log('Error saving error file:', err);
+                        resolve({
+                            score: 0
+                        })
+                    } else {
+                        console.log('saved error file');
+                        resolve({
+                            score: 0
+                        })
+                    }
+                })
+            }
+        }).catch(err => {
+            throw err;
         });
         return await p;
     }
     return false
 }
-
-// export async function runGenTest(data, genFile) {
-//     const p = new Promise((resolve) => {
-//         const splittedString = genFile.split('/** * **/');
-//         const argStrings = splittedString[0].split('// Parameter:');
-//         const args = [];
-//         if (argStrings.length > 1) {
-//             for (let i = 1; i < argStrings.length - 1; i++) {
-//                 args.push(JSON.parse(argStrings[i]));
-//             }
-//             args.push(JSON.parse(argStrings[argStrings.length - 1].split('function')[0]));
-//         }
-//         const val0 = args.map(arg => arg.name);
-//         const val1 = args.map(arg => {
-//             if (data.params && data.params.hasOwnProperty(arg.name)) {
-//                 return data.params[arg.name];
-//             }
-//             return arg.value;
-//         });
-//         const addedString = `__debug__ = false;\n__model__ = null;\n`
-//         const fn = new Function('__modules__', ...val0, addedString + splittedString[1]);
-//         const result = fn(Modules, ...val1);
-//         const model = JSON.stringify(result.model.getData()).replace(/\\/g, '\\\\');
-
-//         const params = {
-//             TableName: GEN_EVAL_PARAM_DB,
-//             Item: {
-//                 'id': data.id,
-//                 'params': data.params,
-//                 'genUrl': data.genUrl,
-//                 'evalUrl': data.evalUrl,
-//                 'model': model,
-//                 'live': true
-//             }
-//         };
-//         resolve(params);
-//     });
-//     return await p;
-// }
-
-// export async function runEvalTest(recordInfo, record, evalFile) {
-//     const data = record.Item
-//     if (data === null) {
-//         return false;
-//     }
-//     const p = new Promise((resolve) => {
-//         const splittedString = evalFile.split('/** * **/');
-//         const argStrings = splittedString[0].split('// Parameter:');
-//         const args = [];
-//         if (argStrings.length > 1) {
-//             for (let i = 1; i < argStrings.length - 1; i++) {
-//                 args.push(JSON.parse(argStrings[i]));
-//             }
-//             args.push(JSON.parse(argStrings[argStrings.length - 1].split('function')[0]));
-//         }
-//         const val0 = args.map(arg => arg.name);
-//         const val1 = args.map(arg =>arg.value);
-
-//         const addedString = `__debug__ = false;\n__model__ = \`${data.model}\`;\n`
-//         const fn = new Function('__modules__', ...val0, addedString + splittedString[1]);
-//         const result = fn(Modules, ...val1);
-//         resolve(result.result)
-//     });
-//     return await p;
-// }
 
 
 function generateParamVariations(params) {
@@ -610,6 +697,8 @@ async function getGenEvalFile(fileUrl): Promise<any> {
             };
             request.send();
         }
+    }).catch(err => {
+        throw err;
     });
     return filePromise;
 }
@@ -634,6 +723,8 @@ async function getParentParam(parentJobID: string, paramList) {
                 resolve(response.Items);
             }
         });
+    }).catch(err => {
+        throw err;
     })
     let parentItems: any = await p;
     if (!parentItems) { return; }
@@ -670,13 +761,41 @@ async function updateJobDB(jobID: string, run: boolean, status: string): Promise
             if (err) { console.log('error updating job db',err); resolve(false)}
             else { console.log('successfully updating job db'); resolve(true)}
         })
+    }).catch(err => {
+        throw err;
     });
     return jobDBUpdatePromise;
 }
 
+function terminateController(jobID: string, docClient: AWS.DynamoDB.DocumentClient, msg: string) {
+    docClient.update({
+        TableName : JOB_DB,
+        Key: {
+            id: jobID
+        },
+        UpdateExpression: "set endedAt=:t, run=:r, jobStatus=:s",
+        ExpressionAttributeValues:{
+            ":t": (new Date()).toISOString(),
+            ":r": false,
+            ":s": 'terminated',
+        },
+        ReturnValues: "UPDATED_NEW"
+    }, (err, record) => {
+        if (err) { console.log('error updating job db',err);}
+        else { console.log('successfully updating job db');}
+    })
+    throw(new Error(msg))
+}
+
 export async function runGenEvalController(input) {
     const docClient = new AWS.DynamoDB.DocumentClient({region: 'us-east-1'});
-    const lambda = new AWS.Lambda({region: 'us-east-1'});
+    const lambda = new AWS.Lambda({
+        region: 'us-east-1',
+        httpOptions: {
+            timeout: 600000,
+            xhrAsync: true
+        }
+    });
     console.log('~~~ input: ',input)
     const record = input.Records[0];
     if (record.eventName !== 'INSERT') { return; }
@@ -724,7 +843,7 @@ export async function runGenEvalController(input) {
         for (let i = 1; i < argStrings.length - 1; i++) {
             params.push(JSON.parse(argStrings[i]));
         }
-        params.push(JSON.parse(argStrings[argStrings.length - 1].split('function')[0]));
+        params.push(JSON.parse(argStrings[argStrings.length - 1].split('function')[0].split('async')[0]));
     }
     params.forEach( x => {
         if (x.min && typeof x.min !== 'number') {
@@ -839,8 +958,11 @@ export async function runGenEvalController(input) {
                     resolve(null);
                 }
                 else {
+                    console.log('... run check for', event.id,'; items:', record)
                     resolve(record.Item.run);}
             })
+        }).catch(err => {
+            throw err;
         });
         const runCheck = await runCheckPromise;
         if (!runCheck) {
@@ -864,6 +986,8 @@ export async function runGenEvalController(input) {
                 }, (err, successCheck) => {
                     if (err || !successCheck) {
                         console.log('Error:', err)
+                        console.log('failed params:', entry.params)
+                        terminateController(entry.JobID, docClient, 'failed generate_design_func');
                         resolve(null);
                     } else {
                         lambda.invoke({
@@ -872,6 +996,8 @@ export async function runGenEvalController(input) {
                         }, (err, response) => {
                             if (err || !response) {
                                 console.log('Error:', err)
+                                console.log('failed params:', entry.params)
+                                terminateController(entry.JobID, docClient, 'failed evaluate_design_func');
                                 resolve(null);
                             } else {
                                 try {
@@ -881,12 +1007,15 @@ export async function runGenEvalController(input) {
                                     entry.score = evalResult.score;
                                     resolve(null);
                                 } catch (ex) {
+                                    terminateController(entry.JobID, docClient, 'failed parsing evalResult');
                                     resolve(null);
                                 }
                             }
                         })
                     }
                 })
+            }).catch(err => {
+                throw err;
             }));
         }
         await Promise.all(promiseList);
@@ -914,14 +1043,16 @@ export async function runGenEvalController(input) {
                 const p = new Promise( resolve => {
                     docClient.update(updateParamEntry, function (err, data) {
                         if (err) {
-                            console.log('Error placing data:', err);
+                            console.log('Error placing data (live entry\'s score, evalResult):', err);
                             resolve(null);
                         }
                         else {
                             resolve(null);
                         }
                     });
-                })
+                }).catch(err => {
+                    throw err;
+                });
                 updateDynamoPromises.push(p)
             }
         }
@@ -943,23 +1074,23 @@ export async function runGenEvalController(input) {
                     },
                     ReturnValues: "UPDATED_NEW"
                 };
-                const updateModelEntry = {
-                    TableName: GEN_EVAL_MODEL_DB,
-                    Key:{
-                        "id": entry.id
-                    },
-                    UpdateExpression: "set expirationTime=:ex",
-                    ExpressionAttributeValues:{
-                        ":ex": entry.expiry
-                    },
-                    ReturnValues: "UPDATED_NEW"
-                };
+                // const updateModelEntry = {
+                //     TableName: GEN_EVAL_MODEL_DB,
+                //     Key:{
+                //         "id": entry.id
+                //     },
+                //     UpdateExpression: "set expirationTime=:ex",
+                //     ExpressionAttributeValues:{
+                //         ":ex": entry.expiry
+                //     },
+                //     ReturnValues: "UPDATED_NEW"
+                // };
                 const p = new Promise( resolve => {
                     let checkParamDB = false;
                     let checkModelDB = false;
                     docClient.update(updateParamEntry, function (err, data) {
                         if (err) {
-                            console.log('Error placing data:', err);
+                            console.log('Error placing data (dead entry\'s score, evalResult, expiry):', err);
                             resolve(null);
                         }
                         else {
@@ -969,19 +1100,21 @@ export async function runGenEvalController(input) {
                             }
                         }
                     });
-                    docClient.update(updateModelEntry, function (err, data) {
-                        if (err) {
-                            console.log('Error placing data:', err);
-                            resolve(null);
-                        }
-                        else {
-                            checkModelDB = true;
-                            if (checkParamDB) {
-                                resolve(null);
-                            }
-                        }
-                    });
-                })
+                    // docClient.update(updateModelEntry, function (err, data) {
+                    //     if (err) {
+                    //         console.log('Error placing data:', err);
+                    //         resolve(null);
+                    //     }
+                    //     else {
+                    //         checkModelDB = true;
+                    //         if (checkParamDB) {
+                    //             resolve(null);
+                    //         }
+                    //     }
+                    // });
+                }).catch(err => {
+                    throw err;
+                });
                 updateDynamoPromises.push(p)
             }
         }
@@ -1005,7 +1138,9 @@ async function getAnswer(event: any = {},fromAmazon = true): Promise<any> {
         const answerName = event.question;
         const answerFile = circularJSON.parse(await new Promise((resolve) => {
             fs.readFile(`test/${answerName}.mob`, 'utf8', function(err, contents) { resolve(contents); });
-        }));
+        })).catch(err => {
+            throw err;
+        });
         return answerFile
     }
     var s3 = new AWS.S3();
@@ -1276,7 +1411,7 @@ async function execute(flowchart: any, consoleLog) {
             continue;
         }
 
-        await resolveImportedUrl(node, true);
+        // await resolveImportedUrl(node, true);
 
         let EmptyECheck = false;
         let InvalidECheck = false;
@@ -1338,23 +1473,23 @@ async function execute(flowchart: any, consoleLog) {
         }
     }
 
-    for (const func of flowchart.functions) {
-        for (const node of func.flowchart.nodes) {
-            await resolveImportedUrl(node, false);
-        }
-    }
-    if (flowchart.subFunctions) {
-        for (const func of flowchart.subFunctions) {
-            for (const node of func.flowchart.nodes) {
-                await resolveImportedUrl(node, false);
-            }
-        }
-    }
+    // for (const func of flowchart.functions) {
+    //     for (const node of func.flowchart.nodes) {
+    //         await resolveImportedUrl(node, false);
+    //     }
+    // }
+    // if (flowchart.subFunctions) {
+    //     for (const func of flowchart.subFunctions) {
+    //         for (const node of func.flowchart.nodes) {
+    //             await resolveImportedUrl(node, false);
+    //         }
+    //     }
+    // }
 
-    executeFlowchart(flowchart, consoleLog);
+    await executeFlowchart(flowchart, consoleLog);
 }
 
-function executeFlowchart(flowchart: IFlowchart, consoleLog) {
+async function executeFlowchart(flowchart: IFlowchart, consoleLog) {
     let globalVars = '';
     const constantList = {};
 
@@ -1388,7 +1523,7 @@ function executeFlowchart(flowchart: IFlowchart, consoleLog) {
             continue;
         }
         nodeIndices[node.id] = i;
-        globalVars = executeNode(node, funcStrings, globalVars, constantList, consoleLog, nodeIndices);
+        globalVars = await executeNode(node, funcStrings, globalVars, constantList, consoleLog, nodeIndices);
     }
 
     for (const node of flowchart.nodes) {
@@ -1408,59 +1543,60 @@ function executeFlowchart(flowchart: IFlowchart, consoleLog) {
 }
 
 async function resolveImportedUrl(prodList: IProcedure[]|INode, isMainFlowchart?: boolean) {
-    if (!isArray(prodList)) {
-        await resolveImportedUrl(prodList.procedure, isMainFlowchart);
-        if (prodList.localFunc) {
-            await resolveImportedUrl(prodList.localFunc, isMainFlowchart);
-        }
-        return;
-    }
-    for (const prod of <IProcedure[]> prodList) {
-        if (prod.children) {await  resolveImportedUrl(prod.children); }
-        if (!prod.enabled) {
-            continue;
-        }
-        if (isMainFlowchart && prod.type === ProcedureTypes.globalFuncCall) {
-            for (let i = 1; i < prod.args.length; i++) {
-                const arg = prod.args[i];
-                // args.slice(1).map((arg) => {
-                if (arg.type.toString() !== InputType.URL.toString()) { continue; }
-                prod.resolvedValue = await CodeUtils.getStartInput(arg, InputType.URL);
-            }
-            continue;
-        }
-        if (prod.type !== ProcedureTypes.MainFunction) {continue; }
-        for (const func of _parameterTypes.urlFunctions) {
-            const funcMeta = func.split('.');
-            if (prod.meta.module === funcMeta[0] && prod.meta.name === funcMeta[1]) {
-                const arg = prod.args[2];
-                if (arg.name[0] === '_') { continue; }
-                if (arg.value.indexOf('__model_data__') !== -1) {
-                    arg.jsValue = arg.value;
-                    prod.resolvedValue = arg.value.split('__model_data__').join('');
-                } else if (arg.jsValue && arg.jsValue.indexOf('__model_data__') !== -1) {
-                    prod.resolvedValue = arg.jsValue.split('__model_data__').join('');
-                } else if (arg.value.indexOf('://') !== -1) {
-                    const val = <string>(arg.value).replace(/ /g, '');
-                    const result = await CodeUtils.getURLContent(val);
-                    if (result === undefined) {
-                        prod.resolvedValue = arg.value;
-                    } else if (result.indexOf && result.indexOf('HTTP Request Error') !== -1) {
-                        throw new Error(result);
-                    } else if (val.indexOf('.zip') !== -1) {
-                        prod.resolvedValue = await openZipFile(result);
-                    } else {
-                        prod.resolvedValue = '`' + result + '`';
-                    }
-                    break;
-                } else if ((arg.value[0] !== '"' && arg.value[0] !== '\'')) {
-                    prod.resolvedValue = null;
-                    break;
-                }
-                break;
-            }
-        }
-    }
+    return;
+    // if (!Array.isArray(prodList)) {
+    //     await resolveImportedUrl(prodList.procedure, isMainFlowchart);
+    //     if (prodList.localFunc) {
+    //         await resolveImportedUrl(prodList.localFunc, isMainFlowchart);
+    //     }
+    //     return;
+    // }
+    // for (const prod of <IProcedure[]> prodList) {
+    //     if (prod.children) {await  resolveImportedUrl(prod.children); }
+    //     if (!prod.enabled) {
+    //         continue;
+    //     }
+    //     if (isMainFlowchart && prod.type === ProcedureTypes.globalFuncCall) {
+    //         for (let i = 1; i < prod.args.length; i++) {
+    //             const arg = prod.args[i];
+    //             // args.slice(1).map((arg) => {
+    //             if (arg.type.toString() !== InputType.URL.toString()) { continue; }
+    //             prod.resolvedValue = await CodeUtils.getStartInput(arg, InputType.URL);
+    //         }
+    //         continue;
+    //     }
+    //     if (prod.type !== ProcedureTypes.MainFunction) {continue; }
+    //     for (const func of _parameterTypes.urlFunctions) {
+    //         const funcMeta = func.split('.');
+    //         if (prod.meta.module === funcMeta[0] && prod.meta.name === funcMeta[1]) {
+    //             const arg = prod.args[2];
+    //             if (arg.name[0] === '_') { continue; }
+    //             if (arg.value.indexOf('__model_data__') !== -1) {
+    //                 arg.jsValue = arg.value;
+    //                 prod.resolvedValue = arg.value.split('__model_data__').join('');
+    //             } else if (arg.jsValue && arg.jsValue.indexOf('__model_data__') !== -1) {
+    //                 prod.resolvedValue = arg.jsValue.split('__model_data__').join('');
+    //             } else if (arg.value.indexOf('://') !== -1) {
+    //                 const val = <string>(arg.value).replace(/ /g, '');
+    //                 const result = await CodeUtils.getURLContent(val);
+    //                 if (result === undefined) {
+    //                     prod.resolvedValue = arg.value;
+    //                 } else if (result.indexOf && result.indexOf('HTTP Request Error') !== -1) {
+    //                     throw new Error(result);
+    //                 } else if (val.indexOf('.zip') !== -1) {
+    //                     prod.resolvedValue = await openZipFile(result);
+    //                 } else {
+    //                     prod.resolvedValue = '`' + result + '`';
+    //                 }
+    //                 break;
+    //             } else if ((arg.value[0] !== '"' && arg.value[0] !== '\'')) {
+    //                 prod.resolvedValue = null;
+    //                 break;
+    //             }
+    //             break;
+    //         }
+    //     }
+    // }
 }
 async function openZipFile(zipFile) {
     let result = '{';
@@ -1477,7 +1613,7 @@ async function openZipFile(zipFile) {
 }
 
 
-function executeNode(node: INode, funcStrings, globalVars, constantList, consoleLog, nodeIndices): string {
+async function executeNode(node: INode, funcStrings, globalVars, constantList, consoleLog, nodeIndices): Promise<string> {
     const params = {
         'currentProcedure': [''],
         'console': [],
@@ -1531,8 +1667,7 @@ function executeNode(node: INode, funcStrings, globalVars, constantList, console
 
         const fn = new Function('__modules__', '__params__', fnString);
         // execute the function
-
-        const result = fn(Modules, params);
+        const result = await fn(Modules, params)(Modules, params);
 
         if (node.type === 'end') {
             node.output.value = result;
@@ -1551,7 +1686,7 @@ function executeNode(node: INode, funcStrings, globalVars, constantList, console
             inputNode.output.value = null;
         });
 
-        // diff(node.output.value.getData(), node.input.value.getData());
+        // diff(node.output.value.getModelData(), node.input.value.getModelData());
         if (node.type === 'start') {
             for (const constant in params['constants']) {
                 if (params['constants'].hasOwnProperty(constant)) {

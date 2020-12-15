@@ -2,6 +2,7 @@
  * list functions that obtain and return information from an input list. Does not modify input list.
  */
 import { arrMakeFlat } from '@libs/util/arrs';
+import { isNumber } from 'util';
 
 export function range(start: number, end?: number, step?: number): number[] {
     if (start === undefined) { throw new Error('Invalid inline arg: min must be defined.'); }
@@ -114,6 +115,7 @@ export function listCull(list: any[], list2?: any[]): any[] {
 }
 
 export function listZip(lists: any[][]): any[] {
+    if (!Array.isArray(lists[0])) { throw new Error('The listZip() inline function requires a list of lists.'); }
     const shortest = lists.length === 0 ? [] : lists.reduce((a, b) => {
         return a.length < b.length ? a : b;
     });
@@ -121,13 +123,24 @@ export function listZip(lists: any[][]): any[] {
 }
 
 export function listZip2(lists: any[][]): any[] {
+    if (!Array.isArray(lists[0])) { throw new Error('The listZip2() inline function requires a list of lists.'); }
     const longest = lists.length === 0 ? [] : lists.reduce((a, b) => {
         return a.length > b.length ? a : b;
     });
     return longest.map((_, i) => lists.map(array => array[i] ));
 }
 
+export function listSort(list: any[], index?: number): any[] {
+    if (index !== undefined) {
+        if (!Array.isArray(list[0])) { throw new Error('The listSort() inline function, when used with an index, requires a list of lists.'); }
+        return list.slice().sort( (a, b) => a[index] > b[index] ? 1 : a[index] < b[index] ? -1 : 0 );
+    }
+    return list.slice().sort( (a, b) => a > b ? 1 : a < b ? -1 : 0 );
+}
 
+export function listRev(list: any[]): any[] {
+    return list.slice().reverse();
+}
 
 
 

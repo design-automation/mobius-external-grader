@@ -254,12 +254,7 @@
 //     return await p;
 // }
 
-// function getModelString(model): string {
-//     let model_data = model.getJSONStr();
-//     model_data = model_data.replace(/\\/g, '\\\\\\'); // TODO temporary fix
-//     return model_data;
-// }
-// export async function runJavascriptFile(event: {'file': string, 'parameters': {}, 'model': string}) {
+// export async function runJavascriptFile(event: {'file': string, 'parameters': {}}) {
 //     const p = new Promise((resolve) => {
 //         fetch(event.file).then(res => {
 //             if (!res.ok) {
@@ -267,7 +262,7 @@
 //                 return '';
 //             }
 //             return res.text();
-//         }).then(async body => {
+//         }).then(body => {
 //             const splittedString = body.split('/** * **/');
 //             const argStrings = splittedString[0].split('// Parameter:');
 //             const args = [];
@@ -275,7 +270,7 @@
 //                 for (let i = 1; i < argStrings.length - 1; i++) {
 //                     args.push(JSON.parse(argStrings[i]));
 //                 }
-//                 args.push(JSON.parse(argStrings[argStrings.length - 1].split('function')[0].split('async')[0]));
+//                 args.push(JSON.parse(argStrings[argStrings.length - 1].split('function')[0]));
 //             }
 //             const val0 = args.map(arg => arg.name);
 //             const val1 = args.map(arg => {
@@ -284,76 +279,13 @@
 //                 }
 //                 return arg.value;
 //             });
-//             let prefixString = `async function __main_func(__modules__, ` + val0 + `) {\n__debug__ = false;\n__model__ = null;\n`;
-//             if (event.model) {
-//                 prefixString = `async function __main_func(__modules__, ` + val0 + `) {\n__debug__ = false;\n__model__ = ` + event.model + `;\n`;
-//             }
-//             const postfixString = `\n}\nreturn __main_func;`;
-//             const fn = new Function(prefixString + splittedString[1] + postfixString);
-//             const result = await fn()(Modules, ...val1);
-//             result.model = getModelString(result.model);
-//             console.log(result.model)
+//             const fn = new Function('__modules__', ...val0, splittedString[1]);
+//             const result = fn(Modules, ...val1);
+//             result.model = result.model.getData();
 //             resolve("successful");
 //         });
 //     });
 //     return await p;
-// }
-// async function testExecuteJSFile(file, model = null) {
-//     const splittedString = file.split('/** * **/');
-//     const argStrings = splittedString[0].split('// Parameter:');
-//     const args = [];
-//     if (argStrings.length > 1) {
-//         for (let i = 1; i < argStrings.length - 1; i++) {
-//             args.push(JSON.parse(argStrings[i]));
-//         }
-//         args.push(JSON.parse(argStrings[argStrings.length - 1].split('function')[0].split('async')[0]));
-//     }
-//     const val0 = args.map(arg => arg.name);
-//     const val1 = args.map(arg => {return arg.value;});
-//     let prefixString = `async function __main_func(__modules__, ` + val0 + `) {\n__debug__ = false;\n__model__ = null;\n`;
-//     if (model) {
-//         prefixString = `async function __main_func(__modules__, ` + val0 + `) {\n__debug__ = false;\n__model__ = \`${model}\`;\n`;
-//     }
-//     const postfixString = `\n}\nreturn __main_func;`;
-//     const fn = new Function(prefixString + splittedString[1] + postfixString);
-//     const result = await fn()(Modules, ...val1);
-//     return result
-// }
-// export async function testGenEval(event: {'genFile': string, 'evalFile': string}) {
-//     const promiseList = [];
-//     let genFile;
-//     let evalFile;
-//     promiseList.push(new Promise((resolve) => {
-//         fetch(event.genFile).then(res => {
-//             if (!res.ok) {
-//                 resolve('HTTP Request Error: request file timeout from url ' + event.genFile);
-//                 return '';
-//             }
-//             return res.text();
-//         }).then(async body => {
-//             genFile = body
-//             resolve(null)
-//         });
-//     }))
-//     promiseList.push(new Promise((resolve) => {
-//         fetch(event.evalFile).then(res => {
-//             if (!res.ok) {
-//                 resolve('HTTP Request Error: request file timeout from url ' + event.evalFile);
-//                 return '';
-//             }
-//             return res.text();
-//         }).then(async body => {
-//             evalFile = body
-//             resolve(null)
-//         });
-//     }))
-//     await Promise.all(promiseList);
-//     const genResult = await testExecuteJSFile(genFile)
-//     const genModel = getModelString(genResult.model);
-
-//     const evalResult = await testExecuteJSFile(evalFile, genModel);
-//     console.log(evalResult.result);
-//     return 'successful';
 // }
 
 
@@ -372,7 +304,7 @@
 //                 for (let i = 1; i < argStrings.length - 1; i++) {
 //                     args.push(JSON.parse(argStrings[i]));
 //                 }
-//                 args.push(JSON.parse(argStrings[argStrings.length - 1].split('function')[0].split('async')[0]));
+//                 args.push(JSON.parse(argStrings[argStrings.length - 1].split('function')[0]));
 //             }
 //             const val0 = args.map(arg => arg.name);
 //             const val1 = args.map(arg => {
@@ -381,19 +313,10 @@
 //                 }
 //                 return arg.value;
 //             });
-//             // const addedString = `__debug__ = false;\n__model__ = null;\n`
-//             // const fn = new Function('__modules__', ...val0, addedString + splittedString[1]);
-//             // const result = fn(Modules, ...val1);
-//             // const model = JSON.stringify(result.model.getData()).replace(/\\/g, '\\\\');
-
-//             const prefixString = `async function __main_func(__modules__, ` + val0 + `) {\n__debug__ = false;\n__model__ = null;\n`;
-//             const postfixString = `\n}\nreturn __main_func;`;
-//             const fn = new Function(prefixString + splittedString[1] + postfixString);
-//             const result = await fn()(Modules, ...val1);
-//             // const model = JSON.stringify(result.model.getModelData()).replace(/\\/g, '\\\\');
-//             // const model = result.model.getModelDataJSONStr().replace(/\\/g, '\\\\');
-//             // const model = result.model.getModelDataJSONStr();
-//             const model = getModelString(result.model);
+//             const addedString = `__debug__ = false;\n__model__ = null;\n`
+//             const fn = new Function('__modules__', ...val0, addedString + splittedString[1]);
+//             const result = fn(Modules, ...val1);
+//             const model = JSON.stringify(result.model.getData()).replace(/\\/g, '\\\\');
 
 //             let checkModelDB = false;
 //             let checkParamDB = false;
@@ -438,7 +361,6 @@
 //             //         }
 //             //     }
 //             // });
-
 //             const params = {
 //                 TableName: GEN_EVAL_PARAM_DB,
 //                 Item: {
@@ -474,6 +396,29 @@
 //     const docClient = new AWS.DynamoDB.DocumentClient({region: 'us-east-1'});
 //     const s3 = new AWS.S3();
 //     console.log('param id:', recordInfo.id);
+
+
+//     // const p = new Promise((resolve) => {
+//     //     docClient.get({
+//     //         "TableName": GEN_EVAL_MODEL_DB,
+//     //         "Key": {
+//     //             "id":  recordInfo.id
+//     //         },
+//     //         "ProjectionExpression": 'model',
+//     //         "ConsistentRead": true
+//     //     }, function(err, record) {
+//     //         if (err) {
+//     //           console.log("Error", err);
+//     //           resolve(null);
+//     //         } else {
+//     //           resolve(record.Item);
+//     //         }
+//     //     });
+//     // });
+//     // const data: any = await p;
+//     // if (data === null) {
+//     //     return false;
+//     // }
 //     const params = { Bucket: GEN_EVAL_MODEL_BUCKET, Key: 'models/' + recordInfo.id + '.gi'};
 //     const r = await s3.getObject(params).promise();
 //     if (!r) {
@@ -483,9 +428,6 @@
 //     const data = r.Body.toString('utf-8')
 //     if (!data) {
 //         console.log('No data retrieved!')
-//         return false;
-//     }
-//     if (data === null) {
 //         return false;
 //     }
 //     // console.log('DynamoDB Record: %j', record.dynamodb);
@@ -501,27 +443,22 @@
 //                 for (let i = 1; i < argStrings.length - 1; i++) {
 //                     args.push(JSON.parse(argStrings[i]));
 //                 }
-//                 args.push(JSON.parse(argStrings[argStrings.length - 1].split('function')[0].split('async')[0]));
+//                 args.push(JSON.parse(argStrings[argStrings.length - 1].split('function')[0]));
 //             }
 //             const val0 = args.map(arg => arg.name);
 //             const val1 = args.map(arg =>arg.value);
     
-//             // const addedString = `__debug__ = false;\n__model__ = \`${data.model}\`;\n`
-//             // const fn = new Function('__modules__', ...val0, addedString + splittedString[1]);
-//             // const result = fn(Modules, ...val1);
-
-//             const prefixString = `async function __main_func(__modules__, ` + val0 + ') {\n__debug__ = false;\n__model__ = \`'+ data + '\`;\n';
-//             const postfixString = `\n}\nreturn __main_func;`;
+//             const addedString = '__debug__ = false;\n__model__ = \`' + data + '\`;\n';
 //             try {
-//                 const fn = new Function(prefixString + splittedString[1] + postfixString);
-//                 const result = await fn()(Modules, ...val1);
+//                 const fn = new Function('__modules__', ...val0, addedString + splittedString[1]);
+//                 const result = fn(Modules, ...val1);
 //                 resolve(result.result);
 //             } catch (err) {
 //                 console.log('error:',err);
 //                 s3.putObject({
 //                     Bucket: GEN_EVAL_MODEL_BUCKET,
 //                     Key: 'errors/' + recordInfo.id,
-//                     Body: prefixString + splittedString[1] + postfixString,
+//                     Body: addedString + splittedString[1],
 //                     ContentType: 'text/plain',
 //                     ACL: 'public-read'
 //                 }, function (err, result) {
@@ -543,6 +480,71 @@
 //     }
 //     return false
 // }
+
+// // export async function runGenTest(data, genFile) {
+// //     const p = new Promise((resolve) => {
+// //         const splittedString = genFile.split('/** * **/');
+// //         const argStrings = splittedString[0].split('// Parameter:');
+// //         const args = [];
+// //         if (argStrings.length > 1) {
+// //             for (let i = 1; i < argStrings.length - 1; i++) {
+// //                 args.push(JSON.parse(argStrings[i]));
+// //             }
+// //             args.push(JSON.parse(argStrings[argStrings.length - 1].split('function')[0]));
+// //         }
+// //         const val0 = args.map(arg => arg.name);
+// //         const val1 = args.map(arg => {
+// //             if (data.params && data.params.hasOwnProperty(arg.name)) {
+// //                 return data.params[arg.name];
+// //             }
+// //             return arg.value;
+// //         });
+// //         const addedString = `__debug__ = false;\n__model__ = null;\n`
+// //         const fn = new Function('__modules__', ...val0, addedString + splittedString[1]);
+// //         const result = fn(Modules, ...val1);
+// //         const model = JSON.stringify(result.model.getData()).replace(/\\/g, '\\\\');
+
+// //         const params = {
+// //             TableName: GEN_EVAL_PARAM_DB,
+// //             Item: {
+// //                 'id': data.id,
+// //                 'params': data.params,
+// //                 'genUrl': data.genUrl,
+// //                 'evalUrl': data.evalUrl,
+// //                 'model': model,
+// //                 'live': true
+// //             }
+// //         };
+// //         resolve(params);
+// //     });
+// //     return await p;
+// // }
+
+// // export async function runEvalTest(recordInfo, record, evalFile) {
+// //     const data = record.Item
+// //     if (data === null) {
+// //         return false;
+// //     }
+// //     const p = new Promise((resolve) => {
+// //         const splittedString = evalFile.split('/** * **/');
+// //         const argStrings = splittedString[0].split('// Parameter:');
+// //         const args = [];
+// //         if (argStrings.length > 1) {
+// //             for (let i = 1; i < argStrings.length - 1; i++) {
+// //                 args.push(JSON.parse(argStrings[i]));
+// //             }
+// //             args.push(JSON.parse(argStrings[argStrings.length - 1].split('function')[0]));
+// //         }
+// //         const val0 = args.map(arg => arg.name);
+// //         const val1 = args.map(arg =>arg.value);
+
+// //         const addedString = `__debug__ = false;\n__model__ = \`${data.model}\`;\n`
+// //         const fn = new Function('__modules__', ...val0, addedString + splittedString[1]);
+// //         const result = fn(Modules, ...val1);
+// //         resolve(result.result)
+// //     });
+// //     return await p;
+// // }
 
 
 // function generateParamVariations(params) {
@@ -790,7 +792,7 @@
 //         for (let i = 1; i < argStrings.length - 1; i++) {
 //             params.push(JSON.parse(argStrings[i]));
 //         }
-//         params.push(JSON.parse(argStrings[argStrings.length - 1].split('function')[0].split('async')[0]));
+//         params.push(JSON.parse(argStrings[argStrings.length - 1].split('function')[0]));
 //     }
 //     params.forEach( x => {
 //         if (x.min && typeof x.min !== 'number') {
@@ -1044,7 +1046,7 @@
 //                     });
 //                     // docClient.update(updateModelEntry, function (err, data) {
 //                     //     if (err) {
-//                     //         console.log('Error placing data:', err);
+//                     //         console.log('Error placing data (score, evalResult, expiry):', err);
 //                     //         resolve(null);
 //                     //     }
 //                     //     else {
@@ -1349,7 +1351,7 @@
 //             continue;
 //         }
 
-//         // await resolveImportedUrl(node, true);
+//         await resolveImportedUrl(node, true);
 
 //         let EmptyECheck = false;
 //         let InvalidECheck = false;
@@ -1411,23 +1413,23 @@
 //         }
 //     }
 
-//     // for (const func of flowchart.functions) {
-//     //     for (const node of func.flowchart.nodes) {
-//     //         await resolveImportedUrl(node, false);
-//     //     }
-//     // }
-//     // if (flowchart.subFunctions) {
-//     //     for (const func of flowchart.subFunctions) {
-//     //         for (const node of func.flowchart.nodes) {
-//     //             await resolveImportedUrl(node, false);
-//     //         }
-//     //     }
-//     // }
+//     for (const func of flowchart.functions) {
+//         for (const node of func.flowchart.nodes) {
+//             await resolveImportedUrl(node, false);
+//         }
+//     }
+//     if (flowchart.subFunctions) {
+//         for (const func of flowchart.subFunctions) {
+//             for (const node of func.flowchart.nodes) {
+//                 await resolveImportedUrl(node, false);
+//             }
+//         }
+//     }
 
-//     await executeFlowchart(flowchart, consoleLog);
+//     executeFlowchart(flowchart, consoleLog);
 // }
 
-// async function executeFlowchart(flowchart: IFlowchart, consoleLog) {
+// function executeFlowchart(flowchart: IFlowchart, consoleLog) {
 //     let globalVars = '';
 //     const constantList = {};
 
@@ -1461,7 +1463,7 @@
 //             continue;
 //         }
 //         nodeIndices[node.id] = i;
-//         globalVars = await executeNode(node, funcStrings, globalVars, constantList, consoleLog, nodeIndices);
+//         globalVars = executeNode(node, funcStrings, globalVars, constantList, consoleLog, nodeIndices);
 //     }
 
 //     for (const node of flowchart.nodes) {
@@ -1481,60 +1483,59 @@
 // }
 
 // async function resolveImportedUrl(prodList: IProcedure[]|INode, isMainFlowchart?: boolean) {
-//     return;
-//     // if (!Array.isArray(prodList)) {
-//     //     await resolveImportedUrl(prodList.procedure, isMainFlowchart);
-//     //     if (prodList.localFunc) {
-//     //         await resolveImportedUrl(prodList.localFunc, isMainFlowchart);
-//     //     }
-//     //     return;
-//     // }
-//     // for (const prod of <IProcedure[]> prodList) {
-//     //     if (prod.children) {await  resolveImportedUrl(prod.children); }
-//     //     if (!prod.enabled) {
-//     //         continue;
-//     //     }
-//     //     if (isMainFlowchart && prod.type === ProcedureTypes.globalFuncCall) {
-//     //         for (let i = 1; i < prod.args.length; i++) {
-//     //             const arg = prod.args[i];
-//     //             // args.slice(1).map((arg) => {
-//     //             if (arg.type.toString() !== InputType.URL.toString()) { continue; }
-//     //             prod.resolvedValue = await CodeUtils.getStartInput(arg, InputType.URL);
-//     //         }
-//     //         continue;
-//     //     }
-//     //     if (prod.type !== ProcedureTypes.MainFunction) {continue; }
-//     //     for (const func of _parameterTypes.urlFunctions) {
-//     //         const funcMeta = func.split('.');
-//     //         if (prod.meta.module === funcMeta[0] && prod.meta.name === funcMeta[1]) {
-//     //             const arg = prod.args[2];
-//     //             if (arg.name[0] === '_') { continue; }
-//     //             if (arg.value.indexOf('__model_data__') !== -1) {
-//     //                 arg.jsValue = arg.value;
-//     //                 prod.resolvedValue = arg.value.split('__model_data__').join('');
-//     //             } else if (arg.jsValue && arg.jsValue.indexOf('__model_data__') !== -1) {
-//     //                 prod.resolvedValue = arg.jsValue.split('__model_data__').join('');
-//     //             } else if (arg.value.indexOf('://') !== -1) {
-//     //                 const val = <string>(arg.value).replace(/ /g, '');
-//     //                 const result = await CodeUtils.getURLContent(val);
-//     //                 if (result === undefined) {
-//     //                     prod.resolvedValue = arg.value;
-//     //                 } else if (result.indexOf && result.indexOf('HTTP Request Error') !== -1) {
-//     //                     throw new Error(result);
-//     //                 } else if (val.indexOf('.zip') !== -1) {
-//     //                     prod.resolvedValue = await openZipFile(result);
-//     //                 } else {
-//     //                     prod.resolvedValue = '`' + result + '`';
-//     //                 }
-//     //                 break;
-//     //             } else if ((arg.value[0] !== '"' && arg.value[0] !== '\'')) {
-//     //                 prod.resolvedValue = null;
-//     //                 break;
-//     //             }
-//     //             break;
-//     //         }
-//     //     }
-//     // }
+//     if (!isArray(prodList)) {
+//         await resolveImportedUrl(prodList.procedure, isMainFlowchart);
+//         if (prodList.localFunc) {
+//             await resolveImportedUrl(prodList.localFunc, isMainFlowchart);
+//         }
+//         return;
+//     }
+//     for (const prod of <IProcedure[]> prodList) {
+//         if (prod.children) {await  resolveImportedUrl(prod.children); }
+//         if (!prod.enabled) {
+//             continue;
+//         }
+//         if (isMainFlowchart && prod.type === ProcedureTypes.globalFuncCall) {
+//             for (let i = 1; i < prod.args.length; i++) {
+//                 const arg = prod.args[i];
+//                 // args.slice(1).map((arg) => {
+//                 if (arg.type.toString() !== InputType.URL.toString()) { continue; }
+//                 prod.resolvedValue = await CodeUtils.getStartInput(arg, InputType.URL);
+//             }
+//             continue;
+//         }
+//         if (prod.type !== ProcedureTypes.MainFunction) {continue; }
+//         for (const func of _parameterTypes.urlFunctions) {
+//             const funcMeta = func.split('.');
+//             if (prod.meta.module === funcMeta[0] && prod.meta.name === funcMeta[1]) {
+//                 const arg = prod.args[2];
+//                 if (arg.name[0] === '_') { continue; }
+//                 if (arg.value.indexOf('__model_data__') !== -1) {
+//                     arg.jsValue = arg.value;
+//                     prod.resolvedValue = arg.value.split('__model_data__').join('');
+//                 } else if (arg.jsValue && arg.jsValue.indexOf('__model_data__') !== -1) {
+//                     prod.resolvedValue = arg.jsValue.split('__model_data__').join('');
+//                 } else if (arg.value.indexOf('://') !== -1) {
+//                     const val = <string>(arg.value).replace(/ /g, '');
+//                     const result = await CodeUtils.getURLContent(val);
+//                     if (result === undefined) {
+//                         prod.resolvedValue = arg.value;
+//                     } else if (result.indexOf && result.indexOf('HTTP Request Error') !== -1) {
+//                         throw new Error(result);
+//                     } else if (val.indexOf('.zip') !== -1) {
+//                         prod.resolvedValue = await openZipFile(result);
+//                     } else {
+//                         prod.resolvedValue = '`' + result + '`';
+//                     }
+//                     break;
+//                 } else if ((arg.value[0] !== '"' && arg.value[0] !== '\'')) {
+//                     prod.resolvedValue = null;
+//                     break;
+//                 }
+//                 break;
+//             }
+//         }
+//     }
 // }
 // async function openZipFile(zipFile) {
 //     let result = '{';
@@ -1551,7 +1552,7 @@
 // }
 
 
-// async function executeNode(node: INode, funcStrings, globalVars, constantList, consoleLog, nodeIndices): Promise<string> {
+// function executeNode(node: INode, funcStrings, globalVars, constantList, consoleLog, nodeIndices): string {
 //     const params = {
 //         'currentProcedure': [''],
 //         'console': [],
@@ -1605,7 +1606,8 @@
 
 //         const fn = new Function('__modules__', '__params__', fnString);
 //         // execute the function
-//         const result = await fn(Modules, params)(Modules, params);
+
+//         const result = fn(Modules, params);
 
 //         if (node.type === 'end') {
 //             node.output.value = result;
@@ -1624,7 +1626,7 @@
 //             inputNode.output.value = null;
 //         });
 
-//         // diff(node.output.value.getModelData(), node.input.value.getModelData());
+//         // diff(node.output.value.getData(), node.input.value.getData());
 //         if (node.type === 'start') {
 //             for (const constant in params['constants']) {
 //                 if (params['constants'].hasOwnProperty(constant)) {

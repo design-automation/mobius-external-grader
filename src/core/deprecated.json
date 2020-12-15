@@ -113,7 +113,7 @@
             "module": "modify",
             "name": "Weld",
             "values": {
-                "method": "'clone_positions'"
+                "method": "'break_weld'"
             }
         }
     },
@@ -124,7 +124,7 @@
         },
         "new_func": {
             "module": "material",
-            "name": "Basic",
+            "name": "MeshMat",
             "replace": {
                 "color": "colour",
                 "select_vert_colors": "select_vert_colours"
@@ -202,6 +202,16 @@
             "values": {
                 "method": "'ps_average'"
             }
+        }
+    },
+    {
+        "old_func": {
+            "module": "material",
+            "name": "Basic"
+        },
+        "new_func": {
+            "module": "material",
+            "name": "MeshMat"
         }
     }
 ]

@@ -1,5 +1,5 @@
 import { GIModel } from './GIModel';
-import { TNormal, TTexture, EAttribNames, Txyz, EEntType, EAttribDataTypeStrs, TAttribDataTypes, LONGLAT, IGeomPack, Txy, TEntTypeIdx } from './common';
+import { Txyz, EEntType, TAttribDataTypes, LONGLAT, Txy, TEntTypeIdx, IEntSets } from './common';
 import { getArrDepth } from './id';
 import proj4 from 'proj4';
 import { vecAng2, vecDot } from '../geom/vectors';
@@ -20,8 +20,8 @@ export function exportGeojson(model: GIModel, entities: TEntTypeIdx[], flatten: 
     const proj_obj: proj4.Converter = _createProjection(model);
     // calculate angle of rotation
     let rot_matrix: Matrix4 = null;
-    if (model.attribs.query.hasModelAttrib('north')) {
-        const north: Txy = model.attribs.query.getModelAttribVal('north') as Txy;
+    if (model.modeldata.attribs.query.hasModelAttrib('north')) {
+        const north: Txy = model.modeldata.attribs.query.getModelAttribVal('north') as Txy;
         if (Array.isArray(north)) {
             const rot_ang: number = vecAng2([0, 1, 0], [north[0], north[1], 0], [0, 0, 1]);
             rot_matrix = rotateMatrix([[0, 0, 0], [0, 0, 1]], -rot_ang);
@@ -64,20 +64,20 @@ function _createGeojsonPolygon(model: GIModel, pgon_i: number, proj_obj: any, ro
     //     }
     // }
     const all_coords: Txy[][] = [];
-    const wires_i: number[] = model.geom.nav.navAnyToWire(EEntType.PGON, pgon_i);
+    const wires_i: number[] = model.modeldata.geom.nav.navAnyToWire(EEntType.PGON, pgon_i);
     for (let i = 0; i < wires_i.length; i++) {
         const coords: Txy[] = [];
-        const posis_i: number[] = model.geom.nav.navAnyToPosi(EEntType.WIRE, wires_i[i]);
+        const posis_i: number[] = model.modeldata.geom.nav.navAnyToPosi(EEntType.WIRE, wires_i[i]);
         for (const posi_i of posis_i) {
-            const xyz: Txyz = model.attribs.query.getPosiCoords(posi_i);
+            const xyz: Txyz = model.modeldata.attribs.query.getPosiCoords(posi_i);
             const lat_long: [number, number] = _xformFromXYZToLongLat(xyz, proj_obj, rot_matrix, flatten) as [number, number];
             coords.push(lat_long);
         }
         all_coords.push(coords);
     }
     const all_props = {};
-    for (const name of model.attribs.query.getAttribNames(EEntType.PGON)) {
-        all_props[name] = model.attribs.query.getAttribVal(EEntType.PGON, name, pgon_i);
+    for (const name of model.modeldata.attribs.query.getAttribNames(EEntType.PGON)) {
+        all_props[name] = model.modeldata.attribs.query.getAttribVal(EEntType.PGON, name, pgon_i);
     }
     return {
         'type': 'Feature',
@@ -103,19 +103,19 @@ function _createGeojsonLineString(model: GIModel, pline_i: number, proj_obj: any
     //     }
     // },
     const coords: Txy[] = [];
-    const wire_i: number = model.geom.nav.navPlineToWire(pline_i);
-    const posis_i: number[] = model.geom.nav.navAnyToPosi(EEntType.WIRE, wire_i);
+    const wire_i: number = model.modeldata.geom.nav.navPlineToWire(pline_i);
+    const posis_i: number[] = model.modeldata.geom.nav.navAnyToPosi(EEntType.WIRE, wire_i);
     for (const posi_i of posis_i) {
-        const xyz: Txyz = model.attribs.query.getPosiCoords(posi_i);
+        const xyz: Txyz = model.modeldata.attribs.query.getPosiCoords(posi_i);
         const lat_long: [number, number] = _xformFromXYZToLongLat(xyz, proj_obj, rot_matrix, flatten) as [number, number];
         coords.push(lat_long);
     }
-    if (model.geom.query.isWireClosed(wire_i)) {
+    if (model.modeldata.geom.query.isWireClosed(wire_i)) {
         coords.push(coords[0]);
     }
     const all_props = {};
-    for (const name of model.attribs.query.getAttribNames(EEntType.PLINE)) {
-        all_props[name] = model.attribs.query.getAttribVal(EEntType.PLINE, name, pline_i);
+    for (const name of model.modeldata.attribs.query.getAttribNames(EEntType.PLINE)) {
+        all_props[name] = model.modeldata.attribs.query.getAttribVal(EEntType.PLINE, name, pline_i);
     }
     return {
         'type': 'Feature',
@@ -129,14 +129,14 @@ function _createGeojsonLineString(model: GIModel, pline_i: number, proj_obj: any
  /**
  * Import geojson
  */
-export function importGeojson(model: GIModel, geojson_str: string, elevation: number): IGeomPack {
+export function importGeojson(model: GIModel, geojson_str: string, elevation: number): IEntSets {
     // parse the json data str
     const geojson_obj: any = JSON.parse(geojson_str);
     const proj_obj: proj4.Converter = _createProjection(model);
     // calculate angle of rotation
     let rot_matrix: Matrix4 = null;
-    if (model.attribs.query.hasModelAttrib('north')) {
-        const north: Txy = model.attribs.query.getModelAttribVal('north') as Txy;
+    if (model.modeldata.attribs.query.hasModelAttrib('north')) {
+        const north: Txy = model.modeldata.attribs.query.getModelAttribVal('north') as Txy;
         if (Array.isArray(north)) {
             const rot_ang: number = vecAng2([0, 1, 0], [north[0], north[1], 0], [0, 0, 1]);
             rot_matrix = rotateMatrix([[0, 0, 0], [0, 0, 1]], rot_ang);
@@ -151,10 +151,10 @@ export function importGeojson(model: GIModel, geojson_str: string, elevation: nu
     const multipolygon_f: any[] = [];
     const other_f: any[] = [];
     // arrays for objects
-    const points_i: number[] = [];
-    const plines_i: number[] = [];
-    const pgons_i: number[] = [];
-    const colls_i: number[] = [];
+    const points_i: Set<number> = new Set();
+    const plines_i: Set<number> = new Set();
+    const pgons_i: Set<number> = new Set();
+    const colls_i: Set<number> = new Set();
     // loop
     for (const feature of geojson_obj.features) {
         // get the features
@@ -162,59 +162,49 @@ export function importGeojson(model: GIModel, geojson_str: string, elevation: nu
             case EGeojsoFeatureType.POINT:
                 point_f.push(feature);
                 const point_i: number = _addPointToModel(model, feature, proj_obj, rot_matrix, elevation);
-                points_i.push(point_i);
+                points_i.add(point_i);
                 break;
             case EGeojsoFeatureType.LINESTRING:
                 linestring_f.push(feature);
                 const pline_i: number = _addPlineToModel(model, feature, proj_obj, rot_matrix, elevation);
-                plines_i.push(pline_i);
+                plines_i.add(pline_i);
                 break;
             case EGeojsoFeatureType.POLYGON:
                 polygon_f.push(feature);
                 const pgon_i: number = _addPgonToModel(model, feature, proj_obj, rot_matrix, elevation);
-                pgons_i.push(pgon_i);
+                pgons_i.add(pgon_i);
                 break;
             case EGeojsoFeatureType.MULTIPOINT:
                 multipoint_f.push(feature);
                 const points_coll_i: [number[], number] = _addPointCollToModel(model, feature, proj_obj, rot_matrix, elevation);
                 for (const point_coll_i of points_coll_i[0]) {
-                    points_i.push(point_coll_i);
+                    points_i.add(point_coll_i);
                 }
-                colls_i.push(points_coll_i[1]);
+                colls_i.add(points_coll_i[1]);
                 break;
             case EGeojsoFeatureType.MULTILINESTRING:
                 multilinestring_f.push(feature);
                 const plines_coll_i: [number[], number] = _addPlineCollToModel(model, feature, proj_obj, rot_matrix, elevation);
                 for (const pline_coll_i of plines_coll_i[0]) {
-                    plines_i.push(pline_coll_i);
+                    plines_i.add(pline_coll_i);
                 }
-                colls_i.push(plines_coll_i[1]);
+                colls_i.add(plines_coll_i[1]);
                 break;
             case EGeojsoFeatureType.MULTIPOLYGON:
                 multipolygon_f.push(feature);
                 const pgons_coll_i: [number[], number] = _addPgonCollToModel(model, feature, proj_obj, rot_matrix, elevation);
                 for (const pgon_coll_i of pgons_coll_i[0]) {
-                    pgons_i.push(pgon_coll_i);
+                    pgons_i.add(pgon_coll_i);
                 }
-                colls_i.push(pgons_coll_i[1]);
+                colls_i.add(pgons_coll_i[1]);
                 break;
             default:
                 other_f.push(feature);
                 break;
         }
     }
-    // log message
-    // console.log(
-    //     'Point: '           + point_f.length + '\n' +
-    //     'LineString: '      + linestring_f.length + '\n' +
-    //     'Polygon: '         + polygon_f.length + '\n' +
-    //     'MultiPoint: '      + multipoint_f.length + '\n' +
-    //     'MultiLineString: ' + multilinestring_f.length + '\n' +
-    //     'MultiPolygon: '    + multipolygon_f.length + '\n' +
-    //     'Other: '           + other_f + '\n\n');
-    // return a geom pack with all the new entities that have been added
+    // return sets
     return {
-        posis_i: [],
         points_i: points_i,
         plines_i: plines_i,
         pgons_i: pgons_i,
@@ -235,8 +225,8 @@ function _createProjection(model: GIModel): proj4.Converter {
         const proj_str_c = '+k=1 +x_0=0 +y_0=0 +ellps=WGS84 +units=m +no_defs';
         let longitude = LONGLAT[0];
         let latitude = LONGLAT[1];
-        if (model.attribs.query.hasModelAttrib('geolocation')) {
-            const geolocation = model.attribs.query.getModelAttribVal('geolocation');
+        if (model.modeldata.attribs.query.hasModelAttrib('geolocation')) {
+            const geolocation = model.modeldata.attribs.query.getModelAttribVal('geolocation');
             const long_value: TAttribDataTypes = geolocation['longitude'];
             if (typeof long_value !== 'number') {
                 throw new Error('Longitude attribute must be a number.');
@@ -307,10 +297,10 @@ function _addPointToModel(model: GIModel, point: any,
         xyz = multMatrix(xyz, rot_matrix);
     }
     // create the posi
-    const posi_i: number = model.geom.add.addPosi();
-    model.attribs.add.setPosiCoords(posi_i, xyz);
+    const posi_i: number = model.modeldata.geom.add.addPosi();
+    model.modeldata.attribs.add.setPosiCoords(posi_i, xyz);
     // create the point
-    const point_i: number = model.geom.add.addPoint(posi_i);
+    const point_i: number = model.modeldata.geom.add.addPoint(posi_i);
     // add attribs
     _addAttribsToModel(model, EEntType.POINT, point_i, point);
     // return the index
@@ -347,12 +337,12 @@ function _addPlineToModel(model: GIModel, linestring: any,
     // create the posis
     const posis_i: number[] = [];
     for (const xyz of xyzs) {
-        const posi_i: number = model.geom.add.addPosi();
-        model.attribs.add.setPosiCoords(posi_i, xyz);
+        const posi_i: number = model.modeldata.geom.add.addPosi();
+        model.modeldata.attribs.add.setPosiCoords(posi_i, xyz);
         posis_i.push(posi_i);
     }
     // create the pline
-    const pline_i: number = model.geom.add.addPline(posis_i, close);
+    const pline_i: number = model.modeldata.geom.add.addPline(posis_i, close);
     // add attribs
     _addAttribsToModel(model, EEntType.PLINE, pline_i, linestring);
     // return the index
@@ -388,20 +378,20 @@ function _addPgonToModel(model: GIModel, polygon: any,
         // create the posis
         const posis_i: number[] = [];
         for (const xyz of xyzs) {
-            const posi_i: number = model.geom.add.addPosi();
-            model.attribs.add.setPosiCoords(posi_i, xyz);
+            const posi_i: number = model.modeldata.geom.add.addPosi();
+            model.modeldata.attribs.add.setPosiCoords(posi_i, xyz);
             posis_i.push(posi_i);
         }
         rings.push(posis_i);
     }
     // create the pgon
-    const pgon_i: number = model.geom.add.addPgon(rings[0], rings.slice(1));
+    const pgon_i: number = model.modeldata.geom.add.addPgon(rings[0], rings.slice(1));
     // check if it needs flipping
     // TODO there may be a faster way to do this
-    const face_i: number = model.geom.nav.navPgonToFace(pgon_i);
-    const normal: Txyz = model.geom.query.getFaceNormal(face_i);
+    const face_i: number = model.modeldata.geom.nav.navPgonToFace(pgon_i);
+    const normal: Txyz = model.modeldata.geom.query.getFaceNormal(face_i);
     if (vecDot(normal, [0, 0, 1]) < 0) {
-        model.geom.modify.reverse(model.geom.nav.navFaceToWire(face_i)[0]);
+        model.modeldata.geom.modify.reverse(model.modeldata.geom.nav.navFaceToWire(face_i)[0]);
     }
     // add attribs
     _addAttribsToModel(model, EEntType.PGON, pgon_i, polygon);
@@ -433,7 +423,7 @@ function _addPointCollToModel(model: GIModel, multipoint: any,
         points_i.push(point_i);
     }
     // create the collection
-    const coll_i: number = model.geom.add.addColl(null, [], points_i, []);
+    const coll_i: number = model.modeldata.geom.add.addColl(null, [], points_i, []);
     // add attribs
     _addAttribsToModel(model, EEntType.COLL, coll_i, multipoint);
     // return the indices of the plines and the index of the collection
@@ -463,7 +453,7 @@ function _addPlineCollToModel(model: GIModel, multilinestring: any,
         plines_i.push(pline_i);
     }
     // create the collection
-    const coll_i: number = model.geom.add.addColl(null, [], plines_i, []);
+    const coll_i: number = model.modeldata.geom.add.addColl(null, [], plines_i, []);
     // add attribs
     _addAttribsToModel(model, EEntType.COLL, coll_i, multilinestring);
     // return the indices of the plines and the index of the collection
@@ -498,7 +488,7 @@ function _addPgonCollToModel(model: GIModel, multipolygon: any,
         pgons_i.push(pgon_i);
     }
     // create the collection
-    const coll_i: number = model.geom.add.addColl(null, [], [], pgons_i);
+    const coll_i: number = model.modeldata.geom.add.addColl(null, [], [], pgons_i);
     // add attribs
     _addAttribsToModel(model, EEntType.COLL, coll_i, multipolygon);
     // return the indices of the plines and the index of the collection
@@ -518,7 +508,7 @@ function _addAttribsToModel(model: GIModel, ent_type: EEntType, ent_i: number, f
         if (value_type === 'object') {
             value = JSON.stringify(value);
         }
-        model.attribs.add.setAttribVal(ent_type, ent_i, name, value);
+        model.modeldata.attribs.add.setEntAttribVal(ent_type, ent_i, name, value);
     }
 }
 
