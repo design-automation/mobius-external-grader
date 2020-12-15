@@ -10,7 +10,7 @@
 import { checkArgs, ArgCh } from '../_check_args';
 
 import { Txyz, TPlane, XYPLANE, TId, EEntType } from '@libs/geo-info/common';
-import { getArrDepth, idsMakeFromIndicies } from '@libs/geo-info/id';
+import { getArrDepth, idsMakeFromIdxs } from '@assets/libs/geo-info/common_id_funcs';
 import { vecAdd } from '@libs/geom/vectors';
 import { xfromSourceTargetMatrix, multMatrix } from '@libs/geom/matrix';
 import { Matrix4 } from 'three';
@@ -58,11 +58,11 @@ export function Line(__model__: GIModel, origin: Txyz|TPlane, size: number, num_
             xyz = vecAdd(xyz, origin as Txyz);
         }
         const posi_i: number = __model__.modeldata.geom.add.addPosi();
-        __model__.modeldata.attribs.add.setPosiCoords(posi_i, xyz);
+        __model__.modeldata.attribs.posis.setPosiCoords(posi_i, xyz);
         posis_i.push(posi_i);
     }
     // return
-    return idsMakeFromIndicies(EEntType.POSI, posis_i) as TId[];
+    return idsMakeFromIdxs(EEntType.POSI, posis_i) as TId[];
 }
 // ================================================================================================
 /**
@@ -107,11 +107,11 @@ export function Rectangle(__model__: GIModel, origin: Txyz|TPlane, size: number|
             xyz = vecAdd(xyz, origin as Txyz);
         }
         const posi_i: number = __model__.modeldata.geom.add.addPosi();
-        __model__.modeldata.attribs.add.setPosiCoords(posi_i, xyz);
+        __model__.modeldata.attribs.posis.setPosiCoords(posi_i, xyz);
         posis_i.push(posi_i);
     }
     // return
-    return idsMakeFromIndicies(EEntType.POSI, posis_i) as TId[];
+    return idsMakeFromIdxs(EEntType.POSI, posis_i) as TId[];
 }
 // ================================================================================================
 export enum _EGridMethod {
@@ -170,14 +170,14 @@ export function Grid(__model__: GIModel, origin: Txyz|TPlane, size: number|[numb
                 xyz = vecAdd(xyz, origin as Txyz);
             }
             const posi_i: number = __model__.modeldata.geom.add.addPosi();
-            __model__.modeldata.attribs.add.setPosiCoords(posi_i, xyz);
+            __model__.modeldata.attribs.posis.setPosiCoords(posi_i, xyz);
             posis_i.push(posi_i);
         }
     }
     // structure the grid of posis, and return
     const posis_i2: number[][] = [];
     if (method === _EGridMethod.FLAT) {
-        return idsMakeFromIndicies(EEntType.POSI, posis_i) as TId[];
+        return idsMakeFromIdxs(EEntType.POSI, posis_i) as TId[];
     } else if (method === _EGridMethod.ROWS) {
         for (let i = 0; i < xy_num_positions[1]; i++) {
             const row: number[] = [];
@@ -210,7 +210,7 @@ export function Grid(__model__: GIModel, origin: Txyz|TPlane, size: number|[numb
             }
         }
     }
-    return idsMakeFromIndicies(EEntType.POSI, posis_i2) as TId[][];
+    return idsMakeFromIdxs(EEntType.POSI, posis_i2) as TId[][];
 }
 // ================================================================================================
 export enum _EBoxMethod {
@@ -288,7 +288,7 @@ export function Box(__model__: GIModel, origin: Txyz | TPlane,
                         xyz = vecAdd(xyz, origin as Txyz);
                     }
                     const posi_i: number = __model__.modeldata.geom.add.addPosi();
-                    __model__.modeldata.attribs.add.setPosiCoords(posi_i, xyz);
+                    __model__.modeldata.attribs.posis.setPosiCoords(posi_i, xyz);
                     if (create_perim_layer) {
                         if (i === 0) {
                             layer_perim_x0_posis_i.push(posi_i);
@@ -325,7 +325,7 @@ export function Box(__model__: GIModel, origin: Txyz | TPlane,
             );
         }
         const all_posis: number[] = arrMakeFlat([layer_bot_posis_i, layers_posis_i, layer_top_posis_i]);
-        return idsMakeFromIndicies(EEntType.POSI, all_posis) as TId[];
+        return idsMakeFromIdxs(EEntType.POSI, all_posis) as TId[];
     } else if (method === _EBoxMethod.ROWS) {
         // rows that are parallel to x axis
         const posis_i2: number[][] = [];
@@ -356,7 +356,7 @@ export function Box(__model__: GIModel, origin: Txyz | TPlane,
             }
             posis_i2.push(row);
         }
-        return idsMakeFromIndicies(EEntType.POSI, posis_i2) as TId[][];
+        return idsMakeFromIdxs(EEntType.POSI, posis_i2) as TId[][];
     } else if (method === _EBoxMethod.COLUMNS) {
         // columns that are parallel to the y axis
         // i is moving along x axis
@@ -392,7 +392,7 @@ export function Box(__model__: GIModel, origin: Txyz | TPlane,
             }
             posis_i2.push(col);
         }
-        return idsMakeFromIndicies(EEntType.POSI, posis_i2) as TId[][];
+        return idsMakeFromIdxs(EEntType.POSI, posis_i2) as TId[][];
     } else if (method === _EBoxMethod.LAYERS) {
         // layers that are parallel to the xy plane
         // i is moving along z axis
@@ -412,7 +412,7 @@ export function Box(__model__: GIModel, origin: Txyz | TPlane,
         }
         // top
         posis_i2.push(layer_top_posis_i);
-        return idsMakeFromIndicies(EEntType.POSI, posis_i2) as TId[][];
+        return idsMakeFromIdxs(EEntType.POSI, posis_i2) as TId[][];
     } else if (method === _EBoxMethod.QUADS) {
         const posis_i2: number[][] = [];
         // bottom
@@ -468,14 +468,14 @@ export function Box(__model__: GIModel, origin: Txyz | TPlane,
                 posis_i2.push(quad);
             }
         }
-        return idsMakeFromIndicies(EEntType.POSI, posis_i2) as TId[][];
+        return idsMakeFromIdxs(EEntType.POSI, posis_i2) as TId[][];
     }
     return [];
 }
 // ================================================================================================
 /**
  * Creates positions in a polyhedron pattern. Returns a list of new positions.
- * ~
+ * \n
  * @param __model__
  * @param origin XYZ coordinates as a list of three numbers.
  * @param radius xxx
@@ -507,7 +507,7 @@ export function Polyhedron(__model__: GIModel, origin: Txyz | TPlane, radius: nu
     }
     // make polyhedron posis
     const posis_i: number[]|number[][] = _polyhedron(__model__, matrix, radius, detail, method);
-    return idsMakeFromIndicies(EEntType.POSI, posis_i) as TId[][];
+    return idsMakeFromIdxs(EEntType.POSI, posis_i) as TId[][];
 }
 export enum _EPolyhedronMethod {
     FLAT_TETRA = 'flat_tetra',
@@ -548,7 +548,7 @@ export function _polyhedron(__model__: GIModel, matrix: Matrix4, radius: number,
     for (const vert_tjs of hedron_tjs.vertices) {
         const xyz: Txyz = multMatrix(vert_tjs.toArray() as Txyz, matrix);
         const posi_i: number = __model__.modeldata.geom.add.addPosi();
-        __model__.modeldata.attribs.add.setPosiCoords(posi_i, xyz);
+        __model__.modeldata.attribs.posis.setPosiCoords(posi_i, xyz);
         posis_i.push(posi_i);
     }
     // if the method is flat, then we are done, return the posis
@@ -619,26 +619,26 @@ export function Arc(__model__: GIModel, origin: Txyz|TPlane, radius: number, num
             xyz = vecAdd(xyz, origin as Txyz);
         }
         const posi_i: number = __model__.modeldata.geom.add.addPosi();
-        __model__.modeldata.attribs.add.setPosiCoords(posi_i, xyz);
+        __model__.modeldata.attribs.posis.setPosiCoords(posi_i, xyz);
         posis_i.push(posi_i);
     }
     // return the list of posis
-    return idsMakeFromIndicies(EEntType.POSI, posis_i) as TId[];
+    return idsMakeFromIdxs(EEntType.POSI, posis_i) as TId[];
 }
 // ================================================================================================
 /**
  * Creates positions in an Bezier curve pattern. Returns a list of new positions.
  * The Bezier is created as either a qadratic or cubic Bezier. It is always an open curve.
- * ~
+ * \n
  * The input is a list of XYZ coordinates (three coords for quadratics, four coords for cubics).
  * The first and last coordinates in the list are the start and end positions of the Bezier curve.
  * The middle coordinates act as the control points for controlling the shape of the Bezier curve.
- * ~
+ * \n
  * For the quadratic Bezier, three XYZ coordinates are required.
  * For the cubic Bezier, four XYZ coordinates are required.
- * ~
+ * \n
  * For more information, see the wikipedia article: <a href="https://en.wikipedia.org/wiki/B%C3%A9zier_curve">B%C3%A9zier_curve</a>.
- * ~
+ * \n
  * @param __model__
  * @param coords A list of XYZ coordinates (three coords for quadratics, four coords for cubics).
  * @param num_positions Number of positions to be distributed along the Bezier.
@@ -671,11 +671,11 @@ export function Bezier(__model__: GIModel, coords: Txyz[], num_positions: number
     const posis_i: number[] = [];
     for (let i = 0; i < num_positions; i++) {
         const posi_i: number = __model__.modeldata.geom.add.addPosi();
-        __model__.modeldata.attribs.add.setPosiCoords(posi_i, points_tjs[i].toArray() as Txyz);
+        __model__.modeldata.attribs.posis.setPosiCoords(posi_i, points_tjs[i].toArray() as Txyz);
         posis_i.push(posi_i);
     }
     // return the list of posis
-    return idsMakeFromIndicies(EEntType.POSI, posis_i) as TId[];
+    return idsMakeFromIdxs(EEntType.POSI, posis_i) as TId[];
 }
 // ================================================================================================
 export enum _EClose {
@@ -685,20 +685,20 @@ export enum _EClose {
 /**
  * Creates positions in an NURBS curve pattern, by using the XYZ positions as control points.
  * Returns a list of new positions.
- * ~
+ * \n
  * The positions are created along the curve at equal parameter values.
  * This means that the euclidean distance between the positions will not necessarily be equal.
- * ~
+ * \n
  * The input is a list of XYZ coordinates that will act as control points for the curve.
  * If the curve is open, then the first and last coordinates in the list are the start and end positions of the curve.
- * ~
+ * \n
  * The number of positions should be at least one greater than the degree of the curve.
- * ~
+ * \n
  * The degree (between 2 and 5) of the urve defines how smooth the curve is.
  * Quadratic: degree = 2
  * Cubic: degree = 3
  * Quartic: degree = 4.
- * ~
+ * \n
  * @param __model__
  * @param coords A list of XYZ coordinates (must be at least three XYZ coords).
  * @param degree The degree of the curve, and integer between 2 and 5.
@@ -758,26 +758,26 @@ export function Nurbs(__model__: GIModel, coords: Txyz[], degree: number, close:
     // Invalid knot vector format! Should begin with degree + 1 repeats and end with degree + 1 repeats!
     const posis_i: number[] = nurbsToPosis(__model__, curve_verb, degree, closed, num_positions, coords[0]);
     // return the list of posis
-    return idsMakeFromIndicies(EEntType.POSI, posis_i) as TId[];
+    return idsMakeFromIdxs(EEntType.POSI, posis_i) as TId[];
 }
 // ================================================================================================
 /**
  * Creates positions in an NURBS curve pattern, by iterpolating between the XYZ positions.
  * Returns a list of new positions.
- * ~
+ * \n
  * THe positions are created along the curve at equal parameter values.
  * This means that the euclidean distance between the positions will not necessarily be equal.
- * ~
+ * \n
  * The input is a list of XYZ coordinates that will act as control points for the curve.
  * If the curve is open, then the first and last coordinates in the list are the start and end positions of the curve.
- * ~
+ * \n
  * The number of positions should be at least one greater than the degree of the curve.
- * ~
+ * \n
  * The degree (between 2 and 5) of the urve defines how smooth the curve is.
  * Quadratic: degree = 2
  * Cubic: degree = 3
  * Quartic: degree = 4.
- * ~
+ * \n
  * @param __model__
  * @param coords A list of XYZ coordinates (must be at least three XYZ coords).
  * @param degree The degree of the curve, and integer between 2 and 5.
@@ -817,7 +817,7 @@ export function _Interpolate(__model__: GIModel, coords: Txyz[], degree: number,
     const curve_verb = new VERB.geom.NurbsCurve.byPoints( coords2, degree );
     // return the list of posis
     const posis_i: number[] = nurbsToPosis(__model__, curve_verb, degree, closed, num_positions, coords[0]);
-    return idsMakeFromIndicies(EEntType.POSI, posis_i) as TId[];
+    return idsMakeFromIdxs(EEntType.POSI, posis_i) as TId[];
 }
 function nurbsToPosis(__model__: GIModel, curve_verb: any, degree: number, closed: boolean,
         num_positions: number, start: Txyz, ): number[] {
@@ -845,7 +845,7 @@ function nurbsToPosis(__model__: GIModel, curve_verb: any, degree: number, close
         const xyz: Txyz  = curve_verb.point(u) as Txyz;
         // xyz[2] = i / 10;
         const posi_i: number = __model__.modeldata.geom.add.addPosi();
-        __model__.modeldata.attribs.add.setPosiCoords(posi_i, xyz);
+        __model__.modeldata.attribs.posis.setPosiCoords(posi_i, xyz);
         posis_i.push(posi_i);
         const dist =    Math.abs(start[0] - xyz[0]) +
                         Math.abs(start[1] - xyz[1]) +
@@ -866,21 +866,21 @@ function nurbsToPosis(__model__: GIModel, curve_verb: any, degree: number, close
  * Creates positions in an spline pattern. Returns a list of new positions.
  * The spline is created using the Catmull-Rom algorithm.
  * It is a type of interpolating spline (a curve that goes through its control points).
- * ~
+ * \n
  * The input is a list of XYZ coordinates. These act as the control points for creating the Spline curve.
  * The positions that get generated will be divided equally between the control points.
  * For example, if you define 4 control points for a cosed spline, and set 'num_positions' to be 40,
  * then you will get 8 positions between each pair of control points,
  * irrespective of the distance between the control points.
- * ~
+ * \n
  * The spline curve can be created in three ways: 'centripetal', 'chordal', or 'catmullrom'.
- * ~
+ * \n
  * For more information, see the wikipedia article:
  * <a href="https://en.wikipedia.org/wiki/Centripetal_Catmull%E2%80%93Rom_spline">Catmull–Rom spline</a>.
- * ~
+ * \n
  * <img src="https://upload.wikimedia.org/wikipedia/commons/2/2f/Catmull-Rom_examples_with_parameters..png"
  * alt="Curve types" width="100">
- * ~
+ * \n
  * @param __model__
  * @param coords A list of XYZ coordinates.
  * @param type Enum, the type of interpolation algorithm.
@@ -916,11 +916,11 @@ export function Interpolate(__model__: GIModel, coords: Txyz[], type: _ECurveCat
     const posis_i: number[] = [];
     for (let i = 0; i < num_positions; i++) {
         const posi_i: number = __model__.modeldata.geom.add.addPosi();
-        __model__.modeldata.attribs.add.setPosiCoords(posi_i, points_tjs[i].toArray() as Txyz);
+        __model__.modeldata.attribs.posis.setPosiCoords(posi_i, points_tjs[i].toArray() as Txyz);
         posis_i.push(posi_i);
     }
     // return the list of posis
-    return idsMakeFromIndicies(EEntType.POSI, posis_i) as TId[];
+    return idsMakeFromIdxs(EEntType.POSI, posis_i) as TId[];
 }
 // Enums for CurveCatRom()
 export enum _ECurveCatRomType {

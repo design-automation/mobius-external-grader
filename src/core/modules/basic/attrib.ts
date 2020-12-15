@@ -1,8 +1,8 @@
 /**
  * The `attrib` module has functions for working with attributes in teh model.
  * Note that attributes can also be set and retrieved using the "@" symbol.
- * ~
- * ~
+ * \n
+ * \n
  */
 
 /**
@@ -16,7 +16,8 @@ import uscore from 'underscore';
 import { GIModel } from '@libs/geo-info/GIModel';
 import { TId, EEntType, TEntTypeIdx,
     EAttribPush, TAttribDataTypes, EEntTypeStr, EAttribDataTypeStrs } from '@libs/geo-info/common';
-import { getArrDepth, idsBreak } from '@libs/geo-info/id';
+import { getArrDepth, idsBreak } from '@assets/libs/geo-info/common_id_funcs';
+import * as lodash from 'lodash';
 // ================================================================================================
 
 export enum _EEntType {
@@ -73,8 +74,6 @@ function _getEntTypeFromStr(ent_type_str: _EEntType|_EEntTypeAndMod): EEntType {
             return EEntType.EDGE;
         case _EEntTypeAndMod.WIRE:
             return EEntType.WIRE;
-        case _EEntTypeAndMod.FACE:
-            return EEntType.FACE;
         case _EEntTypeAndMod.POINT:
             return EEntType.POINT;
         case _EEntTypeAndMod.PLINE:
@@ -99,8 +98,6 @@ function _getAttribPushTarget(ent_type_str: _EAttribPushTarget): EEntType|string
             return EEntType.EDGE;
         case _EAttribPushTarget.WIRE:
             return EEntType.WIRE;
-        case _EAttribPushTarget.FACE:
-            return EEntType.FACE;
         case _EAttribPushTarget.POINT:
             return EEntType.POINT;
         case _EAttribPushTarget.PLINE:
@@ -122,9 +119,9 @@ function _getAttribPushTarget(ent_type_str: _EAttribPushTarget): EEntType|string
 // ================================================================================================
 /**
  * Set an attribute value for one or more entities.
- * ~
+ * \n
  * If entities is null, then model level attributes will be set.
- * ~
+ * \n
  * @param __model__
  * @param entities Entities, the entities to set the attribute value for.
  * @param attrib The attribute. Can be `name`, `[name, index]`, or `[name, key]`.
@@ -145,15 +142,11 @@ export function Set(__model__: GIModel, entities: TId|TId[]|TId[][],
         if (value === undefined) {
             throw new Error(fn_name + ': value is undefined');
         }
-        if (entities !== null && entities !== undefined) {
-            ents_arr = checkIDs(__model__, fn_name, 'entities', entities, [ID.isID, ID.isIDL], null) as TEntTypeIdx|TEntTypeIdx[];
-        }
+        ents_arr = checkIDs(__model__, fn_name, 'entities', entities, [ID.isNull, ID.isID, ID.isIDL], null) as TEntTypeIdx|TEntTypeIdx[];
         [attrib_name, attrib_idx_key] = checkAttribNameIdxKey(fn_name, attrib);
         checkAttribName(fn_name , attrib_name);
     } else {
-        if (entities !== null && entities !== undefined) {
-            // ents_arr = splitIDs(fn_name, 'entities', entities,
-            // [IDcheckObj.isID, IDcheckObj.isIDList], null) as TEntTypeIdx|TEntTypeIdx[];
+        if (entities !== null) {
             ents_arr = idsBreak(entities) as TEntTypeIdx|TEntTypeIdx[];
         }
         [attrib_name, attrib_idx_key] = splitAttribNameIdxKey(fn_name, attrib);
@@ -187,11 +180,11 @@ function _setAttrib(__model__: GIModel, ents_arr: TEntTypeIdx|TEntTypeIdx[],
 }
 function _setModelAttrib(__model__: GIModel, attrib_name: string, attrib_value: TAttribDataTypes, idx_or_key?: number|string): void {
     if (typeof idx_or_key === 'number') {
-        __model__.modeldata.attribs.add.setModelAttribListIdxVal(attrib_name, idx_or_key, attrib_value as number);
+        __model__.modeldata.attribs.set.setModelAttribListIdxVal(attrib_name, idx_or_key, attrib_value as number);
     } if (typeof idx_or_key === 'string') {
-        __model__.modeldata.attribs.add.setModelAttribDictKeyVal(attrib_name, idx_or_key, attrib_value as string);
+        __model__.modeldata.attribs.set.setModelAttribDictKeyVal(attrib_name, idx_or_key, attrib_value as string);
     } else {
-        __model__.modeldata.attribs.add.setModelAttribVal(attrib_name, attrib_value);
+        __model__.modeldata.attribs.set.setModelAttribVal(attrib_name, attrib_value);
     }
 }
 function _setEachEntDifferentAttribValue(__model__: GIModel, ents_arr: TEntTypeIdx[],
@@ -210,12 +203,15 @@ function _setEachEntDifferentAttribValue(__model__: GIModel, ents_arr: TEntTypeI
             if (idx_or_key !== null) { checkAttribIdxKey(fn_name, idx_or_key); }
         }
         // --- Error Check ---
+        // if this is a complex type, make a deep copy
+        let val: TAttribDataTypes = attrib_values[i];
+        if (val instanceof Object) { val = lodash.cloneDeep(val); }
         if (typeof idx_or_key === 'number') {
-            __model__.modeldata.attribs.add.setEntAttribListIdxVal(ent_type, ents_i[i], attrib_name, idx_or_key, attrib_values[i]);
+            __model__.modeldata.attribs.set.setEntsAttribListIdxVal(ent_type, ents_i[i], attrib_name, idx_or_key, val);
         } if (typeof idx_or_key === 'string') {
-            __model__.modeldata.attribs.add.setEntAttribDictKeyVal(ent_type, ents_i[i], attrib_name, idx_or_key, attrib_values[i]);
+            __model__.modeldata.attribs.set.setEntsAttribDictKeyVal(ent_type, ents_i[i], attrib_name, idx_or_key, val);
         } else {
-            __model__.modeldata.attribs.add.setEntAttribVal(ent_type, ents_i[i], attrib_name, attrib_values[i]);
+            __model__.modeldata.attribs.set.setCreateEntsAttribVal(ent_type, ents_i[i], attrib_name, val);
         }
     }
 }
@@ -227,14 +223,16 @@ function _setEachEntSameAttribValue(__model__: GIModel, ents_arr: TEntTypeIdx[],
         checkAttribValue(fn_name , attrib_value);
     }
     // --- Error Check ---
+    // if this is a complex type, make a deep copy
+    if (attrib_value instanceof Object) { attrib_value = lodash.cloneDeep(attrib_value); }
     const ent_type: number = ents_arr[0][0];
     const ents_i: number[] = _getEntsIndices(__model__, ents_arr);
     if (typeof idx_or_key === 'number') {
-        __model__.modeldata.attribs.add.setEntAttribListIdxVal(ent_type, ents_i, attrib_name, idx_or_key, attrib_value);
+        __model__.modeldata.attribs.set.setEntsAttribListIdxVal(ent_type, ents_i, attrib_name, idx_or_key, attrib_value);
     } else if (typeof idx_or_key === 'string') {
-        __model__.modeldata.attribs.add.setEntAttribDictKeyVal(ent_type, ents_i, attrib_name, idx_or_key, attrib_value);
+        __model__.modeldata.attribs.set.setEntsAttribDictKeyVal(ent_type, ents_i, attrib_name, idx_or_key, attrib_value);
     } else {
-        __model__.modeldata.attribs.add.setEntAttribVal(ent_type, ents_i, attrib_name, attrib_value);
+        __model__.modeldata.attribs.set.setCreateEntsAttribVal(ent_type, ents_i, attrib_name, attrib_value);
     }
 }
 function _getEntsIndices(__model__: GIModel, ents_arr: TEntTypeIdx[]): number[] {
@@ -251,9 +249,9 @@ function _getEntsIndices(__model__: GIModel, ents_arr: TEntTypeIdx[]): number[] 
 // ================================================================================================
 /**
  * Get attribute values for one or more entities.
- * ~
+ * \n
  * If entities is null, then model level attributes will be returned.
- * ~
+ * \n
  * @param __model__
  * @param entities Entities, the entities to get the attribute values for.
  * @param attrib The attribute. Can be `name`, `[name, index]`, or `[name, key]`.
@@ -291,11 +289,11 @@ function _get(__model__: GIModel, ents_arr: TEntTypeIdx|TEntTypeIdx[],
     if (ents_arr === null) {
         // get the attrib values from the model
         if (typeof attrib_idx_key === 'number') {
-            return __model__.modeldata.attribs.query.getModelAttribListIdxVal(attrib_name, attrib_idx_key);
+            return __model__.modeldata.attribs.get.getModelAttribListIdxVal(attrib_name, attrib_idx_key);
         } else if (typeof attrib_idx_key === 'string') {
-            return __model__.modeldata.attribs.query.getModelAttribDictKeyVal(attrib_name, attrib_idx_key);
+            return __model__.modeldata.attribs.get.getModelAttribDictKeyVal(attrib_name, attrib_idx_key);
         } else {
-            return __model__.modeldata.attribs.query.getModelAttribVal(attrib_name);
+            return __model__.modeldata.attribs.get.getModelAttribVal(attrib_name);
         }
     } else if (ents_arr.length === 0) {
         return [];
@@ -307,13 +305,17 @@ function _get(__model__: GIModel, ents_arr: TEntTypeIdx|TEntTypeIdx[],
             return EEntTypeStr[ent_type] + ent_i as TAttribDataTypes;
         }
         // get the attrib values from the ents
+        let val: TAttribDataTypes;
         if (typeof attrib_idx_key === 'number') {
-            return __model__.modeldata.attribs.query.getAttribListIdxVal(ent_type, attrib_name, ent_i, attrib_idx_key as number);
+            val =  __model__.modeldata.attribs.get.getEntAttribListIdxVal(ent_type, ent_i, attrib_name, attrib_idx_key as number);
         } else if (typeof attrib_idx_key === 'string') {
-            return __model__.modeldata.attribs.query.getAttribDictKeyVal(ent_type, attrib_name, ent_i, attrib_idx_key as string);
+            val =  __model__.modeldata.attribs.get.getEntAttribDictKeyVal(ent_type, ent_i, attrib_name, attrib_idx_key as string);
         } else {
-            return __model__.modeldata.attribs.query.getAttribVal(ent_type, attrib_name, ent_i);
+            val = __model__.modeldata.attribs.get.getEntAttribVal(ent_type, ent_i, attrib_name);
         }
+        // if this is a complex type, make a deep copy
+        if (val instanceof Object) { val = lodash.cloneDeep(val); }
+        return val;
     } else {
         return (ents_arr as TEntTypeIdx[]).map( ent_arr =>
             _get(__model__, ent_arr, attrib_name, attrib_idx_key) ) as TAttribDataTypes[];
@@ -323,8 +325,9 @@ function _get(__model__: GIModel, ents_arr: TEntTypeIdx|TEntTypeIdx[],
 /**
  * Add one or more attributes to the model.
  * The attribute will appear as a new column in the attribute table.
+ * (At least one entity must have a value for the column to be visible in the attribute table).
  * All attribute values will be set to null.
- * ~
+ * \n
  * @param __model__
  * @param ent_type_sel Enum, the attribute entity type.
  * @param data_type_sel Enum, the data type for this attribute
@@ -355,6 +358,7 @@ export function Add(__model__: GIModel, ent_type_sel: _EEntTypeAndMod, data_type
         // convert the ent_type_str to an ent_type
         ent_type = _getEntTypeFromStr(ent_type_sel);
         // create an array of attrib names
+        if (!Array.isArray(attribs)) { attribs = [attribs]; }
         attribs = attribs as string[];
     }
 
@@ -391,7 +395,7 @@ export function Add(__model__: GIModel, ent_type_sel: _EEntTypeAndMod, data_type
  * Delete one or more attributes from the model.
  * The column in the attribute table will be deleted.
  * All values will also be deleted.
- * ~
+ * \n
  * @param __model__
  * @param ent_type_sel Enum, the attribute entity type.
  * @param attribs A single attribute name, or a list of attribute names. In 'null' all attributes will be deleted.
@@ -412,7 +416,7 @@ export function Delete(__model__: GIModel, ent_type_sel: _EEntTypeAndMod, attrib
             'ps, _v, _e, _w, _f, pt, pl, pg, co, mo.');
         }
         // create an array of attrib names
-        if (attribs === null) { attribs = __model__.modeldata.attribs.query.getAttribNamesUser(ent_type); }
+        if (attribs === null) { attribs = __model__.modeldata.attribs.getAttribNamesUser(ent_type); }
         if (!Array.isArray(attribs)) { attribs = [attribs]; }
         attribs = attribs as string[];
         for (const attrib of attribs) { checkAttribName(fn_name , attrib); }
@@ -420,14 +424,14 @@ export function Delete(__model__: GIModel, ent_type_sel: _EEntTypeAndMod, attrib
         // convert the ent_type_str to an ent_type
         ent_type = _getEntTypeFromStr(ent_type_sel);
         // create an array of attrib names
-        if (attribs === null) { attribs = __model__.modeldata.attribs.query.getAttribNamesUser(ent_type); }
+        if (attribs === null) { attribs = __model__.modeldata.attribs.getAttribNamesUser(ent_type); }
         if (!Array.isArray(attribs)) { attribs = [attribs]; }
         attribs = attribs as string[];
     }
     // --- Error Check ---
     // delete the attributes
     for (const attrib of attribs) {
-        __model__.modeldata.attribs.modify.delAttrib(ent_type, attrib);
+        __model__.modeldata.attribs.del.delEntAttrib(ent_type, attrib);
     }
 }
 // ================================================================================================
@@ -435,7 +439,7 @@ export function Delete(__model__: GIModel, ent_type_sel: _EEntTypeAndMod, attrib
  * Rename an attribute in the model.
  * The header for column in the attribute table will be renamed.
  * All values will remain the same.
- * ~
+ * \n
  * @param __model__
  * @param ent_type_sel Enum, the attribute entity type.
  * @param old_attrib The old attribute name.
@@ -458,12 +462,12 @@ export function Rename(__model__: GIModel, ent_type_sel: _EEntTypeAndMod, old_at
         }
     }
     // create the attribute
-    __model__.modeldata.attribs.modify.renameAttrib(ent_type, old_attrib, new_attrib);
+    __model__.modeldata.attribs.renameAttrib(ent_type, old_attrib, new_attrib);
 }
 // ================================================================================================
 /**
  * Push attributes up or down the hierarchy. The original attribute is not changed.
- * ~
+ * \n
  * @param __model__
  * @param entities Entities, the entities to push the attribute values for.
  * @param attrib The attribute. Can be `name`, `[name, index_or_key]`,
@@ -551,6 +555,8 @@ export function Push(__model__: GIModel, entities: TId|TId[],
         }
         // get the target ent_type
         target = _getAttribPushTarget(ent_type_sel);
+        //
+        throw new Error('Snapshot Not implemented');
     }
 
     // let ents_arr: TEntTypeIdx[] = null;
@@ -598,7 +604,7 @@ export function Push(__model__: GIModel, entities: TId|TId[],
     // get the method
     const method: EAttribPush = _convertPushMethod(method_sel);
     // do the push
-    __model__.modeldata.attribs.add.pushAttribVals(source_ent_type, source_attrib_name, source_attrib_idx_key, indices,
+    __model__.modeldata.attribs.push.pushAttribVals(source_ent_type, source_attrib_name, source_attrib_idx_key, indices,
                                          target,          target_attrib_name, target_attrib_idx_key, method);
 }
 export enum _EPushMethodSel {

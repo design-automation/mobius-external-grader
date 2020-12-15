@@ -12,7 +12,7 @@ import { GIModel } from '@libs/geo-info/GIModel';
 import { EEntType, TId, TEntTypeIdx, Txyz, Txy, TPlane } from '@libs/geo-info/common';
 import { arrMakeFlat } from '@assets/libs/util/arrs';
 import Shape from '@doodle3d/clipper-js';
-import { isEmptyArr, idsMake, idsBreak } from '@assets/libs/geo-info/id';
+import { isEmptyArr, idsMake, idsBreak, idsMakeFromIdxs, idMake } from '@assets/libs/geo-info/common_id_funcs';
 import * as d3del from 'd3-delaunay';
 import * as d3poly from 'd3-polygon';
 import * as d3vor from 'd3-voronoi';
@@ -20,7 +20,6 @@ import { distance } from '@assets/libs/geom/distance';
 import { vecFromTo, vecNorm, vecMult, vecAdd } from '@assets/libs/geom/vectors';
 import { xfromSourceTargetMatrix, multMatrix } from '@assets/libs/geom/matrix';
 import { Matrix4 } from 'three';
-import { _copyGeom, _copyGeomPosis } from './_common';
 import { distanceManhattan } from '@assets/libs/geom/distance';
 
 const SCALE = 1e9;
@@ -174,7 +173,7 @@ function _getPosiFromMap(__model__: GIModel, x: number, y: number, posis_map: TP
     }
     if (posi_i === undefined) {
         posi_i = __model__.modeldata.geom.add.addPosi();
-        __model__.modeldata.attribs.add.setPosiCoords(posi_i, [x, y, 0]);
+        __model__.modeldata.attribs.posis.setPosiCoords(posi_i, [x, y, 0]);
         map1.set(y, posi_i);
     }
     return posi_i;
@@ -194,7 +193,7 @@ function _convertPgonToShape(__model__: GIModel, pgon_i: number, posis_map: TPos
         const len: number = shape_coords.push([]);
         const posis_i: number[] = __model__.modeldata.geom.nav.navAnyToPosi(EEntType.WIRE, wire_i);
         for (const posi_i of posis_i) {
-            const xyz: Txyz = __model__.modeldata.attribs.query.getPosiCoords(posi_i);
+            const xyz: Txyz = __model__.modeldata.attribs.posis.getPosiCoords(posi_i);
             const coord: IClipCoord = {X: xyz[0], Y: xyz[1]};
             shape_coords[len - 1].push( coord );
             _putPosiInMap(xyz[0], xyz[1], posi_i, posis_map);
@@ -236,12 +235,35 @@ function _convertWireToShape(__model__: GIModel, wire_i: number, is_closed: bool
     shape_coords.push([]);
     const posis_i: number[] = __model__.modeldata.geom.nav.navAnyToPosi(EEntType.WIRE, wire_i);
     for (const posi_i of posis_i) {
-        const xyz: Txyz = __model__.modeldata.attribs.query.getPosiCoords(posi_i);
+        const xyz: Txyz = __model__.modeldata.attribs.posis.getPosiCoords(posi_i);
         const coord: IClipCoord = {X: xyz[0], Y: xyz[1]};
         shape_coords[0].push( coord );
         _putPosiInMap(xyz[0], xyz[1], posi_i, posis_map);
     }
     const shape: Shape = new Shape(shape_coords, is_closed);
+    shape.scaleUp(SCALE);
+    return shape;
+}
+// mobius -> clipperjs
+function _convertPlineToShape(__model__: GIModel, pline_i: number,  posis_map: TPosisMap): Shape {
+    const wire_i: number = __model__.modeldata.geom.nav.navPlineToWire(pline_i);
+    const is_closed: boolean = __model__.modeldata.geom.query.isWireClosed(wire_i);
+    const shape_coords: TClipPaths = [];
+    shape_coords.push([]);
+    const posis_i: number[] = __model__.modeldata.geom.nav.navAnyToPosi(EEntType.PLINE, pline_i);
+    for (const posi_i of posis_i) {
+        const xyz: Txyz = __model__.modeldata.attribs.posis.getPosiCoords(posi_i);
+        const coord: IClipCoord = {X: xyz[0], Y: xyz[1]};
+        shape_coords[0].push( coord );
+        _putPosiInMap(xyz[0], xyz[1], posi_i, posis_map);
+    }
+    if (is_closed) {
+        // close the pline by adding an extra point
+        const first: IClipCoord = shape_coords[0][0];
+        const last: IClipCoord = {X: first.X, Y: first.Y};
+        shape_coords[0].push(last);
+    }
+    const shape: Shape = new Shape(shape_coords, false); // this is always false, even if pline is closed
     shape.scaleUp(SCALE);
     return shape;
 }
@@ -294,6 +316,63 @@ function _convertShapeToPlines(__model__: GIModel, shape: Shape, is_closed: bool
     return plines_i;
 }
 // clipperjs
+function _convertShapeToCutPlines(__model__: GIModel, shape: Shape, posis_map: TPosisMap): number[] {
+    shape.scaleDown(SCALE);
+    const sep_shapes: Shape[] = shape.separateShapes();
+    const lists_posis_i: number[][] = [];
+    for (const sep_shape of sep_shapes) {
+        const paths: TClipPaths = sep_shape.paths;
+        for (const path of paths) {
+            if (path.length === 0) { continue; }
+            const posis_i: number[] = [];
+            // make a list of posis
+            for (const coord of path) {
+                const posi_i: number = _getPosiFromMap(__model__, coord.X, coord.Y, posis_map);
+                posis_i.push(posi_i);
+            }
+            // must have at least 2 posis
+            if (posis_i.length < 2) { continue; }
+            // add the list
+            lists_posis_i.push(posis_i);
+        }
+    }
+    // see if there is a join between two lists
+    // this can occur when boolean with closed polylines
+    // for each closed polyline in the input, there can only be one merge
+    // this is the point where the end meets the start
+    const to_merge: number[][] = [];
+    for (let p = 0; p < lists_posis_i.length; p++) {
+        const posis0: number[] = lists_posis_i[p];
+        for (let q = 0; q < lists_posis_i.length; q++) {
+            const posis1: number[] = lists_posis_i[q];
+            if (p !== q && posis0[posis0.length - 1] === posis1[0]) {
+                to_merge.push([p, q]);
+            }
+        }
+    }
+    for (const [p, q] of to_merge) {
+        // copy posis from sub list q to sub list p
+        // skip the first posi
+        for (let idx = 1; idx < lists_posis_i[q].length; idx++) {
+            const posi_i: number = lists_posis_i[q][idx];
+            lists_posis_i[p].push(posi_i);
+        }
+        // set sub list q to null
+        lists_posis_i[q] = null;
+    }
+    // create plines and check closed
+    const plines_i: number[] = [];
+    for (const posis_i of lists_posis_i) {
+        if (posis_i === null) { continue; }
+        const is_closed = posis_i[0] === posis_i[posis_i.length - 1];
+        if (is_closed) { posis_i.splice(posis_i.length - 1, 1); }
+        const pline_i: number = __model__.modeldata.geom.add.addPline(posis_i, is_closed);
+        plines_i.push( pline_i );
+    }
+    // return the list of new plines
+    return plines_i;
+}
+// clipperjs
 function _printPaths(paths: TClipPaths, mesage: string) {
     console.log(mesage);
     for (const path of paths) {
@@ -308,7 +387,7 @@ function _printPaths(paths: TClipPaths, mesage: string) {
 // ================================================================================================
 /**
  * Create a voronoi subdivision of one or more polygons.
- * ~
+ * \n
  * @param __model__
  * @param pgons A list of polygons, or entities from which polygons can be extracted.
  * @param entities A list of positions, or entities from which positions can be extracted.
@@ -347,7 +426,7 @@ export function Voronoi(__model__: GIModel, pgons: TId|TId[], entities: TId|TId[
     // posis
     const d3_cell_points: [number, number][] = [];
     for (const posi_i of posis_i) {
-        const xyz: Txyz = __model__.modeldata.attribs.query.getPosiCoords(posi_i);
+        const xyz: Txyz = __model__.modeldata.attribs.posis.getPosiCoords(posi_i);
         d3_cell_points.push([xyz[0], xyz[1]]);
     }
     // loop and create cells
@@ -357,7 +436,7 @@ export function Voronoi(__model__: GIModel, pgons: TId|TId[], entities: TId|TId[
         const bounds: number[] = [Infinity, Infinity, -Infinity, -Infinity]; // xmin, ymin, xmax, ymax
         // const pgon_shape_coords: IClipCoord[] = [];
         for (const posi_i of __model__.modeldata.geom.nav.navAnyToPosi(EEntType.PGON, pgon_i)) {
-            const xyz: Txyz = __model__.modeldata.attribs.query.getPosiCoords(posi_i);
+            const xyz: Txyz = __model__.modeldata.attribs.posis.getPosiCoords(posi_i);
             // pgon_shape_coords.push( { X: xyz[0], Y: xyz[1]} );
             if (xyz[0] < bounds[0]) { bounds[0] = xyz[0]; }
             if (xyz[1] < bounds[1]) { bounds[1] = xyz[1]; }
@@ -374,7 +453,8 @@ export function Voronoi(__model__: GIModel, pgons: TId|TId[], entities: TId|TId[
         }
     }
     // return cell pgons
-    return idsMake(all_cells_i.map( cell_i => [EEntType.PGON, cell_i] as TEntTypeIdx )) as TId[];
+    return idsMakeFromIdxs(EEntType.PGON, all_cells_i) as TId[];
+    // return idsMake(all_cells_i.map( cell_i => [EEntType.PGON, cell_i] as TEntTypeIdx )) as TId[];
 }
 // There is a bug in d3 new voronoi, it produces wrong results...
 // function _voronoi(__model__: GIModel, pgon_shape: Shape, d3_cell_points: [number, number][],
@@ -426,7 +506,7 @@ function _voronoiClipOld(__model__: GIModel, pgon_shape: Shape, d3_cell_coords: 
 // ================================================================================================
 /**
  * Create a delaunay triangulation of set of positions.
- * ~
+ * \n
  * @param __model__
  * @param entities A list of positions, or entities from which positions can be extracted.
  * @returns A list of new polygons.
@@ -453,14 +533,15 @@ export function Delaunay(__model__: GIModel, entities: TId|TId[]): TId[] {
     // posis
     const d3_tri_coords: [number, number][] = [];
     for (const posi_i of posis_i) {
-        const xyz: Txyz = __model__.modeldata.attribs.query.getPosiCoords(posi_i);
+        const xyz: Txyz = __model__.modeldata.attribs.posis.getPosiCoords(posi_i);
         d3_tri_coords.push([xyz[0], xyz[1]]);
         _putPosiInMap(xyz[0], xyz[1], posi_i, posis_map);
     }
     // create delaunay triangulation
     const cells_i: number[] = _delaunay(__model__, d3_tri_coords, posis_map);
     // return cell pgons
-    return idsMake(cells_i.map( cell_i => [EEntType.PGON, cell_i] as TEntTypeIdx )) as TId[];
+    return idsMakeFromIdxs(EEntType.PGON, cells_i) as TId[];
+    // return idsMake(cells_i.map( cell_i => [EEntType.PGON, cell_i] as TEntTypeIdx )) as TId[];
 }
 function _delaunay(__model__: GIModel, d3_tri_coords: [number, number][], posis_map: TPosisMap): number[] {
     const new_pgons_i: number[] = [];
@@ -510,13 +591,13 @@ export function ConvexHull(__model__: GIModel, entities: TId|TId[]): TId {
     const hull_posis_i: number[] = _convexHull(__model__, posis_i);
     // return cell pgons
     const hull_pgon_i: number = __model__.modeldata.geom.add.addPgon(hull_posis_i);
-    return idsMake([EEntType.PGON, hull_pgon_i]) as TId;
+    return idMake(EEntType.PGON, hull_pgon_i) as TId;
 }
 function _convexHull(__model__: GIModel, posis_i: number[]): number[] {
     const points: [number, number][] = [];
     const posis_map: TPosisMap = new Map();
     for (const posi_i of posis_i) {
-        const xyz: Txyz = __model__.modeldata.attribs.query.getPosiCoords(posi_i);
+        const xyz: Txyz = __model__.modeldata.attribs.posis.getPosiCoords(posi_i);
         points.push([xyz[0], xyz[1]]);
         _putPosiInMap(xyz[0], xyz[1], posi_i, posis_map);
     }
@@ -538,9 +619,9 @@ export enum _EBBoxMethod {
 }
 /**
  * Create a polygon that is a 2D bounding box of the entities.
- * ~
+ * \n
  * For the method, 'aabb' generates an Axis Aligned Bounding Box, and 'obb' generates an Oriented Bounding Box.
- * ~
+ * \n
  *
  * @param __model__
  * @param entities A list of positions, or entities from which positions can bet extracted.
@@ -576,12 +657,12 @@ export function BBoxPolygon(__model__: GIModel, entities: TId|TId[], method: _EB
         default:
             break;
     }
-    return idsMake([EEntType.PGON, pgon_i]) as TId;
+    return idMake(EEntType.PGON, pgon_i) as TId;
 }
 function _bboxAABB(__model__: GIModel, posis_i: number[]): number {
     const bbox: [number, number, number, number] = [Infinity, Infinity, -Infinity, -Infinity];
     for (const posi_i of posis_i) {
-        const xyz: Txyz = __model__.modeldata.attribs.query.getPosiCoords(posi_i);
+        const xyz: Txyz = __model__.modeldata.attribs.posis.getPosiCoords(posi_i);
         if (xyz[0] < bbox[0]) { bbox[0] = xyz[0]; }
         if (xyz[1] < bbox[1]) { bbox[1] = xyz[1]; }
         if (xyz[0] > bbox[2]) { bbox[2] = xyz[0]; }
@@ -594,7 +675,7 @@ function _bboxAABB(__model__: GIModel, posis_i: number[]): number {
     const box_posis_i: number[] = [];
     for (const xyz of [a, b, c, d]) {
         const box_posi_i: number = __model__.modeldata.geom.add.addPosi();
-        __model__.modeldata.attribs.add.setPosiCoords(box_posi_i, xyz);
+        __model__.modeldata.attribs.posis.setPosiCoords(box_posi_i, xyz);
         box_posis_i.push(box_posi_i);
     }
     const box_pgon_i: number = __model__.modeldata.geom.add.addPgon(box_posis_i);
@@ -604,13 +685,13 @@ function _bboxOBB(__model__: GIModel, posis_i: number[]): number {
     // posis
     const hull_posis_i: number[] = _convexHull(__model__, posis_i);
     hull_posis_i.push(hull_posis_i[0]);
-    const first: Txyz = __model__.modeldata.attribs.query.getPosiCoords(hull_posis_i[0]);
+    const first: Txyz = __model__.modeldata.attribs.posis.getPosiCoords(hull_posis_i[0]);
     const hull_xyzs: Txyz[] = [[first[0], first[1], 0]];
     let longest_len = 0;
     let origin_index = -1;
     for (let i = 1; i < hull_posis_i.length; i++) {
         // add xy to list
-        const next: Txyz = __model__.modeldata.attribs.query.getPosiCoords(hull_posis_i[i]);
+        const next: Txyz = __model__.modeldata.attribs.posis.getPosiCoords(hull_posis_i[i]);
         hull_xyzs.push([next[0], next[1], 0]);
         // get dist
         const curr_len = distance(hull_xyzs[i - 1], hull_xyzs[i]);
@@ -644,7 +725,7 @@ function _bboxOBB(__model__: GIModel, posis_i: number[]): number {
     const box_posis_i: number[] = [];
     for (const xyz of [a, b, c, d]) {
         const box_posi_i: number = __model__.modeldata.geom.add.addPosi();
-        __model__.modeldata.attribs.add.setPosiCoords(box_posi_i, xyz);
+        __model__.modeldata.attribs.posis.setPosiCoords(box_posi_i, xyz);
         box_posis_i.push(box_posi_i);
     }
     const box_pgon_i: number = __model__.modeldata.geom.add.addPgon(box_posis_i);
@@ -684,20 +765,21 @@ export function Union(__model__: GIModel, entities: TId|TId[]): TId[] {
     const result_shape: Shape = _convertPgonsToShapeUnion(__model__, pgons_i, posis_map);
     if (result_shape === null) { return []; }
     const all_new_pgons: number[] = _convertShapesToPgons(__model__, result_shape, posis_map);
-    return idsMake(all_new_pgons.map( pgon_i => [EEntType.PGON, pgon_i] as TEntTypeIdx )) as TId[];
+    return idsMakeFromIdxs(EEntType.PGON, all_new_pgons) as TId[];
+    // return idsMake(all_new_pgons.map( pgon_i => [EEntType.PGON, pgon_i] as TEntTypeIdx )) as TId[];
 }
 // ================================================================================================
 /**
  * Perform a boolean operation on polylines or polygons.
- * ~
+ * \n
  * The entities in A can be either polyline or polygons.
  * The entities in B must be polygons.
  * The polygons in B are first unioned before the operation is performed.
  * The boolean operation is then performed between each polyline or polygon in A, and the unioned B polygons.
- * ~
+ * \n
  * If A is an empty list, then an empty list is returned.
  * If B is an empty list, then the A list is returned.
- * ~
+ * \n
  * @param __model__
  * @param a_entities A list of polyline or polygons, or entities from which polyline or polygons can be extracted.
  * @param b_entities A list of polygons, or entities from which polygons can be extracted.
@@ -739,11 +821,13 @@ export function Boolean(__model__: GIModel, a_entities: TId|TId[], b_entities: T
     const new_plines_i: number[] = _booleanPlines(__model__, a_plines_i, b_shape, method, posis_map);
     // make the list of polylines and polygons
     const result_ents: TId[] = [];
-    const new_pgons: TId[] = idsMake(new_pgons_i.map( pgon_i => [EEntType.PGON, pgon_i] as TEntTypeIdx )) as TId[];
+    const new_pgons: TId[] = idsMakeFromIdxs(EEntType.PGON, new_pgons_i) as TId[];
+    // const new_pgons: TId[] = idsMake(new_pgons_i.map( pgon_i => [EEntType.PGON, pgon_i] as TEntTypeIdx )) as TId[];
     for (const new_pgon of new_pgons) {
         result_ents.push(new_pgon);
     }
-    const new_plines: TId[] = idsMake(new_plines_i.map( pline_i => [EEntType.PLINE, pline_i] as TEntTypeIdx )) as TId[];
+    const new_plines: TId[] = idsMakeFromIdxs(EEntType.PLINE, new_plines_i) as TId[];
+    // const new_plines: TId[] = idsMake(new_plines_i.map( pline_i => [EEntType.PLINE, pline_i] as TEntTypeIdx )) as TId[];
     for (const new_pline of new_plines) {
         result_ents.push(new_pline);
     }
@@ -786,9 +870,10 @@ function _booleanPlines(__model__: GIModel, plines_i: number|number[], b_shape: 
         method: _EBooleanMethod, posis_map: TPosisMap): number[] {
     if (!Array.isArray(plines_i)) {
         plines_i = plines_i as number;
-        const wire_i: number = __model__.modeldata.geom.nav.navPlineToWire(plines_i);
-        const is_closed: boolean = __model__.modeldata.geom.query.isWireClosed(wire_i);
-        const a_shape: Shape = _convertWireToShape(__model__, wire_i, is_closed, posis_map);
+        // const wire_i: number = __model__.modeldata.geom.nav.navPlineToWire(plines_i);
+        // const is_closed: boolean = __model__.modeldata.geom.query.isWireClosed(wire_i);
+        // const a_shape: Shape = _convertWireToShape(__model__, wire_i, is_closed, posis_map);
+        const a_shape: Shape = _convertPlineToShape(__model__, plines_i, posis_map);
         let result_shape: Shape;
         switch (method) {
             case _EBooleanMethod.INTERSECT:
@@ -805,7 +890,7 @@ function _booleanPlines(__model__: GIModel, plines_i: number|number[], b_shape: 
             default:
                 break;
         }
-        return _convertShapeToPlines(__model__, result_shape, is_closed, posis_map);
+        return _convertShapeToCutPlines(__model__, result_shape, posis_map);
     } else {
         plines_i = plines_i as number[];
         const all_new_plines: number[] = [];
@@ -1010,9 +1095,9 @@ function _offsetPline(__model__: GIModel, pline_i: number, dist: number,
  * Adds vertices to polyline and polygons at all locations where egdes intersect one another.
  * The vertices are welded.
  * This can be useful for creating networks that can be used for shortest path calculations.
- * ~
+ * \n
  * The input polyline and polygons are copied.
- * ~
+ * \n
  * @param __model__
  * @param entities A list polylines or polygons, or entities from which polylines or polygons can be extracted.
  * @returns Copies of the input polyline and polygons, stiched.
@@ -1035,8 +1120,8 @@ export function Stitch(__model__: GIModel, entities: TId|TId[]): TId[] {
     }
     // --- Error Check ---
     // copy the list of entities
-    const new_ents_arr: TEntTypeIdx[] = _copyGeom(__model__, ents_arr, true) as TEntTypeIdx[];
-    _copyGeomPosis(__model__, new_ents_arr, true, [0, 0, 0]);
+    const new_ents_arr: TEntTypeIdx[] = __model__.modeldata.funcs_common.copyGeom(ents_arr, true) as TEntTypeIdx[];
+    __model__.modeldata.funcs_common.clonePosisInEntsAndMove(new_ents_arr, true, [0, 0, 0]);
     // create maps for data
     const map_edge_i_to_posi_i: Map<number, [number, number]> = new Map();
     const map_edge_i_to_bbox: Map<number, [Txy, Txy]> = new Map();
@@ -1110,7 +1195,7 @@ export function Stitch(__model__: GIModel, entities: TId|TId[]): TId[] {
                     // make a new position if we have an isect,
                     if (new_posi_i === null && (a_isect || b_isect)) {
                         new_posi_i = __model__.modeldata.geom.add.addPosi();
-                        __model__.modeldata.attribs.add.setPosiCoords(new_posi_i, [new_xy[0], new_xy[1], 0]);
+                        __model__.modeldata.attribs.posis.setPosiCoords(new_posi_i, [new_xy[0], new_xy[1], 0]);
                     }
                     // store the isects if there are any
                     if (a_isect) {
@@ -1141,7 +1226,7 @@ export function Stitch(__model__: GIModel, entities: TId|TId[]): TId[] {
         const isects: [number, number][] = map_edge_i_to_isects.get(edge_i);
         isects.sort( (a, b) => a[0] - b[0] );
         const posis_i: number[] = isects.map(isect => isect[1]);
-        const new_edges_i: number[] = __model__.modeldata.geom.modify.insertVertsIntoWire(edge_i, posis_i);
+        const new_edges_i: number[] = __model__.modeldata.geom.edit_topo.insertVertsIntoWire(edge_i, posis_i);
         for (const new_edge_i of new_edges_i) {
             all_new_edges_i.push(new_edge_i);
         }
@@ -1150,7 +1235,7 @@ export function Stitch(__model__: GIModel, entities: TId|TId[]): TId[] {
     const del_posis_i: number[] = [];
     for (const edge_i of all_new_edges_i) {
         const posis_i: number[] = __model__.modeldata.geom.nav.navAnyToPosi(EEntType.EDGE, edge_i);
-        const xyzs: Txyz[] = posis_i.map(posi_i => __model__.modeldata.attribs.query.getPosiCoords(posi_i));
+        const xyzs: Txyz[] = posis_i.map(posi_i => __model__.modeldata.attribs.posis.getPosiCoords(posi_i));
         const dist: number = distanceManhattan(xyzs[0], xyzs[1]);
         if (dist === 0) {
             // we are going to del this posi
@@ -1165,12 +1250,13 @@ export function Stitch(__model__: GIModel, entities: TId|TId[]): TId[] {
             const replc_verts_i: number[] = __model__.modeldata.geom.nav.navPosiToVert(del_posi_i);
             for (const replc_vert_i of replc_verts_i) {
                 if (replc_vert_i === del_vert_i) { continue; }
-                __model__.modeldata.geom.modify.replaceVertPosi(replc_vert_i, posis_i[1], false); // false = do nothing if edge becomes invalid
+                __model__.modeldata.geom.edit_topo.replaceVertPosi(replc_vert_i, posis_i[1], false); // false = do nothing if edge becomes invalid
             }
             del_posis_i.push(posis_i[0]);
         }
     }
-    __model__.modeldata.geom.del.delPosis(del_posis_i);
+    const ssid: number = __model__.modeldata.active_ssid;
+    __model__.modeldata.geom.snapshot.delPosis(ssid, del_posis_i);
     // return
     return idsMake(new_ents_arr) as TId[];
 }
@@ -1184,15 +1270,15 @@ function _knifeGetEdgeData(__model__: GIModel, edge_i: number,
     map_edge_i_to_posi_i.set(edge_i, [posis_i[0], posis_i[1]]);
     // save the xy value of the two posis
     if (!map_posi_i_to_xyz.has(posis_i[0])) {
-        const xyz: Txyz = __model__.modeldata.attribs.query.getPosiCoords(posis_i[0]);
-        __model__.modeldata.attribs.add.setPosiCoords(posis_i[0], [xyz[0], xyz[1], 0]);
+        const xyz: Txyz = __model__.modeldata.attribs.posis.getPosiCoords(posis_i[0]);
+        __model__.modeldata.attribs.posis.setPosiCoords(posis_i[0], [xyz[0], xyz[1], 0]);
         // Why is this not working? It also moves the original geom...
         // if (xyz[2] !== 0) { xyz[2] = 0; } // TODO <<<<<<<<<<<<<<<<<<<<<<
         map_posi_i_to_xyz.set(posis_i[0], xyz);
     }
     if (!map_posi_i_to_xyz.has(posis_i[1])) {
-        const xyz: Txyz = __model__.modeldata.attribs.query.getPosiCoords(posis_i[1]);
-        __model__.modeldata.attribs.add.setPosiCoords(posis_i[1], [xyz[0], xyz[1], 0]);
+        const xyz: Txyz = __model__.modeldata.attribs.posis.getPosiCoords(posis_i[1]);
+        __model__.modeldata.attribs.posis.setPosiCoords(posis_i[1], [xyz[0], xyz[1], 0]);
         // Why is this not working? It also moves the original geom...
         // if (xyz[2] !== 0) { xyz[2] = 0; } // TODO <<<<<<<<<<<<<<<<<<<<<<
         map_posi_i_to_xyz.set(posis_i[1], xyz);
@@ -1238,10 +1324,10 @@ function _knifeIntersect(l1: [Txy, Txy], l2: [Txy, Txy]): [number, number, Txy] 
 // ================================================================================================
 /**
  * Clean a polyline or polygon.
- * ~
+ * \n
  * Vertices that are closer together than the specified tolerance will be merged.
  * Vertices that are colinear within the tolerance distance will be deleted.
- * ~
+ * \n
  * @param __model__
  * @param entities A list of polylines or polygons, or entities from which polylines or polygons can be extracted.
  * @param tolerance The tolerance for deleting vertices from the polyline.
@@ -1264,21 +1350,21 @@ export function Clean(__model__: GIModel, entities: TId|TId[], tolerance: number
     }
     // --- Error Check ---
     const posis_map: TPosisMap = new Map();
-    const all_new_pgons: TEntTypeIdx[] = [];
+    const all_new_ents: TEntTypeIdx[] = [];
     const [pgons_i, plines_i]: [number[], number[]] = _getPgonsPlines(__model__, ents_arr);
     for (const pgon_i of pgons_i) {
         const new_pgons_i: number[] = _cleanPgon(__model__, pgon_i, tolerance, posis_map);
         for (const new_pgon_i of new_pgons_i) {
-            all_new_pgons.push([EEntType.PGON, new_pgon_i]);
+            all_new_ents.push([EEntType.PGON, new_pgon_i]);
         }
     }
     for (const pline_i of plines_i) {
         const new_plines_i: number[] = _cleanPline(__model__, pline_i, tolerance, posis_map);
         for (const new_pline_i of new_plines_i) {
-            all_new_pgons.push([EEntType.PLINE, new_pline_i]);
+            all_new_ents.push([EEntType.PLINE, new_pline_i]);
         }
     }
-    return idsMake(all_new_pgons) as TId[];
+    return idsMake(all_new_ents) as TId[];
 }
 function _cleanPgon(__model__: GIModel, pgon_i: number, tolerance: number, posis_map: TPosisMap): number[] {
     const shape: Shape = _convertPgonToShape(__model__, pgon_i, posis_map);

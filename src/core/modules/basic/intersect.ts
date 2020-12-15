@@ -10,7 +10,7 @@ import { checkArgs, ArgCh } from '../_check_args';
 
 import { TId, Txyz, EEntType, TPlane, TRay, TEntTypeIdx } from '@libs/geo-info/common';
 import { GIModel } from '@libs/geo-info/GIModel';
-import { getArrDepth, idsBreak } from '@libs/geo-info/id';
+import { getArrDepth, idsBreak } from '@assets/libs/geo-info/common_id_funcs';
 import { vecCross} from '@libs/geom/vectors';
 import { _normal } from './calc';
 import * as THREE from 'three';
@@ -18,14 +18,14 @@ import * as THREE from 'three';
 // ================================================================================================
 /**
  * Calculates the xyz intersection between a ray or a plane and a list of entities.
- * ~
+ * \n
  * For a ray, the intersection between the ray and one or more faces is return.
  * The intersection between each face triangle and the ray is caclulated.
  * This ignores the intersections between rays and edges (including polyline edges).
- * ~
+ * \n
  * For a plane, the intersection between the plane and one or more edges is returned.
  * This ignores the intersections between planes and face triangles (including polygon faces).
- * ~
+ * \n
  * @param __model__
  * @param ray A ray.
  * @param entities List of entities.
@@ -41,7 +41,7 @@ export function RayFace(__model__: GIModel, ray: TRay, entities: TId|TId[]): Txy
         checkArgs(fn_name, 'ray', ray, [ArgCh.isRay]);
         ents_arr = checkIDs(__model__, fn_name, 'entities', entities,
             [ID.isID, ID.isIDL],
-            [EEntType.FACE, EEntType.PGON, EEntType.COLL]) as TEntTypeIdx|TEntTypeIdx[];
+            [EEntType.PGON, EEntType.COLL]) as TEntTypeIdx|TEntTypeIdx[];
     } else {
         // ents_arr = splitIDs(fn_name, 'entities', entities,
         //     [IDcheckObj.isID, IDcheckObj.isIDList],
@@ -59,15 +59,21 @@ function _intersectRay(__model__: GIModel, ents_arr: TEntTypeIdx|TEntTypeIdx[], 
         const posis_i: number[] = __model__.modeldata.geom.nav.navAnyToPosi(ent_type, index);
         const posis_tjs: THREE.Vector3[] = [];
         for (const posi_i of posis_i) {
-            const xyz: Txyz = __model__.modeldata.attribs.query.getPosiCoords(posi_i);
+            const xyz: Txyz = __model__.modeldata.attribs.posis.getPosiCoords(posi_i);
             const posi_tjs: THREE.Vector3 = new THREE.Vector3(...xyz);
             posis_tjs[posi_i] = posi_tjs;
         }
         const isect_xyzs: Txyz[] = [];
         // triangles
-        const tris_i: number[] = __model__.modeldata.geom.nav.navAnyToTri(ent_type, index);
+        const pgons_i: number[] = __model__.modeldata.geom.nav.navAnyToPgon(ent_type, index);
+        const tris_i: number[] = [];
+        for (const pgon_i of pgons_i) {
+            for (const tri_i of __model__.modeldata.geom.nav_tri.navPgonToTri(pgon_i)) {
+                tris_i.push(tri_i);
+            }
+        }
         for (const tri_i of tris_i) {
-            const tri_posis_i: number[] = __model__.modeldata.geom.nav.navAnyToPosi(EEntType.TRI, tri_i);
+            const tri_posis_i: number[] = __model__.modeldata.geom.nav_tri.navTriToPosi(tri_i);
             const tri_posis_tjs: THREE.Vector3[] = tri_posis_i.map(tri_posi_i => posis_tjs[tri_posi_i]);
             const isect_tjs: THREE.Vector3 = new THREE.Vector3();
             const result: THREE.Vector3 = ray_tjs.intersectTriangle(tri_posis_tjs[0], tri_posis_tjs[1], tri_posis_tjs[2], false, isect_tjs);
@@ -91,14 +97,14 @@ function _intersectRay(__model__: GIModel, ents_arr: TEntTypeIdx|TEntTypeIdx[], 
 // ================================================================================================
 /**
  * Calculates the xyz intersection between a ray or a plane and a list of entities.
- * ~
+ * \n
  * For a ray, the intersection between the ray and one or more faces is return.
  * The intersection between each face triangle and the ray is caclulated.
  * This ignores the intersections between rays and edges (including polyline edges).
- * ~
+ * \n
  * For a plane, the intersection between the plane and one or more edges is returned.
  * This ignores the intersections between planes and face triangles (including polygon faces).
- * ~
+ * \n
  * @param __model__
  * @param plane A plane.
  * @param entities List of entities.
@@ -114,7 +120,7 @@ export function PlaneEdge(__model__: GIModel, plane: TRay|TPlane, entities: TId|
         checkArgs(fn_name, 'plane', plane, [ArgCh.isPln]);
         ents_arr = checkIDs(__model__, fn_name, 'entities', entities,
             [ID.isID, ID.isIDL],
-            [EEntType.EDGE, EEntType.WIRE, EEntType.FACE, EEntType.PLINE, EEntType.PGON, EEntType.COLL]) as TEntTypeIdx|TEntTypeIdx[];
+            [EEntType.EDGE, EEntType.WIRE, EEntType.PLINE, EEntType.PGON, EEntType.COLL]) as TEntTypeIdx|TEntTypeIdx[];
     } else {
         // ents_arr = splitIDs(fn_name, 'entities', entities,
         //     [IDcheckObj.isID, IDcheckObj.isIDList],
@@ -138,7 +144,7 @@ function _intersectPlane(__model__: GIModel, ents_arr: TEntTypeIdx|TEntTypeIdx[]
             // create threejs posis for all posis
             const posis_tjs: THREE.Vector3[] = [];
             for (const wire_posi_i of wire_posis_i) {
-                const xyz: Txyz = __model__.modeldata.attribs.query.getPosiCoords(wire_posi_i);
+                const xyz: Txyz = __model__.modeldata.attribs.posis.getPosiCoords(wire_posi_i);
                 const posi_tjs: THREE.Vector3 = new THREE.Vector3(...xyz);
                 posis_tjs.push(posi_tjs);
             }

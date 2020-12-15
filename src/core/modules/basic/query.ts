@@ -1,8 +1,8 @@
 /**
  * The `query` module has functions for querying entities in the the model.
  * Most of these functions all return a list of IDs of entities in the model.
- * ~
- * ~
+ * \n
+ * \n
  */
 
 /**
@@ -13,7 +13,7 @@ import { checkAttribNameIdxKey, checkAttribValue, splitAttribNameIdxKey } from '
 
 import { GIModel } from '@libs/geo-info/GIModel';
 import { TId, EEntType, ESort, TEntTypeIdx, EFilterOperatorTypes, TAttribDataTypes} from '@libs/geo-info/common';
-import { idsMake, getArrDepth, isEmptyArr, idsBreak } from '@libs/geo-info/id';
+import { idsMake, getArrDepth, isEmptyArr, idsBreak } from '@assets/libs/geo-info/common_id_funcs';
 import { isEmptyArr2, arrMakeFlat } from '@assets/libs/util/arrs';
 // ================================================================================================
 export enum _EEntType {
@@ -49,8 +49,6 @@ function _getEntTypeFromStr(ent_type_str: _EEntType|_EEntTypeAndMod): EEntType {
             return EEntType.EDGE;
         case _EEntTypeAndMod.WIRE:
             return EEntType.WIRE;
-        case _EEntTypeAndMod.FACE:
-            return EEntType.FACE;
         case _EEntTypeAndMod.POINT:
             return EEntType.POINT;
         case _EEntTypeAndMod.PLINE:
@@ -77,12 +75,12 @@ export enum _EDataType {
 /**
  * Get entities from a list of entities.
  * For example, you can get the position entities from a list of polygon entities.
- * ~
+ * \n
  * The result will always be a list of entities, even if there is only one entity.
  * In a case where you want only one entity, remember to get the first item in the list.
- * ~
+ * \n
  * The resulting list of entities will not contain duplicate entities.
- * ~
+ * \n
  * @param __model__
  * @param ent_type_enum Enum, the type of entity to get.
  * @param entities Optional, list of entities to get entities from, or null to get all entities in the model.
@@ -94,16 +92,12 @@ export function Get(__model__: GIModel, ent_type_enum: _EEntType, entities: TId|
     if (isEmptyArr(entities)) { return []; }
     // --- Error Check ---
     const fn_name = 'query.Get';
-    let ents_arr: TEntTypeIdx|TEntTypeIdx[]|TEntTypeIdx[][] = null;
+    let ents_arr: TEntTypeIdx|TEntTypeIdx[]|TEntTypeIdx[][];
     if (__model__.debug) {
-        if (entities !== null && entities !== undefined) {
-            ents_arr = checkIDs(__model__, fn_name, 'entities', entities,
-                [ID.isID, ID.isIDL, ID.isIDLL], null, false) as TEntTypeIdx|TEntTypeIdx[];
-        }
+        ents_arr = checkIDs(__model__, fn_name, 'entities', entities,
+            [ID.isNull, ID.isID, ID.isIDL, ID.isIDLL], null, false) as TEntTypeIdx|TEntTypeIdx[];
     } else {
-        if (entities !== null && entities !== undefined) {
-            ents_arr = idsBreak(entities) as TEntTypeIdx[];
-        }
+        ents_arr = idsBreak(entities) as TEntTypeIdx[];
     }
     // --- Error Check ---
     // get the entity type // TODO deal with multiple ent types
@@ -124,7 +118,8 @@ export function Get(__model__: GIModel, ent_type_enum: _EEntType, entities: TId|
     return idsMake(found_ents_arr) as TId[]|TId[][];
 }
 function _getAll(__model__: GIModel, ent_type: EEntType): TEntTypeIdx[] {
-    const ents_i: number[] = __model__.modeldata.geom.query.getEnts(ent_type);
+    // const ents_i: number[] = __model__.modeldata.geom.query.getEnts(ent_type);
+    const ents_i: number[] = __model__.modeldata.geom.snapshot.getEnts(__model__.modeldata.active_ssid, ent_type);
     return ents_i.map(ent_i => [ent_type, ent_i]) as TEntTypeIdx[];
 }
 function _getFrom(__model__: GIModel, ent_type: EEntType, ents_arr: TEntTypeIdx[]|TEntTypeIdx[][]): TEntTypeIdx[]|TEntTypeIdx[][] {
@@ -137,6 +132,7 @@ function _getFrom(__model__: GIModel, ent_type: EEntType, ents_arr: TEntTypeIdx[
         const found_ents_i_set: Set<number> = new Set();
         for (const ent_arr of ents_arr) {
             if (__model__.modeldata.geom.query.entExists(ent_arr[0], ent_arr[1])) {
+                // snapshot
                 const ents_i: number[] = __model__.modeldata.geom.nav.navAnyToAny(ent_arr[0], ent_type, ent_arr[1]);
                 if (ents_i) {
                     for (const ent_i of ents_i) {
@@ -160,10 +156,10 @@ function _getFrom(__model__: GIModel, ent_type: EEntType, ents_arr: TEntTypeIdx[
 // ================================================================================================
 /**
  * Filter a list of entities based on an attribute value.
- * ~
+ * \n
  * The result will always be a list of entities, even if there is only one entity.
  * In a case where you want only one entity, remember to get the first item in the list.
- * ~
+ * \n
  * @param __model__
  * @param entities List of entities to filter. The entities must all be of the same type
  * @param attrib The attribute to use for filtering. Can be `name`, `[name, index]`, or `[name, key]`.
@@ -271,11 +267,11 @@ function _filter(__model__: GIModel, ents_arr: TEntTypeIdx[]|TEntTypeIdx[][],
 /**
  * Returns a list of entities that are not part of the specified entities.
  * For example, you can get the position entities that are not part of a list of polygon entities.
- * ~
+ * \n
  * This function does the opposite of query.Get().
  * While query.Get() gets entities that are part of of the list of entities,
  * this function gets the entities that are not part of the list of entities.
- * ~
+ * \n
  * @param __model__
  * @param ent_type_enum Enum, specifies what type of entities will be returned.
  * @param entities List of entities to be excluded.
@@ -301,7 +297,8 @@ export function Invert(__model__: GIModel, ent_type_enum: _EEntType, entities: T
     // --- Error Check ---
     const select_ent_types: EEntType = _getEntTypeFromStr(ent_type_enum);
     const found_ents_arr: TEntTypeIdx[] = _invert(__model__, select_ent_types, ents_arr);
-    return idsMake(found_ents_arr) as TId[];
+    throw new Error('Snapshot Not implemented');
+    // return idsMake(found_ents_arr) as TId[];
 }
 function _invert(__model__: GIModel, select_ent_type: EEntType, ents_arr: TEntTypeIdx[]): TEntTypeIdx[] {
     // get the ents to exclude
@@ -309,7 +306,7 @@ function _invert(__model__: GIModel, select_ent_type: EEntType, ents_arr: TEntTy
         .filter(ent_arr => ent_arr[0] === select_ent_type).map(ent_arr => ent_arr[1]);
     // get the list of entities
     const found_entities_i: number[] = [];
-    const ents_i: number[] = __model__.modeldata.geom.query.getEnts(select_ent_type);
+    const ents_i: number[] = __model__.modeldata.geom.snapshot.getEnts(__model__.modeldata.active_ssid, select_ent_type);
     for (const ent_i of ents_i) {
         if (excl_ents_i.indexOf(ent_i) === -1) { found_entities_i.push(ent_i); }
     }
@@ -322,9 +319,9 @@ export enum _ESortMethod {
 }
 /**
  * Sorts entities based on an attribute.
- * ~
+ * \n
  * If the attribute is a list, and index can also be specified as follows: #@name1[index].
- * ~
+ * \n
  * @param __model__
  * @param entities List of two or more entities to be sorted, all of the same entity type.
  * @param attrib Attribute name to use for sorting. Can be `name`, `[name, index]`, or `[name, key]`.
@@ -379,7 +376,7 @@ function _compareID(id1: TEntTypeIdx, id2: TEntTypeIdx): number {
 /**
 * Returns a list of perimeter entities. In order to qualify as a perimeter entity,
 * entities must be part of the set of input entities and must have naked edges.
-* ~
+* \n
 * @param __model__
 * @param ent_type Enum, select the type of perimeter entities to return
 * @param entities List of entities.
@@ -405,7 +402,8 @@ export function Perimeter(__model__: GIModel, ent_type: _EEntType, entities: TId
     // --- Error Check ---
     const select_ent_type: EEntType = _getEntTypeFromStr(ent_type);
     const found_ents_arr: TEntTypeIdx[] = _perimeter(__model__, select_ent_type, ents_arr);
-    return idsMake(found_ents_arr) as TId[];
+    throw new Error('Snapshot Not implemented');
+    // return idsMake(found_ents_arr) as TId[];
 }
 export function _perimeter(__model__: GIModel,  select_ent_type: EEntType, ents_arr: TEntTypeIdx[]): TEntTypeIdx[] {
     // get an array of all edges
@@ -425,7 +423,7 @@ export function _perimeter(__model__: GIModel,  select_ent_type: EEntType, ents_
 /**
 * Returns a list of neighboring entities. In order to qualify as a neighbor,
 * entities must not be part of the set of input entities, but must be welded to one or more entities in the input.
-* ~
+* \n
 * @param __model__
 * @param ent_type_enum Enum, select the types of neighbors to return
 * @param entities List of entities.
@@ -451,7 +449,8 @@ export function Neighbor(__model__: GIModel, ent_type_enum: _EEntType, entities:
     // --- Error Check ---
     const select_ent_type: EEntType = _getEntTypeFromStr(ent_type_enum);
     const found_ents_arr: TEntTypeIdx[] = _neighbors(__model__, select_ent_type, ents_arr);
-    return idsMake(found_ents_arr) as TId[];
+    throw new Error('Snapshot Not implemented');
+    // return idsMake(found_ents_arr) as TId[];
 }
 export function _neighbors(__model__: GIModel,  select_ent_type: EEntType, ents_arr: TEntTypeIdx[]): TEntTypeIdx[] {
     // get an array of all vertices
@@ -470,14 +469,14 @@ export function _neighbors(__model__: GIModel,  select_ent_type: EEntType, ents_
 // ================================================================================================
 /**
  * Checks the type of an entity.
- * ~
+ * \n
  * For is_used_posi, returns true if the entity is a posi, and it is used by at least one vertex.
  * For is_unused_posi, it returns the opposite of is_used_posi.
  * For is_object, returns true if the entity is a point, a polyline, or a polygon.
  * For is_topology, returns true if the entity is a vertex, an edge, a wire, or a face.
  * For is_point_topology, is_polyline_topology, and is_polygon_topology, returns true
  * if the entity is a topological entity, and it is part of an object of the specified type.
- * ~
+ * \n
  * For is_open, returns true if the entity is a wire or polyline and is open. For is_closed, it returns the opposite of is_open.
  * For is_hole, returns ture if the entity is a wire, and it defines a hole in a face.
  * For has_holes, returns true if the entity is a face or polygon, and it has holes.
@@ -504,24 +503,6 @@ export function Type(__model__: GIModel, entities: TId|TId[], type_query_enum: _
     // --- Error Check ---
     return _type(__model__, ents_arr, type_query_enum);
 }
-function _isClosed(__model__: GIModel, ents_arr: TEntTypeIdx|TEntTypeIdx[]): boolean|boolean[] {
-    if (!Array.isArray(ents_arr[0])) {
-        const [ent_type, index]: TEntTypeIdx = ents_arr as TEntTypeIdx;
-        if (ent_type === EEntType.PGON) {
-            return true;
-        } else if (ent_type !== EEntType.WIRE && ent_type !== EEntType.PLINE) {
-            return false;
-        }
-        let wire_i: number = index;
-        if (ent_type === EEntType.PLINE) {
-            wire_i = __model__.modeldata.geom.nav.navPlineToWire(index);
-        }
-        return __model__.modeldata.geom.query.isWireClosed(wire_i) as boolean;
-    } else {
-        return (ents_arr as TEntTypeIdx[]).map(ents => _isClosed(__model__, ents)) as boolean[];
-    }
-}
-
 export enum _ETypeQueryEnum {
     EXISTS = 'exists',
     IS_POSI =   'is_position',
@@ -556,7 +537,7 @@ function _isUsedPosi(__model__: GIModel, ent_arr: TEntTypeIdx): boolean {
         return false;
     }
     const verts_i: number[] = __model__.modeldata.geom.nav.navPosiToVert(index);
-    if (verts_i === undefined || verts_i === null) {
+    if (verts_i === undefined) {
         return false;
     }
     return verts_i.length > 0;
@@ -570,32 +551,32 @@ function _isObj(__model__: GIModel, ent_arr: TEntTypeIdx): boolean {
 }
 function _isTopo(__model__: GIModel, ent_arr: TEntTypeIdx): boolean {
     const [ent_type, index]: TEntTypeIdx = ent_arr;
-    if (ent_type === EEntType.VERT || ent_type === EEntType.EDGE || ent_type === EEntType.WIRE || ent_type === EEntType.FACE) {
+    if (ent_type === EEntType.VERT || ent_type === EEntType.EDGE || ent_type === EEntType.WIRE) {
         return true;
     }
     return false;
 }
 function _isPointTopo(__model__: GIModel, ent_arr: TEntTypeIdx): boolean {
     const [ent_type, index]: TEntTypeIdx = ent_arr;
-    if (ent_type === EEntType.VERT || ent_type === EEntType.EDGE || ent_type === EEntType.WIRE || ent_type === EEntType.FACE) {
+    if (ent_type === EEntType.VERT) {
         const points_i: number[] = __model__.modeldata.geom.nav.navAnyToPoint(ent_type, index);
-        if (points_i !== undefined && points_i !== null && points_i.length) { return true; }
+        if (points_i !== undefined && points_i.length) { return true; }
     }
     return false;
 }
 function _isPlineTopo(__model__: GIModel, ent_arr: TEntTypeIdx): boolean {
     const [ent_type, index]: TEntTypeIdx = ent_arr;
-    if (ent_type === EEntType.VERT || ent_type === EEntType.EDGE || ent_type === EEntType.WIRE || ent_type === EEntType.FACE) {
+    if (ent_type === EEntType.VERT || ent_type === EEntType.EDGE || ent_type === EEntType.WIRE) {
         const plines_i: number[] = __model__.modeldata.geom.nav.navAnyToPline(ent_type, index);
-        if (plines_i !== undefined && plines_i !== null && plines_i.length) { return true; }
+        if (plines_i !== undefined && plines_i.length) { return true; }
     }
     return false;
 }
 function _isPgonTopo(__model__: GIModel, ent_arr: TEntTypeIdx): boolean {
     const [ent_type, index]: TEntTypeIdx = ent_arr;
-    if (ent_type === EEntType.VERT || ent_type === EEntType.EDGE || ent_type === EEntType.WIRE || ent_type === EEntType.FACE) {
+    if (ent_type === EEntType.VERT || ent_type === EEntType.EDGE || ent_type === EEntType.WIRE) {
         const pgons_i: number[] = __model__.modeldata.geom.nav.navAnyToPgon(ent_type, index);
-        if (pgons_i !== undefined && pgons_i !== null && pgons_i.length) { return true; }
+        if (pgons_i !== undefined && pgons_i.length) { return true; }
     }
     return false;
 }
@@ -617,23 +598,19 @@ function _isHole(__model__: GIModel, ent_arr: TEntTypeIdx): boolean {
     if (ent_type !== EEntType.WIRE) {
         return false;
     }
-    const face_i: number = __model__.modeldata.geom.nav.navWireToFace(index);
-    if (face_i === undefined || face_i === null) {
+    const pgon_i: number = __model__.modeldata.geom.nav.navWireToPgon(index);
+    if (pgon_i === undefined) {
         return false;
     }
-    const wires_i: number[] = __model__.modeldata.geom.nav.navFaceToWire(face_i);
+    const wires_i: number[] = __model__.modeldata.geom.nav.navPgonToWire(pgon_i);
     return wires_i.indexOf(index) > 0;
 }
 function _hasNoHoles(__model__: GIModel, ent_arr: TEntTypeIdx): boolean {
-    const [ent_type, index]: TEntTypeIdx = ent_arr;
-    if (ent_type !== EEntType.FACE && ent_type !== EEntType.PGON) {
+    const [ent_type, ent_i]: TEntTypeIdx = ent_arr;
+    if (ent_type !== EEntType.PGON) {
         return false;
     }
-    let face_i: number = index;
-    if (ent_type === EEntType.PGON) {
-        face_i = __model__.modeldata.geom.nav.navPgonToFace(index);
-    }
-    const wires_i: number[] = __model__.modeldata.geom.nav.navFaceToWire(face_i);
+    const wires_i: number[] = __model__.modeldata.geom.nav.navPgonToWire(ent_i);
     return wires_i.length === 1;
 }
 function _type(__model__: GIModel, ents_arr: TEntTypeIdx|TEntTypeIdx[], query_ent_type: _ETypeQueryEnum): boolean|boolean[] {
@@ -655,8 +632,6 @@ function _type(__model__: GIModel, ents_arr: TEntTypeIdx|TEntTypeIdx[], query_en
                 return ent_type === EEntType.EDGE;
             case _ETypeQueryEnum.IS_WIRE:
                 return ent_type === EEntType.WIRE;
-            case _ETypeQueryEnum.IS_FACE:
-                return ent_type === EEntType.FACE;
             case _ETypeQueryEnum.IS_POINT:
                 return ent_type === EEntType.POINT;
             case _ETypeQueryEnum.IS_PLINE:
