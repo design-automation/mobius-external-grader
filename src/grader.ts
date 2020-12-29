@@ -5,22 +5,17 @@ import { IFlowchart, FlowchartUtils } from './model/flowchart';
 import { IProcedure, ProcedureTypes } from './model/procedure';
 
 import { _parameterTypes, _varString } from './core/modules';
-import { InputType } from './model/port';
 import * as Modules from './core/modules';
 import * as circularJSON from 'circular-json';
 import { INode } from './model/node';
-import { GIModel } from './libs/geo-info/GIModel';
 import AWS from 'aws-sdk';
 import * as fs from 'fs';
 import { checkArgInput } from './utils/parser';
 import { XMLHttpRequest } from 'xmlhttprequest';
 import fetch from 'node-fetch';
-import { isArray } from 'util';
 import JSZip from 'jszip';
-import { IdGenerator } from './utils';
-import { range, random } from 'underscore';
 
-export const pythonList = `
+export const pythonListFunc = `
 function pythonList(x, l){
     if (x < 0) {
         return x + l;
@@ -28,15 +23,33 @@ function pythonList(x, l){
     return x;
 }
 `;
-const mergeInputsFunc = `
+// export const mergeInputsFunc = `
+// function mergeInputs(models){
+//     let result = __modules__.${_parameterTypes.new}();
+//     try {
+//         result.debug = __debug__;
+//     } catch (ex) {}
+//     for (let model of models){
+//         __modules__.${_parameterTypes.merge}(result, model);
+//     }
+//     return result;
+// }
+export const mergeInputsFunc = `
 function mergeInputs(models){
-    let result = __modules__.${_parameterTypes.new}();
+    let result = null;
+    if (models.length === 0) {
+        result = __modules__.${_parameterTypes.new}();
+    } else if (models.length === 1) {
+        result = models[0].clone();
+    } else {
+        result = models[0].clone();
+        for (let i = 1; i < models.length; i++) {
+            __modules__.${_parameterTypes.merge}(result, models[i]);
+        }
+    }
     try {
         result.debug = __debug__;
     } catch (ex) {}
-    for (let model of models){
-        __modules__.${_parameterTypes.merge}(result, model);
-    }
     return result;
 }
 function duplicateModel(model){
@@ -47,7 +60,7 @@ function duplicateModel(model){
     return result;
 }
 `;
-const printFunc = `
+const printFuncString = `
 function printFunc(_console, name, value){
     let val;
     if (!value) {
@@ -1137,10 +1150,8 @@ async function getAnswer(event: any = {},fromAmazon = true): Promise<any> {
     if (!fromAmazon) {
         const answerName = event.question;
         const answerFile = circularJSON.parse(await new Promise((resolve) => {
-            fs.readFile(`test/${answerName}.mob`, 'utf8', function(err, contents) { resolve(contents); });
-        })).catch(err => {
-            throw err;
-        });
+            fs.readFile(`test/${answerName}`, 'utf8', function(err, contents) { resolve(contents); });
+        }))
         return answerFile
     }
     var s3 = new AWS.S3();
@@ -1265,8 +1276,8 @@ async function resultCheck(studentMob: IFlowchart, answerMob: IFlowchart, checkC
 
     if (checkModel) {
         console.log(`    _ Checking model...`);
-        const student_model = studentMob.nodes[studentMob.nodes.length - 1].model;
-        const answer_model = answerMob.nodes[answerMob.nodes.length - 1].model;
+        const student_model = studentMob.model;
+        const answer_model = answerMob.model;
         let result;
         result = answer_model.compare(student_model, normalize, check_geom_equality, check_attrib_equality);
         // if (normalize) {
@@ -1399,8 +1410,15 @@ function getParams(flowchart: IFlowchart): any {
 
 async function execute(flowchart: any, consoleLog) {
 
+    flowchart.model = _parameterTypes.newFn();
+    flowchart.model.debug = true;
+
     // reset input of all nodes except start & resolve all async processes (file reading + get url content)
     for (const node of flowchart.nodes) {
+        node.hasError = false;
+        let EmptyECheck = false;
+        let InvalidECheck = false;
+
         if (node.type !== 'start') {
             if (node.input.edges) {
                 node.input.value = undefined;
@@ -1411,80 +1429,20 @@ async function execute(flowchart: any, consoleLog) {
             continue;
         }
 
-        // await resolveImportedUrl(node, true);
+        let validCheck = await checkProdValidity(node, node.localFunc);
+        InvalidECheck = InvalidECheck || validCheck[0];
+        EmptyECheck = EmptyECheck || validCheck[1];
+        validCheck = await checkProdValidity(node, node.procedure);
+        InvalidECheck = InvalidECheck || validCheck[0];
+        EmptyECheck = EmptyECheck || validCheck[1];
 
-        let EmptyECheck = false;
-        let InvalidECheck = false;
-
-        for (const prod of node.procedure) {
-            for (const arg of prod.args) {
-                if (!arg.jsValue) {
-                    arg.jsValue = arg.value
-                }
-            }
-            if (prod.type === ProcedureTypes.Return || prod.type === ProcedureTypes.Comment || !prod.enabled) { continue; }
-            if (prod.argCount > 0 && prod.args[0].invalidVar) {
-                node.hasError = true;
-                prod.hasError = true;
-                InvalidECheck = true;
-            }
-            if (prod.type === ProcedureTypes.Constant) {
-
-                // Following part is for compatibility with older files
-                // to be removed...
-                if (!prod.args[1].value && prod.args[1].default) {
-                    prod.args[1].value = prod.args[1].default;
-                }
-                // remove ends!
-
-                try {
-                    prod.resolvedValue = await CodeUtils.getStartInput(prod.args[1], prod.meta.inputMode);
-                } catch (ex) {
-                    node.hasError = true;
-                    prod.hasError = true;
-                    if (ex.message.indexOf('HTTP') !== -1 || ex.message.indexOf('File Reading') !== -1) {
-                        throw(ex);
-                    }
-                    InvalidECheck = true;
-                }
-                if (!prod.args[0].value || (!prod.args[1].value && prod.args[1].value !== 0)) {
-                    node.hasError = true;
-                    prod.hasError = true;
-                    EmptyECheck = true;
-                }
-            } else {
-                for (const arg of prod.args) {
-                    if (arg.name[0] === '_' || arg.type === 5) {
-                        continue;
-                    }
-                    if (arg.value !== 0 && !arg.value) {
-                        node.hasError = true;
-                        prod.hasError = true;
-                        EmptyECheck = true;
-                    }
-                }
-            }
-        }
-        if (EmptyECheck) {
-            throw new Error('Empty Argument');
-        }
-        if (InvalidECheck) {
-            throw new Error('Reserved Word Argument');
-        }
+        // if (EmptyECheck) {
+        //     throw new Error('Empty Argument');
+        // }
+        // if (InvalidECheck) {
+        //     throw new Error('Reserved Word Argument');
+        // }
     }
-
-    // for (const func of flowchart.functions) {
-    //     for (const node of func.flowchart.nodes) {
-    //         await resolveImportedUrl(node, false);
-    //     }
-    // }
-    // if (flowchart.subFunctions) {
-    //     for (const func of flowchart.subFunctions) {
-    //         for (const node of func.flowchart.nodes) {
-    //             await resolveImportedUrl(node, false);
-    //         }
-    //     }
-    // }
 
     await executeFlowchart(flowchart, consoleLog);
 }
@@ -1498,7 +1456,7 @@ async function executeFlowchart(flowchart: IFlowchart, consoleLog) {
         FlowchartUtils.orderNodes(flowchart);
     }
 
-    // get the string of all imported functions
+    // get the javascript string of all imported functions
     const funcStrings = {};
     for (const func of flowchart.functions) {
         funcStrings[func.name] =  CodeUtils.getFunctionString(func);
@@ -1516,14 +1474,23 @@ async function executeFlowchart(flowchart: IFlowchart, consoleLog) {
     const nodeIndices = {}
     // execute each node
     for (let i = 0; i < flowchart.nodes.length; i++) {
-    // for (const i of executeSet) {
+        // const node = flowchart.nodes[i];
+        // if (!node.enabled) {
+        //     node.output.value = undefined;
+        //     continue;
+        // }
+        // nodeIndices[node.id] = i;
+        // globalVars = await executeNode(node, funcStrings, globalVars, constantList, consoleLog, nodeIndices);
+
         const node = flowchart.nodes[i];
+        // if disabled node -> continue
         if (!node.enabled) {
             node.output.value = undefined;
             continue;
         }
-        nodeIndices[node.id] = i;
-        globalVars = await executeNode(node, funcStrings, globalVars, constantList, consoleLog, nodeIndices);
+        node.model = null;
+        globalVars = await executeNode(flowchart, node, funcStrings, globalVars, constantList, consoleLog, nodeIndices);
+
     }
 
     for (const node of flowchart.nodes) {
@@ -1540,6 +1507,62 @@ async function executeFlowchart(flowchart: IFlowchart, consoleLog) {
             i++;
         }
     }
+}
+
+async function checkProdValidity(node: INode, prodList: IProcedure[]) {
+    let InvalidECheck = false;
+    let EmptyECheck = false;
+    for (const prod of prodList) {
+        // ignore the return, comment and disabled procedures
+        if (prod.type === ProcedureTypes.EndReturn || prod.type === ProcedureTypes.Comment || !prod.enabled) { continue; }
+        // if there's any invalid argument, flag as having error
+        for (const arg of prod.args) {
+            if (arg.invalidVar) {
+                node.hasError = true;
+                prod.hasError = true;
+                InvalidECheck = true;
+            }
+        }
+        // for start node constant procedures (start node parameters)
+        if (prod.type === ProcedureTypes.Constant) {
+            // resolve start node input (URL + File parameters) ... to be revised
+            // flag error if catch error (invalid argument value)
+            try {
+                prod.resolvedValue = await CodeUtils.getStartInput(prod.args[1], prod.meta.inputMode);
+            } catch (ex) {
+                node.hasError = true;
+                prod.hasError = true;
+                InvalidECheck = true;
+            }
+
+            // if there's no value for the parameter name or parameter value -> flag error (empty argument)
+            if (!prod.args[0].value || (!prod.args[1].value && prod.args[1].value !== 0 && prod.args[1].value !== false)) {
+                node.hasError = true;
+                prod.hasError = true;
+                EmptyECheck = true;
+            }
+        // any other procedure type that is not start node constant
+        } else {
+            for (const arg of prod.args) {
+                // ignore arguments that have argument name starting with "_" ("__model__", "__constant__", ...)
+                if (arg.name[0] === '_' || arg.type === 5) {
+                    continue;
+                }
+                // if the argument value is empty -> flag error (empty argument)
+                if (arg.value !== 0 && arg.value !== false && !arg.value) {
+                    node.hasError = true;
+                    prod.hasError = true;
+                    EmptyECheck = true;
+                }
+            }
+        }
+        if (prod.children) {
+            const childrenCheck = checkProdValidity(node, prod.children);
+            InvalidECheck = InvalidECheck || childrenCheck[0];
+            EmptyECheck = EmptyECheck || childrenCheck[1];
+        }
+    }
+    return [InvalidECheck, EmptyECheck]
 }
 
 async function resolveImportedUrl(prodList: IProcedure[]|INode, isMainFlowchart?: boolean) {
@@ -1613,7 +1636,7 @@ async function openZipFile(zipFile) {
 }
 
 
-async function executeNode(node: INode, funcStrings, globalVars, constantList, consoleLog, nodeIndices): Promise<string> {
+async function executeNode(flowchart: IFlowchart, node: INode, funcStrings, globalVars, constantList, consoleLog, nodeIndices): Promise<string> {
     const params = {
         'currentProcedure': [''],
         'console': [],
@@ -1634,24 +1657,31 @@ async function executeNode(node: INode, funcStrings, globalVars, constantList, c
         // start with asembling the node's code
         fnString =  '\n\n//  ------ MAIN CODE ------\n' +
                     nodeCode[0] +
-                    '\nfunction __main_node_code__(){\n' +
+                    '\nfunction __main_node_code__(__modules__, __params__){\n' +
                     nodeCode[1] +
-                    '\n}\nreturn __main_node_code__();';
+                    '\n}\nreturn __main_node_code__;';
 
         // add the user defined functions that are used in the node
+        const addedFunc = new Set([]);
         usedFuncsSet.forEach((funcName) => {
             for (const otherFunc in funcStrings) {
-                if (otherFunc.substring(0, funcName.length) === funcName) {
-                    fnString = funcStrings[otherFunc] + fnString;
+                if (!addedFunc.has(otherFunc) && otherFunc.substring(0, funcName.length) === funcName) {
+                    addedFunc.add(otherFunc);
+                    fnString =  `\n// ------ GLOBAL FUNCTION: ${otherFunc} ------\n\n` + funcStrings[otherFunc] + fnString;
                 }
             }
         });
 
         // add the constants from the start node and the predefined constants/functions (e.g. PI, sqrt, ...)
-        fnString = _varString + globalVars + fnString;
+        fnString = _varString + globalVars + '\n\n// <<<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>>>>>>\n\n' + fnString;
 
         // add the merge input function and the print function
-        fnString = `\nconst __debug__ = true;` + pythonList + '\n' + mergeInputsFunc + '\n' + printFunc + '\n' + fnString;
+        fnString = `\nconst __debug__ = true;` +
+        '\n\n// ------ MERGE INPUTS FUNCTION ------' + mergeInputsFunc +
+        '\n\n// ------ PRINT FUNCTION ------' + printFuncString +
+        `\n\n// ------ FUNCTION FOR PYTHON STYLE LIST ------` + pythonListFunc +
+        '\n\n// ------ CONSTANTS ------' + fnString;
+
 
         // ==> generated code structure:
         //  1. mergeInputFunction
@@ -1659,23 +1689,28 @@ async function executeNode(node: INode, funcStrings, globalVars, constantList, c
         //  3. user functions
         //  4. main node code
 
-        params['model'] = _parameterTypes.newFn();
-        _parameterTypes.mergeFn(params['model'], node.input.value);
+        params['model'] = flowchart.model;
+        const snapshotID = params['model'].nextSnapshot(node.input.value);
+        node.model = null;
 
         // create the function with the string: new Function ([arg1[, arg2[, ...argN]],] functionBody)
-        // console.log(fnString)
+        // console.log(fnString.split('<<<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>>>>>>')[1]);
 
         const fn = new Function('__modules__', '__params__', fnString);
         // execute the function
         const result = await fn(Modules, params)(Modules, params);
+        node.model = snapshotID;
 
         if (node.type === 'end') {
             node.output.value = result;
-            node.model = params['model'];
         } else {
-            node.output.value = params['model'];
+            node.output.value = null;
         }
+        // mark the node as has been executed
         node.hasExecuted = true;
+
+        // check all the input nodes of this node, if all of their children nodes are all executed,
+        // change their output.value to null to preserve memory space.
         node.input.edges.forEach( edge => {
             const inputNode = edge.source.parentNode;
             if (inputNode.output.edges.length > 1) {

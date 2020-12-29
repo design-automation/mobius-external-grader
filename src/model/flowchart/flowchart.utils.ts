@@ -43,12 +43,13 @@ export class FlowchartUtils {
             description: '',
             language: 'js',
             meta: {
-                selected_nodes: [2]
+                selected_nodes: [1]
             },
             nodes: [ startNode, middleNode, endNode ],
             edges: [ startMid, midEnd ],
             functions: [],
-            ordered: true
+            ordered: true,
+            model: null
         };
 
         return flw;

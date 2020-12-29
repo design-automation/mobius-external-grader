@@ -32,10 +32,11 @@ aws_secret_access_key = __AMAZON_KEY__.aws_secret_access_key
 
 # mobius_directory = 'C:\\Users\\akibdpt\\Documents\\Angular\\mobius-parametric-modeller'
 # mobius_directory = 'C:\\Users\\akibdpt\\Documents\\Angular\\mobius-parametric-modeller-dev'
-mobius_directory = 'C:\\Users\\akibdpt\\Documents\\Angular\\mobius-parametric-modeller-dev-0-6'
+mobius_directory = 'C:\\Users\\akibdpt\\Documents\\Angular\\mobius-parametric-modeller-dev-0-7'
 
 # the lambda function name
 MAIN_FUNCTION = 'arn:aws:lambda:us-east-1:114056409474:function:Mobius_edx_Grader'
+MAIN_FUNCTION_0_7 = 'arn:aws:lambda:us-east-1:114056409474:function:Mobius_edx_Grader_0_7'
 DEV_FUNCTION  = 'arn:aws:lambda:us-east-1:114056409474:function:Mobius_edx_Grader_DEV'
 RUN_JAVASCRIPT_FUNC = 'arn:aws:lambda:us-east-1:114056409474:function:Mobius_Run_Javascript'
 GEN_FUNC = 'arn:aws:lambda:us-east-1:114056409474:function:generate_design_func'
@@ -46,13 +47,14 @@ CTRL_FUNC = 'arn:aws:lambda:us-east-1:114056409474:function:Gen_Eval_Controller'
 # change this FUNC_NAME to whichever function you want to update
 FUNC_NAME = [
     # MAIN_FUNCTION
+    MAIN_FUNCTION_0_7
 
     # DEV_FUNCTION
     # RUN_JAVASCRIPT_FUNC
 
-    EVAL_FUNC,
-    GEN_FUNC,
-    CTRL_FUNC,
+    # EVAL_FUNC,
+    # GEN_FUNC,
+    # CTRL_FUNC,
 
     # GEN_FUNC,
     # EVAL_FUNC
@@ -154,7 +156,7 @@ def upload_to_amazon(zipfile, funcName):
 
 
 if __name__ == '__main__':
-    # copy_from_mobius()
+    copy_from_mobius()
     buildcheck = build_code()
     if buildcheck:
         zipcheck = zipdir()

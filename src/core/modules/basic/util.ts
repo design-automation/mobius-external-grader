@@ -5,9 +5,9 @@
 /**
  *
  */
-import { checkIDs, ID } from '../_check_ids';
+import { checkIDs, ID } from '../../_check_ids';
 import { GIModel } from '@libs/geo-info/GIModel';
-import { EEntType, IModelJSONData, TId, TEntTypeIdx, EAttribNames, EAttribDataTypeStrs } from '@libs/geo-info/common';
+import { EEntType, TId, TEntTypeIdx, EAttribNames, EAttribDataTypeStrs, IModelJSONData } from '@libs/geo-info/common';
 import { arrMakeFlat } from '@assets/libs/util/arrs';
 import { idsBreak } from '@assets/libs/geo-info/common_id_funcs';
 import { _getFile } from './io';
@@ -21,7 +21,8 @@ import { _getFile } from './io';
  * @returns void
  */
 export function SelectEntities(__model__: GIModel, entities: string|string[]|string[][]): void {
-    __model__.modeldata.geom.selected = [];
+    __model__.modeldata.geom.selected[__model__.getActiveSnapshot()] = [];
+    const activeSelected = __model__.modeldata.geom.selected[__model__.getActiveSnapshot()];
     entities = ((Array.isArray(entities)) ? entities : [entities]) as string[];
     const [ents_id_flat, ents_indices] = _flatten(entities);
     const ents_arr: TEntTypeIdx[] = idsBreak(ents_id_flat) as TEntTypeIdx[];
@@ -30,7 +31,7 @@ export function SelectEntities(__model__: GIModel, entities: string|string[]|str
         const ent_arr: TEntTypeIdx = ents_arr[i];
         const ent_indices: number[] = ents_indices[i];
         const attrib_value: string = 'selected[' + ent_indices.join('][') + ']';
-        __model__.modeldata.geom.selected.push(ent_arr);
+        activeSelected.push(ent_arr);
         if (!__model__.modeldata.attribs.query.hasEntAttrib(ent_arr[0], attrib_name)) {
             __model__.modeldata.attribs.add.addAttrib(ent_arr[0], attrib_name, EAttribDataTypeStrs.STRING);
         }
@@ -372,30 +373,28 @@ export function ModelCheck(__model__: GIModel): string {
  * @returns Text that summarises the comparison between the two models.
  */
 export async function ModelCompare(__model__: GIModel, input_data: string, method: _ECOmpareMethod): Promise<string> {
-    throw new Error('Not implemented');
-    // const gi_model = await _getFile(input_data);
-    // const gi_obj: IModelJSONData = JSON.parse(gi_model) as IModelJSONData;
-    // const other_model = new GIModel();
-    // other_model.setModelData(other_model.modeldata.active_snapshot, gi_obj);
-    // let result: {score: number, total: number, comment: string} = null;
-    // // compare function has three boolean args
-    // // normalize: boolean
-    // // check_geom_equality: boolean
-    // // check_attrib_equality: boolean
-    // switch (method) {
-    //     case _ECOmpareMethod.THIS_IS_SUBSET:
-    //         result = __model__.compare(other_model, true, false, false);
-    //         break;
-    //     case _ECOmpareMethod.THIS_IS_SUPERSET:
-    //         result = other_model.compare(__model__, true, false, false);
-    //         break;
-    //     case _ECOmpareMethod.THIS_IS_EQUAL:
-    //         result = __model__.compare(other_model, true, true, false);
-    //         break;
-    //     default:
-    //         throw new Error('Compare method not recognised');
-    // }
-    // return result.comment;
+    const input_data_str: string = await _getFile(input_data);
+    const input_model = new GIModel();
+    input_model.importGI(input_data_str);
+    let result: {score: number, total: number, comment: string} = null;
+    // compare function has three boolean args
+    // normalize: boolean
+    // check_geom_equality: boolean
+    // check_attrib_equality: boolean
+    switch (method) {
+        case _ECOmpareMethod.THIS_IS_SUBSET:
+            result = __model__.compare(input_model, true, false, false);
+            break;
+        case _ECOmpareMethod.THIS_IS_SUPERSET:
+            result = input_model.compare(__model__, true, false, false);
+            break;
+        case _ECOmpareMethod.THIS_IS_EQUAL:
+            result = __model__.compare(input_model, true, true, false);
+            break;
+        default:
+            throw new Error('Compare method not recognised');
+    }
+    return result.comment;
 }
 // ================================================================================================
 /**

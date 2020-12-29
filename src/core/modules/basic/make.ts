@@ -6,13 +6,14 @@
 /**
  *
  */
-import { checkIDs, ID } from '../_check_ids';
-import { checkArgs, ArgCh } from '../_check_args';
+import { checkIDs, ID } from '../../_check_ids';
+
+import * as chk from '../../_check_types';
 
 import { GIModel } from '@libs/geo-info/GIModel';
 import { TId, EEntType, Txyz, TEntTypeIdx, TPlane } from '@libs/geo-info/common';
-import { idsMake, getArrDepth, isEmptyArr, idsBreak } from '@assets/libs/geo-info/common_id_funcs';
-import { arrMakeFlat } from '@libs/util/arrs';
+import { idsMake, idsBreak } from '@assets/libs/geo-info/common_id_funcs';
+import { isEmptyArr, arrMakeFlat, getArrDepth } from '@assets/libs/util/arrs';
 
 
 // Enums
@@ -44,7 +45,7 @@ export enum _ECutMethod {
 // ================================================================================================
 /**
  * Adds one or more new position to the model.
- * 
+ *
  * @param __model__
  * @param coords A list of three numbers, or a list of lists of three numbers.
  * @returns A new position, or nested list of new positions.
@@ -58,7 +59,7 @@ export function Position(__model__: GIModel, coords: Txyz|Txyz[]|Txyz[][]): TId|
     if (isEmptyArr(coords)) { return []; }
     // --- Error Check ---
     if (__model__.debug) {
-        checkArgs('make.Position', 'coords', coords, [ArgCh.isXYZ, ArgCh.isXYZL, ArgCh.isXYZLL]);
+        chk.checkArgs('make.Position', 'coords', coords, [chk.isXYZ, chk.isXYZL, chk.isXYZLL]);
     }
     // --- Error Check ---
     const new_ents_arr: TEntTypeIdx|TEntTypeIdx[]|TEntTypeIdx[][] = __model__.modeldata.funcs_make.position(coords);
@@ -161,31 +162,8 @@ export function Polygon(__model__: GIModel, entities: TId|TId[]|TId[][]): TId|TI
 }
 // ================================================================================================
 /**
- * Adds a set of triangular polygons, forming a Triangulated Irregular Network (TIN).
- *
- * @param __model__
- * @param entities List or nested lists of positions, or entities from which positions can be extracted.
- * @returns Entities, a list of new polygons.
- */
-export function _Tin(__model__: GIModel, entities: TId[]|TId[][]): TId[] {
-    if (isEmptyArr(entities)) { return []; }
-    // --- Error Check ---
-    let ents_arr;
-    if (__model__.debug) {
-        ents_arr = checkIDs(__model__, 'make.Tin', 'entities', entities,
-        [ID.isIDL, ID.isIDLL],
-        [EEntType.POSI, EEntType.WIRE, EEntType.PLINE, EEntType.PGON]) as TEntTypeIdx[]|TEntTypeIdx[][];
-    } else {
-        ents_arr = idsBreak(entities) as TEntTypeIdx[]|TEntTypeIdx[][];
-    }
-    // --- Error Check ---
-    const posis_arrs: TEntTypeIdx[][] = this.getPgonPosisFromEnts(ents_arr);
-    throw new Error('Not implemented.');
-}
-// ================================================================================================
-/**
  * Lofts between entities.
- * \n
+ *
  * The geometry that is generated depends on the method that is selected.
  * - The 'quads' methods will generate polygons.
  * - The 'stringers' and 'ribs' methods will generate polylines.
@@ -223,14 +201,15 @@ export function Loft(__model__: GIModel, entities: TId[]|TId[][], divisions: num
  * - Extrusion of a position, vertex, or point produces polylines;
  * - Extrusion of an edge, wire, or polyline produces polygons;
  * - Extrusion of a face or polygon produces polygons, capped at the top.
- * \n
+ *
+ *
  * The geometry that is generated depends on the method that is selected.
  * - The 'quads' methods will generate polygons.
  * - The 'stringers' and 'ribs' methods will generate polylines.
  * - The 'copies' method will generate copies of the input geometry type.
- * \n
+ *
  * @param __model__
- * @param entities Vertex, edge, wire, face, position, point, polyline, polygon, collection.
+ * @param entities A list of entities, can be any type of entitiy.
  * @param dist Number or vector. If number, assumed to be [0,0,value] (i.e. extrusion distance in z-direction).
  * @param divisions Number of divisions to divide extrusion by. Minimum is 1.
  * @param method Enum, when extruding edges, select quads, stringers, or ribs
@@ -244,6 +223,7 @@ export function Loft(__model__: GIModel, entities: TId[]|TId[][], divisions: num
 export function Extrude(__model__: GIModel, entities: TId|TId[],
         dist: number|Txyz, divisions: number, method: _EExtrudeMethod): TId|TId[] {
     if (isEmptyArr(entities)) { return []; }
+    entities = Array.isArray(entities) ? arrMakeFlat(entities) : entities;
     // --- Error Check ---
     const fn_name = 'make.Extrude';
     let ents_arr;
@@ -252,8 +232,8 @@ export function Extrude(__model__: GIModel, entities: TId|TId[],
             [ID.isID, ID.isIDL],
             [EEntType.VERT, EEntType.EDGE, EEntType.WIRE,
             EEntType.POSI, EEntType.POINT, EEntType.PLINE, EEntType.PGON, EEntType.COLL]) as TEntTypeIdx|TEntTypeIdx[];
-        checkArgs(fn_name, 'dist', dist, [ArgCh.isNum, ArgCh.isXYZ]);
-        checkArgs(fn_name, 'divisions', divisions, [ArgCh.isInt]);
+        chk.checkArgs(fn_name, 'dist', dist, [chk.isNum, chk.isXYZ]);
+        chk.checkArgs(fn_name, 'divisions', divisions, [chk.isInt]);
     } else {
         ents_arr = idsBreak(entities) as TEntTypeIdx|TEntTypeIdx[];
     }
@@ -269,7 +249,7 @@ export function Extrude(__model__: GIModel, entities: TId|TId[],
 // ================================================================================================
 /**
  * Sweeps a cross section wire along a backbone wire.
- * \n
+ *
  * @param __model__
  * @param entities Wires, or entities from which wires can be extracted.
  * @param xsection Cross section wire to sweep, or entity from which a wire can be extracted.
@@ -289,7 +269,7 @@ export function Sweep(__model__: GIModel, entities: TId|TId[], x_section: TId, d
             [ID.isID, ID.isIDL], [EEntType.WIRE, EEntType.PLINE, EEntType.PGON]) as TEntTypeIdx[];
         xsection_ent = checkIDs(__model__, fn_name, 'xsextion', x_section,
             [ID.isID], [EEntType.EDGE, EEntType.WIRE, EEntType.PLINE, EEntType.PGON]) as TEntTypeIdx;
-        checkArgs(fn_name, 'divisions', divisions, [ArgCh.isInt]);
+        chk.checkArgs(fn_name, 'divisions', divisions, [chk.isInt]);
         if (divisions === 0) {
             throw new Error(fn_name + ' : Divisor cannot be zero.');
         }
@@ -304,16 +284,16 @@ export function Sweep(__model__: GIModel, entities: TId|TId[], x_section: TId, d
 // ================================================================================================
 /**
  * Cuts polygons and polylines using a plane.
- * \n
+ *
  * If the 'keep_above' method is selected, then only the part of the cut entities above the plane are kept.
  * If the 'keep_below' method is selected, then only the part of the cut entities below the plane are kept.
  * If the 'keep_both' method is selected, then both the parts of the cut entities are kept.
- * \n
+ *
  * Currently does not support cutting polygons with holes. TODO
- * \n
+ *
  * If 'keep_both' is selected, returns a list of two lists.
  * [[entities above the plane], [entities below the plane]].
- * \n
+ *
  * @param __model__
  * @param entities Polylines or polygons, or entities from which polyline or polygons can be extracted.
  * @param plane The plane to cut with.
@@ -333,7 +313,7 @@ export function Cut(__model__: GIModel, entities: TId|TId[], plane: TPlane, meth
     if (__model__.debug) {
         ents_arr = checkIDs(__model__, fn_name, 'entities', entities,
             [ID.isID, ID.isIDL], null) as TEntTypeIdx[];
-        checkArgs(fn_name, 'plane', plane, [ArgCh.isPln]);
+        chk.checkArgs(fn_name, 'plane', plane, [chk.isPln]);
     } else {
         ents_arr = idsBreak(entities) as TEntTypeIdx[];
     }
@@ -367,9 +347,9 @@ export function Copy(__model__: GIModel, entities: TId|TId[]|TId[][], vector: Tx
     let ents_arr;
     if (__model__.debug) {
         ents_arr = checkIDs(__model__, fn_name, 'entities', entities,
-        [ID.isID, ID.isIDL, , ID.isIDLL],
+        [ID.isID, ID.isIDL, ID.isIDLL],
         [EEntType.POSI, EEntType.POINT, EEntType.PLINE, EEntType.PGON, EEntType.COLL]) as TEntTypeIdx|TEntTypeIdx[]|TEntTypeIdx[][];
-        checkArgs(fn_name, 'vector', vector, [ArgCh.isXYZ, ArgCh.isNull]);
+        chk.checkArgs(fn_name, 'vector', vector, [chk.isXYZ, chk.isNull]);
     } else {
         ents_arr = idsBreak(entities) as TEntTypeIdx|TEntTypeIdx[]|TEntTypeIdx[][];
     }
@@ -402,7 +382,7 @@ export function Clone(__model__: GIModel, entities: TId|TId[]|TId[][]): TId|TId[
     let ents_arr;
     if (__model__.debug) {
         ents_arr = checkIDs(__model__, fn_name, 'entities', entities,
-        [ID.isID, ID.isIDL, , ID.isIDLL],
+        [ID.isID, ID.isIDL, ID.isIDLL],
         [EEntType.POSI, EEntType.POINT, EEntType.PLINE, EEntType.PGON, EEntType.COLL]) as TEntTypeIdx|TEntTypeIdx[]|TEntTypeIdx[][];
     } else {
         ents_arr = idsBreak(entities) as TEntTypeIdx|TEntTypeIdx[]|TEntTypeIdx[][];

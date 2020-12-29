@@ -6,17 +6,18 @@
 /**
  *
  */
-import { checkIDs, ID } from '../_check_ids';
-import { checkArgs, ArgCh } from '../_check_args';
+import { checkIDs, ID } from '../../_check_ids';
+
+import * as chk from '../../_check_types';
 
 import { GIModel } from '@libs/geo-info/GIModel';
 import { TId, Txyz, EEntType, TEntTypeIdx, TRay, TPlane, Txy, EAttribDataTypeStrs } from '@libs/geo-info/common';
-import { getArrDepth, idsMakeFromIdxs, idsMake, idsBreak, idMake } from '@assets/libs/geo-info/common_id_funcs';
+import { idsMakeFromIdxs, idsMake, idsBreak, idMake } from '@assets/libs/geo-info/common_id_funcs';
 import { distance } from '@libs/geom/distance';
 import { vecAdd, vecCross, vecMult, vecNorm, vecAng2, vecSetLen, vecRot } from '@libs/geom/vectors';
 import uscore from 'underscore';
 import { min, max } from '@assets/core/inline/_math';
-import { arrMakeFlat, getArrDepth2 } from '@assets/libs/util/arrs';
+import { arrMakeFlat, getArrDepth } from '@assets/libs/util/arrs';
 import { degToRad } from '@assets/core/inline/_conversion';
 import { multMatrix } from '@libs/geom/matrix';
 import { XAXIS, YAXIS, ZAXIS } from '@assets/libs/geom/constants';
@@ -101,11 +102,11 @@ export function Raytrace(__model__: GIModel, rays: TRay|TRay[]|TRay[][],
     const fn_name = 'analyze.Raytrace';
     let ents_arrs: TEntTypeIdx[];
     if (__model__.debug) {
-        checkArgs(fn_name, 'rays', rays, [ArgCh.isRay, ArgCh.isRayL, ArgCh.isRayLL]);
+        chk.checkArgs(fn_name, 'rays', rays, [chk.isRay, chk.isRayL, chk.isRayLL]);
         ents_arrs = checkIDs(__model__, fn_name, 'entities', entities,
             [ID.isID, ID.isIDL],
             [EEntType.PGON, EEntType.COLL]) as TEntTypeIdx[];
-        checkArgs(fn_name, 'dist', dist, [ArgCh.isNum, ArgCh.isNumL]);
+        chk.checkArgs(fn_name, 'dist', dist, [chk.isNum, chk.isNumL]);
         if (Array.isArray(dist)) {
             if (dist.length !== 2) { throw new Error('If "dist" is a list, it must have a length of two: [min_dist, max_dist].'); }
             if (dist[0] >= dist[1]) { throw new Error('If "dist" is a list, the "min_dist" must be less than the "max_dist": [min_dist, max_dist].'); }
@@ -129,7 +130,7 @@ export function Raytrace(__model__: GIModel, rays: TRay|TRay[]|TRay[][],
 function _raytraceAll(__model__: GIModel, rays: TRay|TRay[]|TRay[][],
         mesh: [THREE.Mesh, number[]], limits: [number, number],
         method: _ERaytraceMethod): TRaytraceResult|TRaytraceResult[] {
-    const depth: number = getArrDepth2(rays);
+    const depth: number = getArrDepth(rays);
     if (depth < 2) {// an empty list
         return null;
     } else if (depth === 2) {// just one ray
@@ -265,11 +266,11 @@ export function Isovist(__model__: GIModel, origins: TRay[]|TPlane[],
     // let origin_ents_arrs: TEntTypeIdx[];
     let ents_arrs: TEntTypeIdx[];
     if (__model__.debug) {
-        checkArgs(fn_name, 'origins', origins, [ArgCh.isRayL, ArgCh.isPlnL]);
+        chk.checkArgs(fn_name, 'origins', origins, [chk.isRayL, chk.isPlnL]);
         ents_arrs = checkIDs(__model__, fn_name, 'entities', entities,
             [ID.isIDL],
             [EEntType.PGON, EEntType.COLL]) as TEntTypeIdx[];
-        checkArgs(fn_name, 'dist', radius, [ArgCh.isNum, ArgCh.isNumL]);
+        chk.checkArgs(fn_name, 'dist', radius, [chk.isNum, chk.isNumL]);
         if (Array.isArray(radius)) {
             if (radius.length !== 2) { throw new Error('If "dist" is a list, it must have a length of two: [min_dist, max_dist].'); }
             if (radius[0] >= radius[1]) { throw new Error('If "dist" is a list, the "min_dist" must be less than the "max_dist": [min_dist, max_dist].'); }
@@ -456,8 +457,8 @@ export function Sky(__model__: GIModel, origins: Txyz[]|TRay[]|TPlane[], detail:
     // let latitude: number = null;
     // let north: Txy = [0, 1];
     if (__model__.debug) {
-        checkArgs(fn_name, 'origins', origins, [ArgCh.isXYZL, ArgCh.isRayL, ArgCh.isPlnL]);
-        checkArgs(fn_name, 'detail', detail, [ArgCh.isInt]);
+        chk.checkArgs(fn_name, 'origins', origins, [chk.isXYZL, chk.isRayL, chk.isPlnL]);
+        chk.checkArgs(fn_name, 'detail', detail, [chk.isInt]);
         if (detail < 0 || detail > 3) {
             throw new Error (fn_name + ': "detail" must be an integer between 0 and 3 inclusive.');
         }
@@ -597,8 +598,8 @@ export function Sun(__model__: GIModel, origins: Txyz[]|TRay[]|TPlane[], detail:
     let latitude: number = null;
     let north: Txy = [0, 1];
     if (__model__.debug) {
-        checkArgs(fn_name, 'origins', origins, [ArgCh.isXYZL, ArgCh.isRayL, ArgCh.isPlnL]);
-        checkArgs(fn_name, 'detail', detail, [ArgCh.isInt]);
+        chk.checkArgs(fn_name, 'origins', origins, [chk.isXYZL, chk.isRayL, chk.isPlnL]);
+        chk.checkArgs(fn_name, 'detail', detail, [chk.isInt]);
         if (detail < 0 || detail > 3) {
             throw new Error (fn_name + ': "detail" must be an integer between 0 and 3 inclusive.');
         }
@@ -873,12 +874,12 @@ export function SkyDome(__model__: GIModel, origin: Txyz|TRay|TPlane, detail: nu
     let latitude: number = null;
     let north: Txy = [0, 1];
     if (__model__.debug) {
-        checkArgs(fn_name, 'origin', origin, [ArgCh.isXYZ, ArgCh.isRay, ArgCh.isPln]);
-        checkArgs(fn_name, 'detail', detail, [ArgCh.isInt]);
+        chk.checkArgs(fn_name, 'origin', origin, [chk.isXYZ, chk.isRay, chk.isPln]);
+        chk.checkArgs(fn_name, 'detail', detail, [chk.isInt]);
         if (detail < 0 || detail > 6) {
             throw new Error (fn_name + ': "detail" must be an integer between 0 and 6.');
         }
-        checkArgs(fn_name, 'radius', radius, [ArgCh.isNum]);
+        chk.checkArgs(fn_name, 'radius', radius, [chk.isNum]);
         if (method !== _ESunPathMethod.SKY) {
             if (!__model__.modeldata.attribs.query.hasModelAttrib('geolocation')) {
                 throw new Error('analyze.Solar: model attribute "geolocation" is missing, \

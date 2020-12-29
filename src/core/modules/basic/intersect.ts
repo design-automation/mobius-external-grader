@@ -5,12 +5,14 @@
 /**
  *
  */
-import { checkIDs, ID } from '../_check_ids';
-import { checkArgs, ArgCh } from '../_check_args';
+import { checkIDs, ID } from '../../_check_ids';
+
+import * as chk from '../../_check_types';
 
 import { TId, Txyz, EEntType, TPlane, TRay, TEntTypeIdx } from '@libs/geo-info/common';
 import { GIModel } from '@libs/geo-info/GIModel';
-import { getArrDepth, idsBreak } from '@assets/libs/geo-info/common_id_funcs';
+import { idsBreak } from '@assets/libs/geo-info/common_id_funcs';
+import { getArrDepth } from '@assets/libs/util/arrs';
 import { vecCross} from '@libs/geom/vectors';
 import { _normal } from './calc';
 import * as THREE from 'three';
@@ -38,7 +40,7 @@ export function RayFace(__model__: GIModel, ray: TRay, entities: TId|TId[]): Txy
     const fn_name = 'intersect.RayFace';
     let ents_arr: TEntTypeIdx|TEntTypeIdx[];
     if (__model__.debug) {
-        checkArgs(fn_name, 'ray', ray, [ArgCh.isRay]);
+        chk.checkArgs(fn_name, 'ray', ray, [chk.isRay]);
         ents_arr = checkIDs(__model__, fn_name, 'entities', entities,
             [ID.isID, ID.isIDL],
             [EEntType.PGON, EEntType.COLL]) as TEntTypeIdx|TEntTypeIdx[];
@@ -117,7 +119,7 @@ export function PlaneEdge(__model__: GIModel, plane: TRay|TPlane, entities: TId|
     const fn_name = 'intersect.PlaneEdge';
     let ents_arr: TEntTypeIdx|TEntTypeIdx[];
     if (__model__.debug) {
-        checkArgs(fn_name, 'plane', plane, [ArgCh.isPln]);
+        chk.checkArgs(fn_name, 'plane', plane, [chk.isPln]);
         ents_arr = checkIDs(__model__, fn_name, 'entities', entities,
             [ID.isID, ID.isIDL],
             [EEntType.EDGE, EEntType.WIRE, EEntType.PLINE, EEntType.PGON, EEntType.COLL]) as TEntTypeIdx|TEntTypeIdx[];

@@ -7,10 +7,12 @@
 /**
  *
  */
-import { checkArgs, ArgCh } from '../_check_args';
+
+import * as chk from '../../_check_types';
 
 import { Txyz, TPlane, XYPLANE, TId, EEntType } from '@libs/geo-info/common';
-import { getArrDepth, idsMakeFromIdxs } from '@assets/libs/geo-info/common_id_funcs';
+import { idsMakeFromIdxs } from '@assets/libs/geo-info/common_id_funcs';
+import { getArrDepth } from '@assets/libs/util/arrs';
 import { vecAdd } from '@libs/geom/vectors';
 import { xfromSourceTargetMatrix, multMatrix } from '@libs/geom/matrix';
 import { Matrix4 } from 'three';
@@ -32,9 +34,9 @@ export function Line(__model__: GIModel, origin: Txyz|TPlane, size: number, num_
     // --- Error Check ---
     if (__model__.debug) {
         const fn_name = 'pattern.Line';
-        checkArgs(fn_name, 'origin', origin, [ArgCh.isXYZ, ArgCh.isPln]);
-        checkArgs(fn_name, 'size', size, [ArgCh.isNum]);
-        checkArgs(fn_name, 'num_positions', num_positions, [ArgCh.isInt]);
+        chk.checkArgs(fn_name, 'origin', origin, [chk.isXYZ, chk.isPln]);
+        chk.checkArgs(fn_name, 'size', size, [chk.isNum]);
+        chk.checkArgs(fn_name, 'num_positions', num_positions, [chk.isInt]);
     }
     // --- Error Check ---
     // create the matrix one time
@@ -80,8 +82,8 @@ export function Rectangle(__model__: GIModel, origin: Txyz|TPlane, size: number|
     // --- Error Check ---
     if (__model__.debug) {
         const fn_name = 'pattern.Rectangle';
-        checkArgs(fn_name, 'origin', origin, [ArgCh.isXYZ, ArgCh.isPln]);
-        checkArgs(fn_name, 'size', size, [ArgCh.isNum, ArgCh.isXY]);
+        chk.checkArgs(fn_name, 'origin', origin, [chk.isXYZ, chk.isPln]);
+        chk.checkArgs(fn_name, 'size', size, [chk.isNum, chk.isXY]);
     }
     // --- Error Check ---
     // create the matrix one time
@@ -141,9 +143,9 @@ export function Grid(__model__: GIModel, origin: Txyz|TPlane, size: number|[numb
     // --- Error Check ---
     if (__model__.debug) {
         const fn_name = 'pattern.Grid';
-        checkArgs(fn_name, 'origin', origin, [ArgCh.isXYZ, ArgCh.isPln]);
-        checkArgs(fn_name, 'size', size, [ArgCh.isNum, ArgCh.isXY]);
-        checkArgs(fn_name, 'num_positions', num_positions, [ArgCh.isInt, ArgCh.isXYInt]);
+        chk.checkArgs(fn_name, 'origin', origin, [chk.isXYZ, chk.isPln]);
+        chk.checkArgs(fn_name, 'size', size, [chk.isNum, chk.isXY]);
+        chk.checkArgs(fn_name, 'num_positions', num_positions, [chk.isInt, chk.isXYInt]);
     }
     // --- Error Check ---
     // create the matrix one time
@@ -239,8 +241,8 @@ export function Box(__model__: GIModel, origin: Txyz | TPlane,
     // --- Error Check ---
     if (__model__.debug) {
         const fn_name = 'pattern.Box';
-        checkArgs(fn_name, 'origin', origin, [ArgCh.isXYZ, ArgCh.isPln]);
-        checkArgs(fn_name, 'size', size, [ArgCh.isNum, ArgCh.isXY, ArgCh.isXYZ]);
+        chk.checkArgs(fn_name, 'origin', origin, [chk.isXYZ, chk.isPln]);
+        chk.checkArgs(fn_name, 'size', size, [chk.isNum, chk.isXY, chk.isXYZ]);
     }
     // --- Error Check ---
     // create the matrix one time
@@ -488,9 +490,9 @@ export function Polyhedron(__model__: GIModel, origin: Txyz | TPlane, radius: nu
     // --- Error Check ---
     if (__model__.debug) {
         const fn_name = 'pattern.Polyhedron';
-        checkArgs(fn_name, 'origin', origin, [ArgCh.isXYZ, ArgCh.isPln]);
-        checkArgs(fn_name, 'radius', radius, [ArgCh.isNum]);
-        checkArgs(fn_name, 'detail', detail, [ArgCh.isInt]);
+        chk.checkArgs(fn_name, 'origin', origin, [chk.isXYZ, chk.isPln]);
+        chk.checkArgs(fn_name, 'radius', radius, [chk.isNum]);
+        chk.checkArgs(fn_name, 'detail', detail, [chk.isInt]);
         if (detail > 6) {
             throw new Error('pattern.Polyhedron: The "detail" argument is too high, the maximum is 6.');
         }
@@ -592,10 +594,10 @@ export function Arc(__model__: GIModel, origin: Txyz|TPlane, radius: number, num
     // --- Error Check ---
     if (__model__.debug) {
         const fn_name = 'pattern.Arc';
-        checkArgs(fn_name, 'origin', origin, [ArgCh.isXYZ, ArgCh.isPln]);
-        checkArgs(fn_name, 'radius', radius, [ArgCh.isNum]);
-        checkArgs(fn_name, 'num_positions', num_positions, [ArgCh.isInt]);
-        checkArgs(fn_name, 'arc_angle', arc_angle, [ArgCh.isNum, ArgCh.isNull]);
+        chk.checkArgs(fn_name, 'origin', origin, [chk.isXYZ, chk.isPln]);
+        chk.checkArgs(fn_name, 'radius', radius, [chk.isNum]);
+        chk.checkArgs(fn_name, 'num_positions', num_positions, [chk.isInt]);
+        chk.checkArgs(fn_name, 'arc_angle', arc_angle, [chk.isNum, chk.isNull]);
     }
     // --- Error Check ---
     // create the matrix one time
@@ -650,8 +652,8 @@ export function Bezier(__model__: GIModel, coords: Txyz[], num_positions: number
     // --- Error Check ---
     const fn_name = 'pattern.Bezier';
     if (__model__.debug) {
-        checkArgs(fn_name, 'coords', coords, [ArgCh.isXYZL]);
-        checkArgs(fn_name, 'num_positions', num_positions, [ArgCh.isInt]);
+        chk.checkArgs(fn_name, 'coords', coords, [chk.isXYZL]);
+        chk.checkArgs(fn_name, 'num_positions', num_positions, [chk.isInt]);
     }
     // --- Error Check ---
     // create the curve
@@ -712,8 +714,8 @@ export function Nurbs(__model__: GIModel, coords: Txyz[], degree: number, close:
     // --- Error Check ---
     if (__model__.debug) {
         const fn_name = 'pattern.Nurbs';
-        checkArgs(fn_name, 'coords', coords, [ArgCh.isXYZL]);
-        checkArgs(fn_name, 'num_positions', num_positions, [ArgCh.isInt]);
+        chk.checkArgs(fn_name, 'coords', coords, [chk.isXYZL]);
+        chk.checkArgs(fn_name, 'num_positions', num_positions, [chk.isInt]);
         if (coords.length < 3) {
             throw new Error (fn_name + ': "coords" should be a list of at least three XYZ coords.');
         }
@@ -791,8 +793,8 @@ export function _Interpolate(__model__: GIModel, coords: Txyz[], degree: number,
     // --- Error Check ---
     if (__model__.debug) {
         const fn_name = 'pattern._Interpolate';
-        checkArgs(fn_name, 'coords', coords, [ArgCh.isXYZL]);
-        checkArgs(fn_name, 'num_positions', num_positions, [ArgCh.isInt]);
+        chk.checkArgs(fn_name, 'coords', coords, [chk.isXYZL]);
+        chk.checkArgs(fn_name, 'num_positions', num_positions, [chk.isInt]);
         // --- Error Check ---
         if (coords.length < 3) {
             throw new Error (fn_name + ': "coords" should be a list of at least three XYZ coords.');
@@ -896,9 +898,9 @@ export function Interpolate(__model__: GIModel, coords: Txyz[], type: _ECurveCat
     // --- Error Check ---
     if (__model__.debug) {
         const fn_name = 'pattern.Interpolate';
-        checkArgs(fn_name, 'coords', coords, [ArgCh.isXYZL]);
-        checkArgs(fn_name, 'tension', tension, [ArgCh.isNum01]);
-        checkArgs(fn_name, 'num_positions', num_positions, [ArgCh.isInt]);
+        chk.checkArgs(fn_name, 'coords', coords, [chk.isXYZL]);
+        chk.checkArgs(fn_name, 'tension', tension, [chk.isNum01]);
+        chk.checkArgs(fn_name, 'num_positions', num_positions, [chk.isInt]);
         if (coords.length < 3) {
             throw new Error(fn_name + ': "coords" should be a list of at least three XYZ coords.');
         }

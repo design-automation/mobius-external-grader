@@ -1,4 +1,4 @@
-import { TEntTypeIdx, TId } from './common';
+import { IEntSets, TEntTypeIdx, TId } from './common';
 import { GIMetaData } from './GIMetaData';
 import { GIModelData } from './GIModelData';
 import { idsBreak } from './common_id_funcs';
@@ -24,6 +24,7 @@ export class GIModel {
             this.metadata = meta_data;
         }
         this.modeldata = new GIModelData(this);
+        this.nextSnapshot();
     }
     /**
      * Get the current time stamp
@@ -60,9 +61,15 @@ export class GIModel {
      * @param ents The list of ents to add.
      */
     public addEntsToActiveSnapshot(from_ssid: number, ents: TEntTypeIdx[]) {
-        const ents2: TEntTypeIdx[] = this.modeldata.geom.snapshot.getSubEnts( from_ssid, ents );
-        this.modeldata.geom.snapshot.copyEntsToActiveSnapshot(from_ssid, ents2);
-        this.modeldata.attribs.snapshot.copyEntsToActiveSnapshot(from_ssid, ents2);
+        // geometry
+        const ents_sets: IEntSets = this.modeldata.geom.snapshot.getSubEntsSets(from_ssid, ents);
+        this.modeldata.geom.snapshot.copyEntsToActiveSnapshot(from_ssid,
+            this.modeldata.geom.snapshot.getSubEnts(ents_sets));
+        // attributes
+        // TODO needs to be optimized, we should iterate over the sets directly - it will be faster
+        this.modeldata.geom.snapshot.addTopoToSubEntsSets(ents_sets);
+        this.modeldata.attribs.snapshot.copyEntsToActiveSnapshot(from_ssid,
+            this.modeldata.geom.snapshot.getSubEnts(ents_sets));
     }
     /**
      * Gets a set of ents from a snapshot.
@@ -178,8 +185,8 @@ export class GIModel {
      * Import a GI model.
      * @param meta
      */
-    public importGI(model_json_data_str: string): void {
-        this.modeldata.importGI(JSON.parse(model_json_data_str));
+    public importGI(model_json_data_str: string): TEntTypeIdx[] {
+        return this.modeldata.importGI(JSON.parse(model_json_data_str));
     }
     /**
      * Export a GI model.

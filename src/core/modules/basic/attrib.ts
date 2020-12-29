@@ -8,15 +8,17 @@
 /**
  *
  */
-import { checkIDs, ID } from '../_check_ids';
+import { checkIDs, ID } from '../../_check_ids';
+
 import { checkAttribValue, checkAttribName,
-    checkAttribIdxKey, checkAttribNameIdxKey, splitAttribNameIdxKey } from '../_check_attribs';
+    checkAttribIdxKey, checkAttribNameIdxKey, splitAttribNameIdxKey } from '../../_check_attribs';
 
 import uscore from 'underscore';
 import { GIModel } from '@libs/geo-info/GIModel';
 import { TId, EEntType, TEntTypeIdx,
     EAttribPush, TAttribDataTypes, EEntTypeStr, EAttribDataTypeStrs } from '@libs/geo-info/common';
-import { getArrDepth, idsBreak } from '@assets/libs/geo-info/common_id_funcs';
+import { idsBreak } from '@assets/libs/geo-info/common_id_funcs';
+import { getArrDepth } from '@assets/libs/util/arrs';
 import * as lodash from 'lodash';
 // ================================================================================================
 
@@ -170,10 +172,11 @@ function _setAttrib(__model__: GIModel, ents_arr: TEntTypeIdx|TEntTypeIdx[],
         ents_arr = [ents_arr] as TEntTypeIdx[];
     }
     ents_arr = ents_arr as TEntTypeIdx[];
-    // all ents get the same attribute value
     if (method === _ESet.MANY_VALUES) {
+        // all ents get different attribute value
         _setEachEntDifferentAttribValue(__model__, ents_arr, attrib_name, attrib_values as TAttribDataTypes[], idx_or_key);
     } else {
+        // all ents get the same attribute value
         _setEachEntSameAttribValue(__model__, ents_arr, attrib_name, attrib_values as TAttribDataTypes, idx_or_key);
     }
     return;

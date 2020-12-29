@@ -9,8 +9,8 @@ tests = [
     //     'info': 'x'
     // }
     {
-        'file': 'https://raw.githubusercontent.com/phuongtung1/test_repo/master/test_mb/f1',
-        'question': 'w4_coding_assign_part2_ans',
+        'file': 'https://raw.githubusercontent.com/phuongtung1/test_repo/master/grader_test_',
+        'question': 'grader_test_',
         'localTest': true,
         'info': 'x'
     }

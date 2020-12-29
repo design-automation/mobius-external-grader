@@ -7,6 +7,7 @@
 import { INode } from '../node';
 import { IEdge } from '../edge';
 import { IFunction } from '../procedure';
+import { GIModel } from '../../libs/geo-info/GIModel';
 
 export interface IFlowchart {
     id: string;
@@ -22,6 +23,8 @@ export interface IFlowchart {
     functions: IFunction[];
     subFunctions?: IFunction[];
     ordered: boolean;
+
+    model: GIModel;
 
     meta: {
         selected_nodes: number[];

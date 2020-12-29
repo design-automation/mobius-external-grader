@@ -7,13 +7,14 @@
 /**
  *
  */
-import { checkIDs, ID } from '../_check_ids';
-import { checkArgs, ArgCh } from '../_check_args';
+import { checkIDs, ID } from '../../_check_ids';
+
+import * as chk from '../../_check_types';
 
 import { GIModel } from '@libs/geo-info/GIModel';
 import { TId, EEntType, TEntTypeIdx, IEntSets } from '@libs/geo-info/common';
-import { idsMake, isEmptyArr, idsBreak } from '@assets/libs/geo-info/common_id_funcs';
-import { arrMakeFlat, isEmptyArr2 } from '@libs/util/arrs';
+import { idsMake, idsBreak } from '@assets/libs/geo-info/common_id_funcs';
+import { arrMakeFlat, isEmptyArr } from '@libs/util/arrs';
 
 // Enums
 export enum _EDivisorMethod {
@@ -65,7 +66,7 @@ export function Divide(__model__: GIModel, entities: TId|TId[], divisor: number,
     if (__model__.debug) {
         ents_arr = checkIDs(__model__, fn_name, 'entities', entities,
         [ID.isID, ID.isIDL], [EEntType.EDGE, EEntType.WIRE, EEntType.PLINE, EEntType.PGON]) as TEntTypeIdx[];
-        checkArgs(fn_name, 'divisor', divisor, [ArgCh.isNum]);
+        chk.checkArgs(fn_name, 'divisor', divisor, [chk.isNum]);
     } else {
         ents_arr = idsBreak(entities) as TEntTypeIdx[];
     }
@@ -298,11 +299,11 @@ export function Delete(__model__: GIModel, entities: TId|TId[], method: _EDelete
     // --- Error Check ---
     switch (method) {
         case _EDeleteMethod.DELETE_SELECTED:
-            if (isEmptyArr2(entities)) { return; }
+            if (isEmptyArr(entities)) { return; }
             __model__.modeldata.funcs_edit.delete(ents_arr, false); // do not invert
             return;
         case _EDeleteMethod.KEEP_SELECTED:
-            if (isEmptyArr2(entities)) { __model__.modeldata.funcs_edit.delete(null, false); return; }
+            if (isEmptyArr(entities)) { __model__.modeldata.funcs_edit.delete(null, false); return; }
             __model__.modeldata.funcs_edit.delete(ents_arr, true); // invert
             return;
         default:
