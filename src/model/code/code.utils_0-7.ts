@@ -296,6 +296,7 @@ export class CodeUtils {
                 for (let i = 1; i < args.length; i++) {
                     lArgsVals.push(args[i].jsValue);
                 }
+                console.log(funcCall_prefix)
 
                 const lfn = `await ${funcCall_prefix}${prod.meta.name}_(__params__${lArgsVals.map(val => ', ' + val).join('')})`;
                 if (args[0].name === '__none__' || !args[0].jsValue) {
@@ -369,16 +370,13 @@ export class CodeUtils {
                     }
                 }
                 codeStr.push(`__params__.model.postGlobalFunc(__params__.curr_ss.${nodeId})`);
+                // codeStr.push(`__params__.prevModel.merge(__params__.model);`);
+                // codeStr.push(`__params__.model = __params__.prevModel;`);
+                // codeStr.push(`__params__.prevModel = null;`);
                 codeStr.push(`__params__.console.push('</div>')`);
                 break;
             case ProcedureTypes.Error:
-                codeStr.push(`__params__.misc.exit = true;`);
-                codeStr.push(`__params__.misc.exit_value = ${prod.args[0].jsValue};`);
-                codeStr.push(`throw new Error('__EXIT__');`);
-                break;
-            case ProcedureTypes.BreakBranch:
-                codeStr.push(`__params__.misc.breakbranch['${nodeId}'] = true;`);
-                codeStr.push(`throw new Error('__BREAK_BRANCH__');`);
+                codeStr.push(`throw new Error('____' + ${prod.args[0].jsValue});`);
                 break;
         }
 
@@ -470,10 +468,10 @@ export class CodeUtils {
             // return [`__modules__.${_parameterTypes.setattrib}(__params__.model, ${val_0}, '${name}', ` +
             //         `${val_1.substring(bracketIndex + 12, index - 2)},`, `);`];
             return [`__modules__.${_parameterTypes.setattrib}(__params__.model, ${val_0},` +
-                    `[\`${name}\`, ${val_1.substring(bracketIndex + 12, index - 2)}], `, `);`];
+                    `['${name}', ${val_1.substring(bracketIndex + 12, index - 2)}], `, `);`];
         } else {
             // return [`__modules__.${_parameterTypes.setattrib}(__params__.model, ${val_0}, '${val_1}', null, `, ');'];
-            return [`__modules__.${_parameterTypes.setattrib}(__params__.model, ${val_0}, \`${val_1}\`, `, ');'];
+            return [`__modules__.${_parameterTypes.setattrib}(__params__.model, ${val_0}, '${val_1}', `, ');'];
         }
     }
 
@@ -517,11 +515,7 @@ export class CodeUtils {
             url = url.substring(0, url.length - 1);
         }
         const p = new Promise((resolve) => {
-            const fetchObj = fetch(url);
-            fetchObj.catch(err => {
-                resolve('HTTP Request Error: Unable to retrieve file from ' + url);
-            });
-            fetchObj.then(res => {
+            fetch(url).then(res => {
                 if (!res.ok) {
                     resolve('HTTP Request Error: Unable to retrieve file from ' + url);
                     return '';
@@ -607,12 +601,12 @@ export class CodeUtils {
                   observer.next(fl);
                   observer.complete();
               } else {
-                  observer.error('File Retrieval Error');
+                  observer.error('error happened');
               }
           };
 
           request.onerror = () => {
-          observer.error('File Retrieval Error');
+          observer.error('error happened');
           };
           request.send();
         });
@@ -766,8 +760,7 @@ export class CodeUtils {
                 const codeRes = CodeUtils.getNodeCode(node, false, nodeIndices, func.name, node.id)[0];
                 const nodecode = codeRes[0].join('\n').split('_-_-_+_-_-_');
                 fullCode += `${nodecode[0]}\nasync function ${nodeFuncName}` +
-                            `(__params__${func.args.map(arg => ', ' + arg.name + '_').join('')}){\n` +
-                            `if (__debug__) { printFunc(__params__.console, 'Executing: ${node.name.replace(/\\/g, '').replace(/\n/g, ' ')}', '__null__') }\n` +
+                            `(__params__${func.args.map(arg => ', ' + arg.name + '_').join('')}){` +
                             nodecode[1] + `\n}\n\n`;
 
                 // const activeNodes = [];

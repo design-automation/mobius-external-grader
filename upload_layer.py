@@ -51,8 +51,8 @@ S3_BUCKET = 'mobius-evo-userfiles131353-dev'
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 # change this FUNC_NAME to whichever function you want to update
 FUNC_NAME = [
-    MAIN_FUNCTION
-    # MAIN_FUNCTION_0_7
+    # MAIN_FUNCTION
+    MAIN_FUNCTION_0_7
 
     # DEV_FUNCTION
     # RUN_JAVASCRIPT_FUNC
@@ -163,11 +163,11 @@ def upload_to_amazon(zipfile, funcName):
 if __name__ == '__main__':
     # copy_from_mobius()
     buildcheck = build_code()
-    if buildcheck:
-        zipcheck = zipdir()
-        if zipcheck:
-            zippedFile = open('zipped_file/zip_grader.zip', 'rb').read()
-            for funcName in FUNC_NAME:
-                upload_to_amazon(zippedFile, funcName)
+    # if buildcheck:
+    #     zipcheck = zipdir()
+    #     if zipcheck:
+    #         zippedFile = open('zipped_file/zip_grader.zip', 'rb').read()
+    #         for funcName in FUNC_NAME:
+    #             upload_to_amazon(zippedFile, funcName)
 
 

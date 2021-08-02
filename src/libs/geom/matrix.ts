@@ -94,7 +94,7 @@ export function xformMatrix(plane: TPlane, neg: boolean): three.Matrix4 {
     // combine two matrices
     const m3: three.Matrix4 = new three.Matrix4();
     if (neg) {
-        const m2x = (new three.Matrix4()).getInverse(m2);
+        const m2x = (new three.Matrix4()).copy( m2 ).invert();
         // first translate to origin, then xform, so m2 x m1
         m3.multiplyMatrices(m2x, m1);
     } else {
@@ -167,7 +167,7 @@ export function xformMatrix(plane: TPlane, neg: boolean): three.Matrix4 {
 //     m1.setPosition(o_neg);
 //     const m2: three.Matrix4 = new three.Matrix4();
 //     m2.makeBasis(x.normalize(), y.normalize(), _crossVectors(x, y, true));
-//     m2.getInverse(m2);
+//     m2.invert();
 //     const m3: three.Matrix4 = new three.Matrix4();
 //     // first translate to (0,0,0), then xform, so m1 x m2
 //     m3.multiplyMatrices(m2, m1);

@@ -25,6 +25,7 @@ export enum ProcedureTypes {
     Return, // 17
     LocalFuncCall, // 18
 
-    Error // 19
+    Error, // 19
+    BreakBranch // 20
 }
 

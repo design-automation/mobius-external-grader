@@ -5,6 +5,7 @@ import proj4 from 'proj4';
 import { vecAng2, vecDot } from '../../geom/vectors';
 import { rotateMatrix, multMatrix } from '../../geom/matrix';
 import { Matrix4 } from 'three';
+import { getObjSets } from './common';
 
 
 enum EGeojsoFeatureType {
@@ -15,7 +16,7 @@ enum EGeojsoFeatureType {
     MULTILINESTRING = 'MultiLineString',
     MULTIPOLYGON = 'MultiPolygon'
 }
-export function exportGeojson(model: GIModel, entities: TEntTypeIdx[], flatten: boolean): string {
+export function exportGeojson(model: GIModel, entities: TEntTypeIdx[], flatten: boolean, ssid: number): string {
     // create the projection object
     const proj_obj: proj4.Converter = _createProjection(model);
     // calculate angle of rotation
@@ -27,18 +28,21 @@ export function exportGeojson(model: GIModel, entities: TEntTypeIdx[], flatten: 
             rot_matrix = rotateMatrix([[0, 0, 0], [0, 0, 1]], -rot_ang);
         }
     }
+    // create features from pgons, plines, points
     const features: object[] = [];
-    for (const [ent_type, ent_i] of entities) {
-        switch (ent_type) {
-            case EEntType.PGON:
-                features.push(_createGeojsonPolygon(model, ent_i, proj_obj, rot_matrix, flatten));
-                break;
-            case EEntType.PLINE:
-                features.push(_createGeojsonLineString(model, ent_i, proj_obj, rot_matrix, flatten));
-                break;
-            default:
-                break;
-        }
+    const obj_sets: IEntSets = getObjSets(model, entities, ssid);
+    for (const pgon_i of obj_sets.pg) {
+        features.push(_createGeojsonPolygon(model, pgon_i, proj_obj, rot_matrix, flatten));
+    }
+    for (const pline_i of obj_sets.pl) {
+        features.push(_createGeojsonLineString(model, pline_i, proj_obj, rot_matrix, flatten));
+    }
+    for (const pline_i of obj_sets.pt) {
+        //
+        //
+        // TODO implement points
+        //
+        //
     }
     const export_json = {
         'type': 'FeatureCollection',
@@ -77,7 +81,9 @@ function _createGeojsonPolygon(model: GIModel, pgon_i: number, proj_obj: any, ro
     }
     const all_props = {};
     for (const name of model.modeldata.attribs.getAttribNames(EEntType.PGON)) {
-        all_props[name] = model.modeldata.attribs.get.getEntAttribVal(EEntType.PGON, pgon_i, name);
+        if (!name.startsWith('_')) {
+            all_props[name] = model.modeldata.attribs.get.getEntAttribVal(EEntType.PGON, pgon_i, name);
+        }
     }
     return {
         'type': 'Feature',
@@ -115,7 +121,9 @@ function _createGeojsonLineString(model: GIModel, pline_i: number, proj_obj: any
     }
     const all_props = {};
     for (const name of model.modeldata.attribs.getAttribNames(EEntType.PLINE)) {
-        all_props[name] = model.modeldata.attribs.get.getEntAttribVal(EEntType.PLINE, pline_i, name);
+        if (!name.startsWith('_')) {
+            all_props[name] = model.modeldata.attribs.get.getEntAttribVal(EEntType.PLINE, pline_i, name);
+        }
     }
     return {
         'type': 'Feature',
@@ -162,17 +170,23 @@ export function importGeojson(model: GIModel, geojson_str: string, elevation: nu
             case EGeojsoFeatureType.POINT:
                 point_f.push(feature);
                 const point_i: number = _addPointToModel(model, feature, proj_obj, rot_matrix, elevation);
-                points_i.add(point_i);
+                if (point_i !== null) {
+                    points_i.add(point_i);
+                }
                 break;
             case EGeojsoFeatureType.LINESTRING:
                 linestring_f.push(feature);
                 const pline_i: number = _addPlineToModel(model, feature, proj_obj, rot_matrix, elevation);
-                plines_i.add(pline_i);
+                if (pline_i !== null) {
+                    plines_i.add(pline_i);
+                }
                 break;
             case EGeojsoFeatureType.POLYGON:
                 polygon_f.push(feature);
                 const pgon_i: number = _addPgonToModel(model, feature, proj_obj, rot_matrix, elevation);
-                pgons_i.add(pgon_i);
+                if (pgon_i !== null) {
+                    pgons_i.add(pgon_i);
+                }
                 break;
             case EGeojsoFeatureType.MULTIPOINT:
                 multipoint_f.push(feature);
@@ -290,6 +304,7 @@ function _createProjection(model: GIModel): proj4.Converter {
  */
 function _addPointToModel(model: GIModel, point: any,
         proj_obj: proj4.Converter, rot_matrix: Matrix4, elevation: number): number {
+    if (point.geometry.coordinates.length === 0) { return null; }
     // add feature
     let xyz: Txyz = _xformFromLongLatToXYZ(point.geometry.coordinates, proj_obj, elevation) as Txyz;
     // rotate to north
@@ -322,6 +337,8 @@ function _addPointToModel(model: GIModel, point: any,
  */
 function _addPlineToModel(model: GIModel, linestring: any,
         proj_obj: proj4.Converter, rot_matrix: Matrix4, elevation: number): number {
+    // check that the polyline has 2 or more positions
+    if (linestring.geometry.coordinates.length < 2) { return null; }
     // add feature
     let xyzs: Txyz[] = _xformFromLongLatToXYZ(linestring.geometry.coordinates, proj_obj, elevation) as Txyz[];
     const first_xyz: Txyz = xyzs[0];
@@ -365,6 +382,8 @@ function _addPlineToModel(model: GIModel, linestring: any,
  */
 function _addPgonToModel(model: GIModel, polygon: any,
         proj_obj: proj4.Converter, rot_matrix: Matrix4, elevation: number): number {
+    // check that the first ring has 2 or more positions
+    if (polygon.geometry.coordinates.length && polygon.geometry.coordinates[0].length < 2) { return null; }
     // add feature
     const rings: number[][] = [];
     for (const ring of polygon.geometry.coordinates) {
@@ -509,6 +528,9 @@ function _addAttribsToModel(model: GIModel, ent_type: EEntType, ent_i: number, f
     if (! feature.hasOwnProperty('properties')) { return; }
     for (const name of Object.keys(feature.properties)) {
         let value: any = feature.properties[name];
+        if (value === null) {
+            continue;
+        }
         const value_type: string = typeof feature.properties[name];
         if (value_type === 'object') {
             value = JSON.stringify(value);
@@ -532,8 +554,10 @@ function _xformFromLongLatToXYZ(
         long_lat_arr = long_lat_arr as [number, number][];
         const xyzs_xformed: Txyz[] = [];
         for (const long_lat of long_lat_arr) {
-            const xyz: Txyz = _xformFromLongLatToXYZ(long_lat, proj_obj, elevation) as Txyz;
-            xyzs_xformed.push(xyz);
+            if (long_lat.length >= 2) {
+                const xyz: Txyz = _xformFromLongLatToXYZ(long_lat, proj_obj, elevation) as Txyz;
+                xyzs_xformed.push(xyz);
+            }
         }
         return xyzs_xformed as Txyz[];
     }

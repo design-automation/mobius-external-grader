@@ -547,12 +547,26 @@ export function _polyhedron(__model__: GIModel, matrix: Matrix4, radius: number,
     }
     // create the posis
     const posis_i: number[] = [];
-    for (const vert_tjs of hedron_tjs.vertices) {
-        const xyz: Txyz = multMatrix(vert_tjs.toArray() as Txyz, matrix);
-        const posi_i: number = __model__.modeldata.geom.add.addPosi();
-        __model__.modeldata.attribs.posis.setPosiCoords(posi_i, xyz);
-        posis_i.push(posi_i);
+    // THREE JS UPDATE --> EDITED
+    // for (const vert_tjs of hedron_tjs.vertices) {
+    //     const xyz: Txyz = multMatrix(vert_tjs.toArray() as Txyz, matrix);
+    //     const posi_i: number = __model__.modeldata.geom.add.addPosi();
+    //     __model__.modeldata.attribs.posis.setPosiCoords(posi_i, xyz);
+    //     posis_i.push(posi_i);
+    // }
+    let coordList: number[] = [];
+    for (const coord of <Float32Array> hedron_tjs.getAttribute('position').array) {
+        coordList.push(coord);
+        if (coordList.length === 3) {
+            const vert_tjs = new THREE.Vector3(...coordList);
+            const xyz: Txyz = multMatrix(vert_tjs.toArray() as Txyz, matrix);
+            const posi_i: number = __model__.modeldata.geom.add.addPosi();
+            __model__.modeldata.attribs.posis.setPosiCoords(posi_i, xyz);
+            posis_i.push(posi_i);
+            coordList = [];
+        }
     }
+
     // if the method is flat, then we are done, return the posis
     switch (method) {
         case _EPolyhedronMethod.FLAT_TETRA:
@@ -563,13 +577,25 @@ export function _polyhedron(__model__: GIModel, matrix: Matrix4, radius: number,
     }
     // get the posis into the arrays
     const posis_arrs_i: number[][] = [];
-    for (const face_tjs of hedron_tjs.faces) {
-        posis_arrs_i.push([
-            posis_i[face_tjs.a],
-            posis_i[face_tjs.b],
-            posis_i[face_tjs.c]
-        ]);
+
+    // THREE JS UPDATE --> EDITED
+    // for (const face_tjs of hedron_tjs.faces) {
+    //     posis_arrs_i.push([
+    //         posis_i[face_tjs.a],
+    //         posis_i[face_tjs.b],
+    //         posis_i[face_tjs.c]
+    //     ]);
+    // }
+
+    let indList: number[] = [];
+    for (const index of hedron_tjs.parameters.indices) {
+        indList.push(index);
+        if (coordList.length === 3) {
+            posis_arrs_i.push(indList);
+            indList = [];
+        }
     }
+
     // dispose the tjs polyhedron
     hedron_tjs.dispose();
     // return the result

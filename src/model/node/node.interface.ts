@@ -20,7 +20,6 @@ export interface INode {
     type: string;
     position: any;
     enabled: boolean;
-    hasExecuted: boolean;
     hasError: boolean;
 
     // contents
@@ -34,7 +33,8 @@ export interface INode {
     state: {
         procedure: IProcedure[],
         show_code: boolean,
-        show_func: boolean
+        show_func: boolean,
+        hasExecuted: boolean,
     };
 
     update_properties(data: any);

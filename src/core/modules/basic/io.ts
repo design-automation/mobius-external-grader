@@ -19,6 +19,8 @@ import { TId, EEntType, TEntTypeIdx, IEntSets } from '@libs/geo-info/common';
 import { idsMake, idsBreak, idsMakeFromIdxs, idMake } from '@assets/libs/geo-info/common_id_funcs';
 import { arrMakeFlat } from '@assets/libs/util/arrs';
 import JSZip from 'jszip';
+import fetch from 'node-fetch';
+import { exportGltf } from '@assets/libs/geo-info/io/io_gltf';
 
 const requestedBytes = 1024 * 1024 * 200; // 200 MB local storage quota
 
@@ -83,7 +85,7 @@ export async function Write(__model__: GIModel, data: string, file_name: string,
  * - A file name in the local storage, e.g. "my_data.obj".
  * \n
  * To place a file in local storage, go to the Mobius menu, and select 'Local Storage' from the dropdown.
- * Note that a codescript using a file in local storage may fail when others try to open the file.
+ * Note that a script using a file in local storage may fail when others try to open the file.
  * \n
  * @param model_data The model data
  * @param data_format Enum, the file format.
@@ -234,7 +236,8 @@ export enum _EIOExportDataFormat {
     OBJ_VERT = 'obj_v',
     OBJ_POSI = 'obj_ps',
     // DAE = 'dae',
-    GEOJSON = 'geojson'
+    GEOJSON = 'geojson',
+    GLTF = 'gltf'
 }
 /**
  * Export data from the model as a file.
@@ -263,7 +266,7 @@ export async function Export(__model__: GIModel, entities: TId|TId[]|TId[][],
         if (entities !== null) {
             entities = arrMakeFlat(entities) as TId[];
             ents_arr = checkIDs(__model__, fn_name, 'entities', entities,
-                [ID.isIDL], [EEntType.PLINE, EEntType.PGON, EEntType.COLL])  as TEntTypeIdx[];
+                [ID.isIDL1], [EEntType.PLINE, EEntType.PGON, EEntType.COLL])  as TEntTypeIdx[];
         }
         chk.checkArgs(fn_name, 'file_name', file_name, [chk.isStr, chk.isStrL]);
     } else {
@@ -277,31 +280,38 @@ export async function Export(__model__: GIModel, entities: TId|TId[]|TId[][],
 }
 async function _export(__model__: GIModel, ents_arr: TEntTypeIdx[],
     file_name: string, data_format: _EIOExportDataFormat, data_target: _EIODataTarget): Promise<boolean> {
+    const ssid: number = __model__.modeldata.active_ssid;
     switch (data_format) {
         case _EIOExportDataFormat.GI:
-            let model_data = '';
-            model_data = __model__.exportGI(ents_arr);
-            // gi_data = gi_data.replace(/\\\"/g, '\\\\\\"'); // TODO temporary fix
-            model_data = model_data.replace(/\\/g, '\\\\\\'); // TODO temporary fix
-            // === save the file ===
-            if (data_target === _EIODataTarget.DEFAULT) {
-                return download(model_data , file_name);
+            {
+                let model_data = '';
+                model_data = __model__.exportGI(ents_arr);
+                // gi_data = gi_data.replace(/\\\"/g, '\\\\\\"'); // TODO temporary fix
+                model_data = model_data.replace(/\\/g, '\\\\\\'); // TODO temporary fix
+                // === save the file ===
+                if (data_target === _EIODataTarget.DEFAULT) {
+                    return download(model_data , file_name);
+                }
+                return saveResource(model_data, file_name);
             }
-            return saveResource(model_data, file_name);
         case _EIOExportDataFormat.OBJ_VERT:
-            const obj_verts_data: string = exportVertBasedObj(__model__, ents_arr);
-            // obj_data = obj_data.replace(/#/g, '%23'); // TODO temporary fix
-            if (data_target === _EIODataTarget.DEFAULT) {
-                return download(obj_verts_data , file_name);
+            {
+                const obj_verts_data: string = exportVertBasedObj(__model__, ents_arr, ssid);
+                // obj_data = obj_data.replace(/#/g, '%23'); // TODO temporary fix
+                if (data_target === _EIODataTarget.DEFAULT) {
+                    return download(obj_verts_data , file_name);
+                }
+                return saveResource(obj_verts_data, file_name);
             }
-            return saveResource(obj_verts_data, file_name);
         case _EIOExportDataFormat.OBJ_POSI:
-            const obj_posis_data: string = exportPosiBasedObj(__model__, ents_arr);
-            // obj_data = obj_data.replace(/#/g, '%23'); // TODO temporary fix
-            if (data_target === _EIODataTarget.DEFAULT) {
-                return download(obj_posis_data , file_name);
+            {
+                const obj_posis_data: string = exportPosiBasedObj(__model__, ents_arr, ssid);
+                // obj_data = obj_data.replace(/#/g, '%23'); // TODO temporary fix
+                if (data_target === _EIODataTarget.DEFAULT) {
+                    return download(obj_posis_data , file_name);
+                }
+                return saveResource(obj_posis_data, file_name);
             }
-            return saveResource(obj_posis_data, file_name);
         // case _EIOExportDataFormat.DAE:
         //     const dae_data: string = exportDae(__model__);
         //     // dae_data = dae_data.replace(/#/g, '%23'); // TODO temporary fix
@@ -311,11 +321,21 @@ async function _export(__model__: GIModel, ents_arr: TEntTypeIdx[],
         //     return saveResource(dae_data, file_name);
         //     break;
         case _EIOExportDataFormat.GEOJSON:
-            const geojson_data: string = exportGeojson(__model__, ents_arr, true); // flatten
-            if (data_target === _EIODataTarget.DEFAULT) {
-                return download(geojson_data , file_name);
+            {
+                const geojson_data: string = exportGeojson(__model__, ents_arr, true, ssid); // flatten
+                if (data_target === _EIODataTarget.DEFAULT) {
+                    return download(geojson_data , file_name);
+                }
+                return saveResource(geojson_data, file_name);
             }
-            return saveResource(geojson_data, file_name);
+        case _EIOExportDataFormat.GLTF:
+            {
+                const gltf_data: string = await exportGltf(__model__, ents_arr, ssid);
+                if (data_target === _EIODataTarget.DEFAULT) {
+                    return download(gltf_data, file_name);
+                }
+                return saveResource(gltf_data, file_name);
+            }
         default:
             throw new Error('Data type not recognised');
     }
@@ -392,7 +412,11 @@ async function getURLContent(url: string): Promise<any> {
         url = url.substring(0, url.length - 1);
     }
     const p = new Promise((resolve) => {
-        fetch(url).then(res => {
+        const fetchObj = fetch(url);
+        fetchObj.catch(err => {
+            resolve('HTTP Request Error: Unable to retrieve file from ' + url);
+        });
+        fetchObj.then(res => {
             if (!res.ok) {
                 resolve('HTTP Request Error: Unable to retrieve file from ' + url);
                 return '';

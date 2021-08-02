@@ -73,8 +73,9 @@ export function splitAttribNameIdxKey(fn_name: string, attrib: string|[string, n
 }
 
 export function checkAttribValue(fn_name: string, attrib_value: any): void {
+    // if it is undefined, then we are deleting the attribute value
+    if (attrib_value === undefined) { return; }
     // check the actual value
     chk.checkArgs(fn_name, 'attrib_value', attrib_value,
-            [chk.isStr, chk.isNum, chk.isBool,
-                chk.isNull, chk.isList, chk.isDict]);
+            [chk.isNull, chk.isStr, chk.isNum, chk.isBool, chk.isList, chk.isDict]);
 }

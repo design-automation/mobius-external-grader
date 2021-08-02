@@ -46,7 +46,7 @@ const EPS = 1e-6;
 //     vz.normalize();
 //     const m2: three.Matrix4 = new three.Matrix4();
 //     m2.makeBasis(vx, vy, vz);
-//     m2.getInverse(m2);
+//     m2.invert();
 //     return m2;
 // }
 
@@ -197,7 +197,7 @@ function _getMatrix(points: three.Vector3[]): three.Matrix4 {
     // create matrix
     const m2: three.Matrix4 = new three.Matrix4();
     m2.makeBasis(vx, vy, vz);
-    m2.getInverse(m2);
+    m2.invert();
     return m2;
 }
 

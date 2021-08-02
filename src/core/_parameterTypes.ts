@@ -31,13 +31,16 @@ export const _parameterTypes = {
 
     return: '_Output.Return',
 
-    asyncFuncs: ['util.ModelCompare',
-                'io.Write', 'io.Read',
-                'io.Import', 'io.Export']
+    asyncFuncs: [
+        'util.ModelCompare',
+        'util.ModelMerge',
+        'io.Write', 'io.Read',
+        'io.Import', 'io.Export'
+    ]
 };
 
-export const _varString = `
-PI = __modules__._constants.PI;
+export const _varString =
+`PI = __modules__._constants.PI;
 XY = __modules__._constants.XY;
 YZ = __modules__._constants.YZ;
 ZX = __modules__._constants.ZX;
@@ -188,5 +191,4 @@ degToRad = __modules__._conversion.degToRad;
 numToStr = __modules__._conversion.numToStr;
 rand = __modules__._rand.rand;
 randInt = __modules__._rand.randInt;
-randPick = __modules__._rand.randPick;
-`;
+randPick = __modules__._rand.randPick;`;

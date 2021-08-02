@@ -56,19 +56,19 @@ export class FlowchartUtils {
     }
 
     static checkNode(nodeOrder: INode[], node: INode, enabled: boolean) {
-        if (node.hasExecuted) {
+        if (node.state.hasExecuted) {
             return;
         } else if (node.type === 'start' ) {
             nodeOrder.push(node);
         } else {
             for (const edge of node.input.edges) {
-                if (!edge.source.parentNode.hasExecuted) {
+                if (edge.source.parentNode.enabled && !edge.source.parentNode.state.hasExecuted) {
                     return;
                 }
             }
             nodeOrder.push(node);
         }
-        node.hasExecuted = true;
+        node.state.hasExecuted = true;
         // node.enabled = enabled;
         for (const edge of node.output.edges) {
             FlowchartUtils.checkNode(nodeOrder, edge.target.parentNode, enabled);
@@ -85,7 +85,7 @@ export class FlowchartUtils {
             if (node.type === 'start') {
                 startNode = node;
             }
-            node.hasExecuted = false;
+            node.state.hasExecuted = false;
         }
         const nodeOrder = [];
         FlowchartUtils.checkNode(nodeOrder, startNode, true);

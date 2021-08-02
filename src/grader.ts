@@ -86,7 +86,8 @@ const CPostfix = '</div>';
 const ErrorPrefix = '<div style="padding-left: 20px; border: 2px solid #E00000; background-color: #FFE9E9; border-radius: 5px; color: #E00000;"><h4>';
 const ErrorPostfix = '</h4></div>';
 
-const AMAZON_BUCKET_NAME = 'mooc-s3cf';
+const AWS_ANSWER_BUCKET = 'mooc-s3cf';
+const AWS_STUDENT_SUBMISSION_BUCKET = 'mooc-submissions';
 
 const JOB_DB = 'Job-t3vtntjcprhkbk4lak5sqtfcpm-dev';
 const GEN_EVAL_PARAM_DB = 'GenEvalParam-t3vtntjcprhkbk4lak5sqtfcpm-dev';
@@ -172,10 +173,21 @@ export async function gradeFile(event: any = {}): Promise<any> {
         if (check_attrib_equality === undefined) { check_attrib_equality = false; }
 
         const mobFile = circularJSON.parse(event.file);
+
         let score = 0;
         let result: { correct: boolean; score: number; comment: string; };
         let comment = [];
         let count = 0;
+
+        if (!checkSubmissionVersion(mobFile)) {
+            result = {
+                "correct": false,
+                "score": 0,
+                "comment": 'The model has been created in the wrong version of Mobius Modeller. Mobius files of version 0.8.x is required'
+            };
+            console.log(result);
+            return result;
+        }
 
         console.log(`  _ Test case ${count} started`);
         const missingParams = updateParam(answerFile.flowchart, mobFile.flowchart)
@@ -269,6 +281,19 @@ export async function runMobFile(fileUrl: string) {
         throw err;
     });
     return await p;
+}
+
+function checkSubmissionVersion(submissionFile) {
+    console.log(submissionFile.version)
+    try {
+        const fileVer = submissionFile.version.split('.');
+        if (fileVer[0] === '0' && Number(fileVer[1]) < 8) {
+            return false;
+        }
+    } catch (ex) {
+        return false;
+    }
+    return true;
 }
 
 function getModelString(model): string {
@@ -1158,7 +1183,7 @@ async function getAnswer(event: any = {},fromAmazon = true): Promise<any> {
     // const params1 = { Bucket: "mooc-answers", Key: event.question + '.json'};
     // const res1: any =  await s3.getObject(params1).promise();
     // const answerList = JSON.parse(res1.Body.toString('utf-8'));
-    const params2 = { Bucket: AMAZON_BUCKET_NAME, Key: event.question + '.mob'};
+    const params2 = { Bucket: AWS_ANSWER_BUCKET, Key: event.question + '.mob'};
     const res2: any =  await s3.getObject(params2).promise();
     const answerFile = circularJSON.parse(res2.Body.toString('utf-8'));
     // return [answerList, answerFile]
@@ -1242,7 +1267,7 @@ async function saveStudentAnswer(event: any): Promise<any> {
     console.log('putting student answer:');
     console.log('  _ key:', key);
     const r = await s3.putObject({
-        Bucket: "mooc-submissions",
+        Bucket: AWS_STUDENT_SUBMISSION_BUCKET,
         Key: key,
         Body: event.file,
         ContentType: 'application/json'
@@ -1447,9 +1472,16 @@ async function execute(flowchart: any, consoleLog) {
     await executeFlowchart(flowchart, consoleLog);
 }
 
-async function executeFlowchart(flowchart: IFlowchart, consoleLog) {
+async function  executeFlowchart(flowchart, consoleLog) {
     let globalVars = '';
     const constantList = {};
+    const miscData = {
+        'exit': false,
+        'exit_value': null,
+        'breakbranch': {}
+    };
+
+    // console.log(this.extractAnswerList(flowchart))
 
     // reordering the flowchart
     if (!flowchart.ordered) {
@@ -1468,33 +1500,43 @@ async function executeFlowchart(flowchart: IFlowchart, consoleLog) {
     }
 
     for (let i = 0; i < flowchart.nodes.length; i++) {
-        flowchart.nodes[i].hasExecuted = false;
+        flowchart.nodes[i].state.hasExecuted = false;
     }
 
-    const nodeIndices = {}
+    const nodeIndices = {};
     // execute each node
     for (let i = 0; i < flowchart.nodes.length; i++) {
-        // const node = flowchart.nodes[i];
-        // if (!node.enabled) {
-        //     node.output.value = undefined;
-        //     continue;
-        // }
-        // nodeIndices[node.id] = i;
-        // globalVars = await executeNode(node, funcStrings, globalVars, constantList, consoleLog, nodeIndices);
-
         const node = flowchart.nodes[i];
         // if disabled node -> continue
         if (!node.enabled) {
             node.output.value = undefined;
             continue;
         }
-        node.model = null;
-        globalVars = await executeNode(flowchart, node, funcStrings, globalVars, constantList, consoleLog, nodeIndices);
+        if (miscData.exit) {
+            if (node.type === 'end') {
+                consoleLog.push('<h4 style="padding: 2px 0px 2px 0px; color:black;">PROCESS EXITED. ' +
+                `Return Value: ${JSON.stringify(miscData.exit_value)}</h5>`);
+                node.output.value = miscData.exit_value;
+            } else {
+                node.output.value = null;
+            }
+            continue;
+        }
 
+        // execute valid node
+        node.model = null;
+        globalVars = await executeNode(flowchart, node, funcStrings, globalVars, constantList, consoleLog, nodeIndices, miscData);
     }
 
+    // delete each node.output.value to save memory
     for (const node of flowchart.nodes) {
-        if (node.type !== 'end') {
+        if (node.type === 'end') {
+            if (node.procedure[node.procedure.length - 1].args[1].jsValue) {
+                continue;
+            } else {
+                delete node.output.value;
+            }
+        } else {
             delete node.output.value;
         }
     }
@@ -1565,78 +1607,9 @@ async function checkProdValidity(node: INode, prodList: IProcedure[]) {
     return [InvalidECheck, EmptyECheck]
 }
 
-async function resolveImportedUrl(prodList: IProcedure[]|INode, isMainFlowchart?: boolean) {
-    return;
-    // if (!Array.isArray(prodList)) {
-    //     await resolveImportedUrl(prodList.procedure, isMainFlowchart);
-    //     if (prodList.localFunc) {
-    //         await resolveImportedUrl(prodList.localFunc, isMainFlowchart);
-    //     }
-    //     return;
-    // }
-    // for (const prod of <IProcedure[]> prodList) {
-    //     if (prod.children) {await  resolveImportedUrl(prod.children); }
-    //     if (!prod.enabled) {
-    //         continue;
-    //     }
-    //     if (isMainFlowchart && prod.type === ProcedureTypes.globalFuncCall) {
-    //         for (let i = 1; i < prod.args.length; i++) {
-    //             const arg = prod.args[i];
-    //             // args.slice(1).map((arg) => {
-    //             if (arg.type.toString() !== InputType.URL.toString()) { continue; }
-    //             prod.resolvedValue = await CodeUtils.getStartInput(arg, InputType.URL);
-    //         }
-    //         continue;
-    //     }
-    //     if (prod.type !== ProcedureTypes.MainFunction) {continue; }
-    //     for (const func of _parameterTypes.urlFunctions) {
-    //         const funcMeta = func.split('.');
-    //         if (prod.meta.module === funcMeta[0] && prod.meta.name === funcMeta[1]) {
-    //             const arg = prod.args[2];
-    //             if (arg.name[0] === '_') { continue; }
-    //             if (arg.value.indexOf('__model_data__') !== -1) {
-    //                 arg.jsValue = arg.value;
-    //                 prod.resolvedValue = arg.value.split('__model_data__').join('');
-    //             } else if (arg.jsValue && arg.jsValue.indexOf('__model_data__') !== -1) {
-    //                 prod.resolvedValue = arg.jsValue.split('__model_data__').join('');
-    //             } else if (arg.value.indexOf('://') !== -1) {
-    //                 const val = <string>(arg.value).replace(/ /g, '');
-    //                 const result = await CodeUtils.getURLContent(val);
-    //                 if (result === undefined) {
-    //                     prod.resolvedValue = arg.value;
-    //                 } else if (result.indexOf && result.indexOf('HTTP Request Error') !== -1) {
-    //                     throw new Error(result);
-    //                 } else if (val.indexOf('.zip') !== -1) {
-    //                     prod.resolvedValue = await openZipFile(result);
-    //                 } else {
-    //                     prod.resolvedValue = '`' + result + '`';
-    //                 }
-    //                 break;
-    //             } else if ((arg.value[0] !== '"' && arg.value[0] !== '\'')) {
-    //                 prod.resolvedValue = null;
-    //                 break;
-    //             }
-    //             break;
-    //         }
-    //     }
-    // }
-}
-async function openZipFile(zipFile) {
-    let result = '{';
-    await JSZip.loadAsync(zipFile).then(async function (zip) {
-        for (const filename of Object.keys(zip.files)) {
-            // const splittedNames = filename.split('/').slice(1).join('/');
-            await zip.files[filename].async('text').then(function (fileData) {
-                result += `"${filename}": \`${fileData.replace(/\\/g, '\\\\')}\`,`;
-            });
-        }
-    });
-    result += '}';
-    return result;
-}
 
-
-async function executeNode(flowchart: IFlowchart, node: INode, funcStrings, globalVars, constantList, consoleLog, nodeIndices): Promise<string> {
+async function executeNode(flowchart: IFlowchart, node: INode, funcStrings, 
+        globalVars, constantList, consoleLog, nodeIndices, miscData): Promise<string> {
     const params = {
         'currentProcedure': [''],
         'console': [],
@@ -1646,7 +1619,7 @@ async function executeNode(flowchart: IFlowchart, node: INode, funcStrings, glob
     let fnString = '';
     try {
         const usedFuncs: string[] = [];
-        const codeResult = CodeUtils.getNodeCode(node, true, nodeIndices, undefined, undefined, usedFuncs);
+        const codeResult = CodeUtils.getNodeCode(node, true, nodeIndices, undefined, node.id, usedFuncs);
         const usedFuncsSet = new Set(usedFuncs);
         // if process is terminated, return
 
@@ -1657,7 +1630,7 @@ async function executeNode(flowchart: IFlowchart, node: INode, funcStrings, glob
         // start with asembling the node's code
         fnString =  '\n\n//  ------ MAIN CODE ------\n' +
                     nodeCode[0] +
-                    '\nfunction __main_node_code__(__modules__, __params__){\n' +
+                    '\nasync function __main_node_code__(__modules__, __params__){\n' +
                     nodeCode[1] +
                     '\n}\nreturn __main_node_code__;';
 
@@ -1680,7 +1653,7 @@ async function executeNode(flowchart: IFlowchart, node: INode, funcStrings, glob
         '\n\n// ------ MERGE INPUTS FUNCTION ------' + mergeInputsFunc +
         '\n\n// ------ PRINT FUNCTION ------' + printFuncString +
         `\n\n// ------ FUNCTION FOR PYTHON STYLE LIST ------` + pythonListFunc +
-        '\n\n// ------ CONSTANTS ------' + fnString;
+        '\n\n// ------ CONSTANTS ------\n' + fnString;
 
 
         // ==> generated code structure:
@@ -1692,6 +1665,23 @@ async function executeNode(flowchart: IFlowchart, node: INode, funcStrings, glob
         params['model'] = flowchart.model;
         const snapshotID = params['model'].nextSnapshot(node.input.value);
         node.model = null;
+
+        if (node.type !== 'start') {
+            let breakbranch = true;
+            for (const edge of node.input.edges) {
+                if (miscData.breakbranch[edge.source.parentNode.id]) {
+                    continue;
+                }
+                breakbranch = false;
+                break;
+            }
+            if (breakbranch) {
+                node.model = snapshotID;
+                miscData.breakbranch[node.id] = true;
+                consoleLog.push('<h4 style="padding: 2px 0px 2px 0px; color:black;">Bypass Node</h4>');
+                return globalVars;
+            }
+        }
 
         // create the function with the string: new Function ([arg1[, arg2[, ...argN]],] functionBody)
         // console.log(fnString.split('<<<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>>>>>>')[1]);
@@ -1706,8 +1696,9 @@ async function executeNode(flowchart: IFlowchart, node: INode, funcStrings, glob
         } else {
             node.output.value = null;
         }
+
         // mark the node as has been executed
-        node.hasExecuted = true;
+        node.state.hasExecuted = true;
 
         // check all the input nodes of this node, if all of their children nodes are all executed,
         // change their output.value to null to preserve memory space.

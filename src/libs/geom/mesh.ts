@@ -46,20 +46,42 @@ export function createMultipleMeshesTjs(__model__: GIModel, ents_arrs: TEntTypeI
     // create tjs meshes
     const meshes_tjs: THREE.Mesh[] = [];
     for (const pgon_i of pgons_i) {
+
+        /*
+        * NEW CODE FOR THREE JS ^0.130.1
+        */
         // create the tjs geometry
-        const geom_tjs = new THREE.Geometry();
+        const geom_tjs = new THREE.BufferGeometry();
+        const positionList = [];
         const tris_i: number[] = __model__.modeldata.geom.nav_tri.navPgonToTri(pgon_i);
         for (const tri_i of tris_i) {
             const tri_posis_i: number[] = __model__.modeldata.geom.nav_tri.navTriToPosi(tri_i);
             // add the three vertices to the geometry
-            const a: number = geom_tjs.vertices.push(posis_tjs[tri_posis_i[0]]) - 1;
-            const b: number = geom_tjs.vertices.push(posis_tjs[tri_posis_i[1]]) - 1;
-            const c: number = geom_tjs.vertices.push(posis_tjs[tri_posis_i[2]]) - 1;
-            // add the tjs tri to the geometry
-            geom_tjs.faces.push( new THREE.Face3( a, b, c ) );
+            positionList.push(posis_tjs[tri_posis_i[0]]);
+            positionList.push(posis_tjs[tri_posis_i[1]]);
+            positionList.push(posis_tjs[tri_posis_i[2]]);
+            geom_tjs.setAttribute('position', new THREE.Float32BufferAttribute(positionList, 3));
         }
         // create the mesh, assigning the material
         meshes_tjs.push( new THREE.Mesh(geom_tjs, mat_tjs) );
+
+        /*
+        * OLD THREE JS CODE
+        */
+        // // create the tjs geometry
+        // const geom_tjs = new THREE.Geometry();
+        // const tris_i: number[] = __model__.modeldata.geom.nav_tri.navPgonToTri(pgon_i);
+        // for (const tri_i of tris_i) {
+        //     const tri_posis_i: number[] = __model__.modeldata.geom.nav_tri.navTriToPosi(tri_i);
+        //     // add the three vertices to the geometry
+        //     const a: number = geom_tjs.vertices.push(posis_tjs[tri_posis_i[0]]) - 1;
+        //     const b: number = geom_tjs.vertices.push(posis_tjs[tri_posis_i[1]]) - 1;
+        //     const c: number = geom_tjs.vertices.push(posis_tjs[tri_posis_i[2]]) - 1;
+        //     // add the tjs tri to the geometry
+        //     geom_tjs.faces.push( new THREE.Face3( a, b, c ) );
+        // }
+        // // create the mesh, assigning the material
+        // meshes_tjs.push( new THREE.Mesh(geom_tjs, mat_tjs) );
     }
     return meshes_tjs;
 }
@@ -96,25 +118,54 @@ export function createSingleMeshTjs(__model__: GIModel, ents_arrs: TEntTypeIdx[]
                 break;
         }
     }
-    // create tjs meshes
-    const geom_tjs = new THREE.Geometry();
+
+    /*
+     * NEW CODE FOR THREE JS ^0.130.1
+     */
+    // create the tjs geometry
+    const geom_tjs = new THREE.BufferGeometry();
+    const positionList = [];
     const idx_to_pgon_i: number[] = [];
+    let idx_tjs = 0;
     for (const pgon_i of pgons_i) {
         // create the tjs geometry
         const tris_i: number[] = __model__.modeldata.geom.nav_tri.navPgonToTri(pgon_i);
         for (const tri_i of tris_i) {
             const tri_posis_i: number[] = __model__.modeldata.geom.nav_tri.navTriToPosi(tri_i);
             // add the three vertices to the geometry
-            const a: number = geom_tjs.vertices.push(posis_tjs[tri_posis_i[0]]) - 1;
-            const b: number = geom_tjs.vertices.push(posis_tjs[tri_posis_i[1]]) - 1;
-            const c: number = geom_tjs.vertices.push(posis_tjs[tri_posis_i[2]]) - 1;
-            // add the tjs tri to the geometry
-            const idx_tjs: number = geom_tjs.faces.push( new THREE.Face3( a, b, c ) ) - 1;
+            positionList.push(posis_tjs[tri_posis_i[0]]);
+            positionList.push(posis_tjs[tri_posis_i[1]]);
+            positionList.push(posis_tjs[tri_posis_i[2]]);
+            geom_tjs.setAttribute('position', new THREE.Float32BufferAttribute(positionList, 3));
             idx_to_pgon_i[idx_tjs] = pgon_i;
+            idx_tjs ++;
         }
     }
     // create the mesh, assigning the material
     return [new THREE.Mesh(geom_tjs, mat_tjs), idx_to_pgon_i];
+
+    /*
+     * OLD THREE JS CODE
+     */
+    // // create tjs meshes
+    // const geom_tjs = new THREE.Geometry();
+    // const idx_to_pgon_i: number[] = [];
+    // for (const pgon_i of pgons_i) {
+    //     // create the tjs geometry
+    //     const tris_i: number[] = __model__.modeldata.geom.nav_tri.navPgonToTri(pgon_i);
+    //     for (const tri_i of tris_i) {
+    //         const tri_posis_i: number[] = __model__.modeldata.geom.nav_tri.navTriToPosi(tri_i);
+    //         // add the three vertices to the geometry
+    //         const a: number = geom_tjs.vertices.push(posis_tjs[tri_posis_i[0]]) - 1;
+    //         const b: number = geom_tjs.vertices.push(posis_tjs[tri_posis_i[1]]) - 1;
+    //         const c: number = geom_tjs.vertices.push(posis_tjs[tri_posis_i[2]]) - 1;
+    //         // add the tjs tri to the geometry
+    //         const idx_tjs: number = geom_tjs.faces.push( new THREE.Face3( a, b, c ) ) - 1;
+    //         idx_to_pgon_i[idx_tjs] = pgon_i;
+    //     }
+    // }
+    // create the mesh, assigning the material
+    // return [new THREE.Mesh(geom_tjs, mat_tjs), idx_to_pgon_i];
 }
 export function createSingleMeshBufTjs(__model__: GIModel, ents_arrs: TEntTypeIdx[]): THREE.Mesh {
     // Note that for meshes, faces must be pointed towards the origin of the ray in order to be detected;
@@ -166,7 +217,6 @@ export function createSingleMeshBufTjs(__model__: GIModel, ents_arrs: TEntTypeId
     }
     const geom_tjs = new THREE.BufferGeometry();
     geom_tjs.setIndex( tris_flat );
-    // geom_tjs.addAttribute( 'position', new THREE.Float32BufferAttribute( xyzs_flat, 3 ) );
     geom_tjs.setAttribute( 'position', new THREE.Float32BufferAttribute( xyzs_flat, 3 ) );
     return new THREE.Mesh(geom_tjs, mat_tjs);
 }

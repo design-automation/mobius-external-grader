@@ -1,7 +1,7 @@
 import { mirrorMatrix, multMatrix, rotateMatrix, scaleMatrix, xfromSourceTargetMatrix } from '../../geom/matrix';
 import { vecAdd, vecCross, vecDiv, vecDot, vecFromTo, vecLen, vecNorm, vecSetLen, vecSum } from '../../geom/vectors';
 import { EEntType, Txyz, TEntTypeIdx, TPlane, TRay } from '../common';
-import { Matrix4 } from 'three';
+import * as THREE from 'three';
 import { getArrDepth } from '@assets/libs/util/arrs';
 import { GIModelData } from '../GIModelData';
 
@@ -91,7 +91,7 @@ export class GIFuncsModify {
             posis_i.push(...this.modeldata.geom.nav.navAnyToPosi(ents[0], ents[1]));
         }
         const unique_posis_i: number[] = Array.from(new Set(posis_i));
-        const matrix: Matrix4 = rotateMatrix(ray, angle);
+        const matrix: THREE.Matrix4 = rotateMatrix(ray, angle);
         for (const unique_posi_i of unique_posis_i) {
             const old_xyz: Txyz = this.modeldata.attribs.posis.getPosiCoords(unique_posi_i);
             const new_xyz: Txyz = multMatrix(old_xyz, matrix);
@@ -119,7 +119,7 @@ export class GIFuncsModify {
             posis_i.push(...this.modeldata.geom.nav.navAnyToPosi(ents[0], ents[1]));
         }
         const unique_posis_i: number[] = Array.from(new Set(posis_i));
-        const matrix: Matrix4 = scaleMatrix(plane, scale);
+        const matrix: THREE.Matrix4 = scaleMatrix(plane, scale);
         for (const unique_posi_i of unique_posis_i) {
             const old_xyz: Txyz = this.modeldata.attribs.posis.getPosiCoords(unique_posi_i);
             const new_xyz: Txyz = multMatrix(old_xyz, matrix);
@@ -143,7 +143,7 @@ export class GIFuncsModify {
             posis_i.push(...this.modeldata.geom.nav.navAnyToPosi(ent_type, index));
         }
         const unique_posis_i: number[] = Array.from(new Set(posis_i));
-        const matrix: Matrix4 = mirrorMatrix(plane);
+        const matrix: THREE.Matrix4 = mirrorMatrix(plane);
         for (const unique_posi_i of unique_posis_i) {
             const old_xyz: Txyz = this.modeldata.attribs.posis.getPosiCoords(unique_posi_i);
             const new_xyz: Txyz = multMatrix(old_xyz, matrix);
@@ -168,7 +168,7 @@ export class GIFuncsModify {
             posis_i.push(...this.modeldata.geom.nav.navAnyToPosi(ent_type, index));
         }
         const unique_posis_i: number[] = Array.from(new Set(posis_i));
-        const matrix: Matrix4 = xfromSourceTargetMatrix(from, to);
+        const matrix: THREE.Matrix4 = xfromSourceTargetMatrix(from, to);
         for (const unique_posi_i of unique_posis_i) {
             const old_xyz: Txyz = this.modeldata.attribs.posis.getPosiCoords(unique_posi_i);
             const new_xyz: Txyz = multMatrix(old_xyz, matrix);

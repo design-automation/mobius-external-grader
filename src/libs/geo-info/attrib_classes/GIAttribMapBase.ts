@@ -183,9 +183,9 @@ export class GIAttribMapBase {
      */
     public setEntVal(ents_i: number|number[], val: TAttribDataTypes, check_type = true): void {
         // if indefined, do nothing
-        if (val === undefined) { return; }
+        if (val === undefined) { this.delEnt(ents_i); return; }
         // if null, delete
-        if (val === null) { this.delEnt(ents_i); return; }
+        // if (val === null) { this.delEnt(ents_i); return; }
         // check the type
         if (check_type) { this._checkValType(val); }
         // get the val idx

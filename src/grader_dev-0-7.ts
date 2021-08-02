@@ -5,22 +5,17 @@
 // import { IProcedure, ProcedureTypes } from './model/procedure';
 
 // import { _parameterTypes, _varString } from './core/modules';
-// import { InputType } from './model/port';
 // import * as Modules from './core/modules';
 // import * as circularJSON from 'circular-json';
 // import { INode } from './model/node';
-// import { GIModel } from './libs/geo-info/GIModel';
 // import AWS from 'aws-sdk';
 // import * as fs from 'fs';
 // import { checkArgInput } from './utils/parser';
 // import { XMLHttpRequest } from 'xmlhttprequest';
 // import fetch from 'node-fetch';
-// import { isArray } from 'util';
 // import JSZip from 'jszip';
-// import { IdGenerator } from './utils';
-// import { range, random } from 'underscore';
 
-// export const pythonList = `
+// export const pythonListFunc = `
 // function pythonList(x, l){
 //     if (x < 0) {
 //         return x + l;
@@ -28,15 +23,33 @@
 //     return x;
 // }
 // `;
-// const mergeInputsFunc = `
+// // export const mergeInputsFunc = `
+// // function mergeInputs(models){
+// //     let result = __modules__.${_parameterTypes.new}();
+// //     try {
+// //         result.debug = __debug__;
+// //     } catch (ex) {}
+// //     for (let model of models){
+// //         __modules__.${_parameterTypes.merge}(result, model);
+// //     }
+// //     return result;
+// // }
+// export const mergeInputsFunc = `
 // function mergeInputs(models){
-//     let result = __modules__.${_parameterTypes.new}();
+//     let result = null;
+//     if (models.length === 0) {
+//         result = __modules__.${_parameterTypes.new}();
+//     } else if (models.length === 1) {
+//         result = models[0].clone();
+//     } else {
+//         result = models[0].clone();
+//         for (let i = 1; i < models.length; i++) {
+//             __modules__.${_parameterTypes.merge}(result, models[i]);
+//         }
+//     }
 //     try {
 //         result.debug = __debug__;
 //     } catch (ex) {}
-//     for (let model of models){
-//         __modules__.${_parameterTypes.merge}(result, model);
-//     }
 //     return result;
 // }
 // function duplicateModel(model){
@@ -47,7 +60,7 @@
 //     return result;
 // }
 // `;
-// const printFunc = `
+// const printFuncString = `
 // function printFunc(_console, name, value){
 //     let val;
 //     if (!value) {
@@ -118,6 +131,8 @@
 //             }
 //         };
 //         request.send();
+//     }).catch(err => {
+//         throw err;
 //     });
 //     return await p;
 // };
@@ -157,10 +172,21 @@
 //         if (check_attrib_equality === undefined) { check_attrib_equality = false; }
 
 //         const mobFile = circularJSON.parse(event.file);
+
 //         let score = 0;
 //         let result: { correct: boolean; score: number; comment: string; };
 //         let comment = [];
 //         let count = 0;
+
+//         if (!checkSubmissionVersion(mobFile)) {
+//             result = {
+//                 "correct": false,
+//                 "score": 0,
+//                 "comment": 'The model has been created in the wrong version of Mobius Modeller. Mobius files of version 0.7.x is required'
+//             };
+//             console.log(result);
+//             return result;
+//         }
 
 //         console.log(`  _ Test case ${count} started`);
 //         const missingParams = updateParam(answerFile.flowchart, mobFile.flowchart)
@@ -250,11 +276,31 @@
 //             }
 //         };
 //         request.send();
+//     }).catch(err => {
+//         throw err;
 //     });
 //     return await p;
 // }
 
-// export async function runJavascriptFile(event: {'file': string, 'parameters': {}}) {
+// function checkSubmissionVersion(submissionFile) {
+//     console.log(submissionFile.version)
+//     try {
+//         const fileVer = submissionFile.version.split('.');
+//         if (fileVer[0] === '0' && Number(fileVer[1]) < 7) {
+//             return false;
+//         }
+//     } catch (ex) {
+//         return false;
+//     }
+//     return true;
+// }
+
+// function getModelString(model): string {
+//     let model_data = model.getJSONStr();
+//     model_data = model_data.replace(/\\/g, '\\\\\\'); // TODO temporary fix
+//     return model_data;
+// }
+// export async function runJavascriptFile(event: {'file': string, 'parameters': {}, 'model': string}) {
 //     const p = new Promise((resolve) => {
 //         fetch(event.file).then(res => {
 //             if (!res.ok) {
@@ -262,7 +308,7 @@
 //                 return '';
 //             }
 //             return res.text();
-//         }).then(body => {
+//         }).then(async body => {
 //             const splittedString = body.split('/** * **/');
 //             const argStrings = splittedString[0].split('// Parameter:');
 //             const args = [];
@@ -270,7 +316,7 @@
 //                 for (let i = 1; i < argStrings.length - 1; i++) {
 //                     args.push(JSON.parse(argStrings[i]));
 //                 }
-//                 args.push(JSON.parse(argStrings[argStrings.length - 1].split('function')[0]));
+//                 args.push(JSON.parse(argStrings[argStrings.length - 1].split('function')[0].split('async')[0]));
 //             }
 //             const val0 = args.map(arg => arg.name);
 //             const val1 = args.map(arg => {
@@ -279,13 +325,95 @@
 //                 }
 //                 return arg.value;
 //             });
-//             const fn = new Function('__modules__', ...val0, splittedString[1]);
-//             const result = fn(Modules, ...val1);
-//             result.model = result.model.getData();
+//             let prefixString = `async function __main_func(__modules__, ` + val0 + `) {\n__debug__ = false;\n__model__ = null;\n`;
+//             if (event.model) {
+//                 prefixString = `async function __main_func(__modules__, ` + val0 + `) {\n__debug__ = false;\n__model__ = ` + event.model + `;\n`;
+//             }
+//             const postfixString = `\n}\nreturn __main_func;`;
+//             const fn = new Function(prefixString + splittedString[1] + postfixString);
+//             const result = await fn()(Modules, ...val1);
+//             result.model = getModelString(result.model);
+//             console.log(result.model)
 //             resolve("successful");
 //         });
+//     }).catch(err => {
+//         throw err;
 //     });
 //     return await p;
+// }
+
+// export async function runJavascriptFileTest(event: {'file': string, 'parameters': []}) {
+//     fetch(event.file).then(res => {
+//         if (!res.ok) {
+//             return '';
+//         }
+//         return res.text();
+//     }).then( async dataFile => {
+//         const fn = new Function(dataFile.replace(/\\/g, ''));
+//         const result = await fn()(Modules);
+//         console.log(result.result)
+//     })
+// }
+// async function testExecuteJSFile(file, model = null) {
+//     const splittedString = file.split('/** * **/');
+//     const argStrings = splittedString[0].split('// Parameter:');
+//     const args = [];
+//     if (argStrings.length > 1) {
+//         for (let i = 1; i < argStrings.length - 1; i++) {
+//             args.push(JSON.parse(argStrings[i]));
+//         }
+//         args.push(JSON.parse(argStrings[argStrings.length - 1].split('function')[0].split('async')[0]));
+//     }
+//     const val0 = args.map(arg => arg.name);
+//     const val1 = args.map(arg => {return arg.value;});
+//     let prefixString = `async function __main_func(__modules__, ` + val0 + `) {\n__debug__ = false;\n__model__ = null;\n`;
+//     if (model) {
+//         prefixString = `async function __main_func(__modules__, ` + val0 + `) {\n__debug__ = false;\n__model__ = \`${model}\`;\n`;
+//     }
+//     const postfixString = `\n}\nreturn __main_func;`;
+//     const fn = new Function(prefixString + splittedString[1] + postfixString);
+//     const result = await fn()(Modules, ...val1);
+//     return result
+// }
+// export async function testGenEval(event: {'genFile': string, 'evalFile': string}) {
+//     const promiseList = [];
+//     let genFile;
+//     let evalFile;
+//     promiseList.push(new Promise((resolve) => {
+//         fetch(event.genFile).then(res => {
+//             if (!res.ok) {
+//                 resolve('HTTP Request Error: request file timeout from url ' + event.genFile);
+//                 return '';
+//             }
+//             return res.text();
+//         }).then(async body => {
+//             genFile = body
+//             resolve(null)
+//         });
+//     }).catch(err => {
+//         throw err;
+//     }))
+//     promiseList.push(new Promise((resolve) => {
+//         fetch(event.evalFile).then(res => {
+//             if (!res.ok) {
+//                 resolve('HTTP Request Error: request file timeout from url ' + event.evalFile);
+//                 return '';
+//             }
+//             return res.text();
+//         }).then(async body => {
+//             evalFile = body
+//             resolve(null)
+//         });
+//     }).catch(err => {
+//         throw err;
+//     }))
+//     await Promise.all(promiseList);
+//     const genResult = await testExecuteJSFile(genFile)
+//     const genModel = getModelString(genResult.model);
+
+//     const evalResult = await testExecuteJSFile(evalFile, genModel);
+//     console.log(evalResult.result);
+//     return 'successful';
 // }
 
 
@@ -304,7 +432,7 @@
 //                 for (let i = 1; i < argStrings.length - 1; i++) {
 //                     args.push(JSON.parse(argStrings[i]));
 //                 }
-//                 args.push(JSON.parse(argStrings[argStrings.length - 1].split('function')[0]));
+//                 args.push(JSON.parse(argStrings[argStrings.length - 1].split('function')[0].split('async')[0]));
 //             }
 //             const val0 = args.map(arg => arg.name);
 //             const val1 = args.map(arg => {
@@ -313,10 +441,19 @@
 //                 }
 //                 return arg.value;
 //             });
-//             const addedString = `__debug__ = false;\n__model__ = null;\n`
-//             const fn = new Function('__modules__', ...val0, addedString + splittedString[1]);
-//             const result = fn(Modules, ...val1);
-//             const model = JSON.stringify(result.model.getData()).replace(/\\/g, '\\\\');
+//             // const addedString = `__debug__ = false;\n__model__ = null;\n`
+//             // const fn = new Function('__modules__', ...val0, addedString + splittedString[1]);
+//             // const result = fn(Modules, ...val1);
+//             // const model = JSON.stringify(result.model.getData()).replace(/\\/g, '\\\\');
+
+//             const prefixString = `async function __main_func(__modules__, ` + val0 + `) {\n__debug__ = false;\n__model__ = null;\n`;
+//             const postfixString = `\n}\nreturn __main_func;`;
+//             const fn = new Function(prefixString + splittedString[1] + postfixString);
+//             const result = await fn()(Modules, ...val1);
+//             // const model = JSON.stringify(result.model.getModelData()).replace(/\\/g, '\\\\');
+//             // const model = result.model.getModelDataJSONStr().replace(/\\/g, '\\\\');
+//             // const model = result.model.getModelDataJSONStr();
+//             const model = getModelString(result.model).replace(/\\/g, '');
 
 //             let checkModelDB = false;
 //             let checkParamDB = false;
@@ -361,6 +498,7 @@
 //             //         }
 //             //     }
 //             // });
+
 //             const params = {
 //                 TableName: GEN_EVAL_PARAM_DB,
 //                 Item: {
@@ -386,6 +524,8 @@
 //                     }
 //                 }
 //             });
+//         }).catch(err => {
+//             throw err;
 //         });
 //         return await p;
 //     }
@@ -396,29 +536,6 @@
 //     const docClient = new AWS.DynamoDB.DocumentClient({region: 'us-east-1'});
 //     const s3 = new AWS.S3();
 //     console.log('param id:', recordInfo.id);
-
-
-//     // const p = new Promise((resolve) => {
-//     //     docClient.get({
-//     //         "TableName": GEN_EVAL_MODEL_DB,
-//     //         "Key": {
-//     //             "id":  recordInfo.id
-//     //         },
-//     //         "ProjectionExpression": 'model',
-//     //         "ConsistentRead": true
-//     //     }, function(err, record) {
-//     //         if (err) {
-//     //           console.log("Error", err);
-//     //           resolve(null);
-//     //         } else {
-//     //           resolve(record.Item);
-//     //         }
-//     //     });
-//     // });
-//     // const data: any = await p;
-//     // if (data === null) {
-//     //     return false;
-//     // }
 //     const params = { Bucket: GEN_EVAL_MODEL_BUCKET, Key: 'models/' + recordInfo.id + '.gi'};
 //     const r = await s3.getObject(params).promise();
 //     if (!r) {
@@ -428,6 +545,9 @@
 //     const data = r.Body.toString('utf-8')
 //     if (!data) {
 //         console.log('No data retrieved!')
+//         return false;
+//     }
+//     if (data === null) {
 //         return false;
 //     }
 //     // console.log('DynamoDB Record: %j', record.dynamodb);
@@ -443,22 +563,27 @@
 //                 for (let i = 1; i < argStrings.length - 1; i++) {
 //                     args.push(JSON.parse(argStrings[i]));
 //                 }
-//                 args.push(JSON.parse(argStrings[argStrings.length - 1].split('function')[0]));
+//                 args.push(JSON.parse(argStrings[argStrings.length - 1].split('function')[0].split('async')[0]));
 //             }
 //             const val0 = args.map(arg => arg.name);
 //             const val1 = args.map(arg =>arg.value);
     
-//             const addedString = '__debug__ = false;\n__model__ = \`' + data + '\`;\n';
+//             // const addedString = `__debug__ = false;\n__model__ = \`${data.model}\`;\n`
+//             // const fn = new Function('__modules__', ...val0, addedString + splittedString[1]);
+//             // const result = fn(Modules, ...val1);
+
+//             const prefixString = `async function __main_func(__modules__, ` + val0 + ') {\n__debug__ = false;\n__model__ = \`'+ data + '\`;\n';
+//             const postfixString = `\n}\nreturn __main_func;`;
 //             try {
-//                 const fn = new Function('__modules__', ...val0, addedString + splittedString[1]);
-//                 const result = fn(Modules, ...val1);
+//                 const fn = new Function(prefixString + splittedString[1] + postfixString);
+//                 const result = await fn()(Modules, ...val1);
 //                 resolve(result.result);
 //             } catch (err) {
 //                 console.log('error:',err);
 //                 s3.putObject({
 //                     Bucket: GEN_EVAL_MODEL_BUCKET,
 //                     Key: 'errors/' + recordInfo.id,
-//                     Body: addedString + splittedString[1],
+//                     Body: prefixString + splittedString[1] + postfixString,
 //                     ContentType: 'text/plain',
 //                     ACL: 'public-read'
 //                 }, function (err, result) {
@@ -475,76 +600,13 @@
 //                     }
 //                 })
 //             }
+//         }).catch(err => {
+//             throw err;
 //         });
 //         return await p;
 //     }
 //     return false
 // }
-
-// // export async function runGenTest(data, genFile) {
-// //     const p = new Promise((resolve) => {
-// //         const splittedString = genFile.split('/** * **/');
-// //         const argStrings = splittedString[0].split('// Parameter:');
-// //         const args = [];
-// //         if (argStrings.length > 1) {
-// //             for (let i = 1; i < argStrings.length - 1; i++) {
-// //                 args.push(JSON.parse(argStrings[i]));
-// //             }
-// //             args.push(JSON.parse(argStrings[argStrings.length - 1].split('function')[0]));
-// //         }
-// //         const val0 = args.map(arg => arg.name);
-// //         const val1 = args.map(arg => {
-// //             if (data.params && data.params.hasOwnProperty(arg.name)) {
-// //                 return data.params[arg.name];
-// //             }
-// //             return arg.value;
-// //         });
-// //         const addedString = `__debug__ = false;\n__model__ = null;\n`
-// //         const fn = new Function('__modules__', ...val0, addedString + splittedString[1]);
-// //         const result = fn(Modules, ...val1);
-// //         const model = JSON.stringify(result.model.getData()).replace(/\\/g, '\\\\');
-
-// //         const params = {
-// //             TableName: GEN_EVAL_PARAM_DB,
-// //             Item: {
-// //                 'id': data.id,
-// //                 'params': data.params,
-// //                 'genUrl': data.genUrl,
-// //                 'evalUrl': data.evalUrl,
-// //                 'model': model,
-// //                 'live': true
-// //             }
-// //         };
-// //         resolve(params);
-// //     });
-// //     return await p;
-// // }
-
-// // export async function runEvalTest(recordInfo, record, evalFile) {
-// //     const data = record.Item
-// //     if (data === null) {
-// //         return false;
-// //     }
-// //     const p = new Promise((resolve) => {
-// //         const splittedString = evalFile.split('/** * **/');
-// //         const argStrings = splittedString[0].split('// Parameter:');
-// //         const args = [];
-// //         if (argStrings.length > 1) {
-// //             for (let i = 1; i < argStrings.length - 1; i++) {
-// //                 args.push(JSON.parse(argStrings[i]));
-// //             }
-// //             args.push(JSON.parse(argStrings[argStrings.length - 1].split('function')[0]));
-// //         }
-// //         const val0 = args.map(arg => arg.name);
-// //         const val1 = args.map(arg =>arg.value);
-
-// //         const addedString = `__debug__ = false;\n__model__ = \`${data.model}\`;\n`
-// //         const fn = new Function('__modules__', ...val0, addedString + splittedString[1]);
-// //         const result = fn(Modules, ...val1);
-// //         resolve(result.result)
-// //     });
-// //     return await p;
-// // }
 
 
 // function generateParamVariations(params) {
@@ -672,6 +734,8 @@
 //             };
 //             request.send();
 //         }
+//     }).catch(err => {
+//         throw err;
 //     });
 //     return filePromise;
 // }
@@ -696,6 +760,8 @@
 //                 resolve(response.Items);
 //             }
 //         });
+//     }).catch(err => {
+//         throw err;
 //     })
 //     let parentItems: any = await p;
 //     if (!parentItems) { return; }
@@ -732,8 +798,30 @@
 //             if (err) { console.log('error updating job db',err); resolve(false)}
 //             else { console.log('successfully updating job db'); resolve(true)}
 //         })
+//     }).catch(err => {
+//         throw err;
 //     });
 //     return jobDBUpdatePromise;
+// }
+
+// function terminateController(jobID: string, docClient: AWS.DynamoDB.DocumentClient, msg: string) {
+//     docClient.update({
+//         TableName : JOB_DB,
+//         Key: {
+//             id: jobID
+//         },
+//         UpdateExpression: "set endedAt=:t, run=:r, jobStatus=:s",
+//         ExpressionAttributeValues:{
+//             ":t": (new Date()).toISOString(),
+//             ":r": false,
+//             ":s": 'terminated',
+//         },
+//         ReturnValues: "UPDATED_NEW"
+//     }, (err, record) => {
+//         if (err) { console.log('error updating job db',err);}
+//         else { console.log('successfully updating job db');}
+//     })
+//     throw(new Error(msg))
 // }
 
 // export async function runGenEvalController(input) {
@@ -792,7 +880,7 @@
 //         for (let i = 1; i < argStrings.length - 1; i++) {
 //             params.push(JSON.parse(argStrings[i]));
 //         }
-//         params.push(JSON.parse(argStrings[argStrings.length - 1].split('function')[0]));
+//         params.push(JSON.parse(argStrings[argStrings.length - 1].split('function')[0].split('async')[0]));
 //     }
 //     params.forEach( x => {
 //         if (x.min && typeof x.min !== 'number') {
@@ -910,6 +998,8 @@
 //                     console.log('... run check for', event.id,'; items:', record)
 //                     resolve(record.Item.run);}
 //             })
+//         }).catch(err => {
+//             throw err;
 //         });
 //         const runCheck = await runCheckPromise;
 //         if (!runCheck) {
@@ -934,8 +1024,7 @@
 //                     if (err || !successCheck) {
 //                         console.log('Error:', err)
 //                         console.log('failed params:', entry.params)
-//                         entry.score = 0;
-//                         entry.result = {score: 0};
+//                         terminateController(entry.JobID, docClient, 'failed generate_design_func');
 //                         resolve(null);
 //                     } else {
 //                         lambda.invoke({
@@ -945,8 +1034,7 @@
 //                             if (err || !response) {
 //                                 console.log('Error:', err)
 //                                 console.log('failed params:', entry.params)
-//                                 entry.score = 0;
-//                                 entry.result = {score: 0};
+//                                 terminateController(entry.JobID, docClient, 'failed evaluate_design_func');
 //                                 resolve(null);
 //                             } else {
 //                                 try {
@@ -956,12 +1044,15 @@
 //                                     entry.score = evalResult.score;
 //                                     resolve(null);
 //                                 } catch (ex) {
+//                                     terminateController(entry.JobID, docClient, 'failed parsing evalResult');
 //                                     resolve(null);
 //                                 }
 //                             }
 //                         })
 //                     }
 //                 })
+//             }).catch(err => {
+//                 throw err;
 //             }));
 //         }
 //         await Promise.all(promiseList);
@@ -996,7 +1087,9 @@
 //                             resolve(null);
 //                         }
 //                     });
-//                 })
+//                 }).catch(err => {
+//                     throw err;
+//                 });
 //                 updateDynamoPromises.push(p)
 //             }
 //         }
@@ -1046,7 +1139,7 @@
 //                     });
 //                     // docClient.update(updateModelEntry, function (err, data) {
 //                     //     if (err) {
-//                     //         console.log('Error placing data (score, evalResult, expiry):', err);
+//                     //         console.log('Error placing data:', err);
 //                     //         resolve(null);
 //                     //     }
 //                     //     else {
@@ -1056,7 +1149,9 @@
 //                     //         }
 //                     //     }
 //                     // });
-//                 })
+//                 }).catch(err => {
+//                     throw err;
+//                 });
 //                 updateDynamoPromises.push(p)
 //             }
 //         }
@@ -1079,8 +1174,8 @@
 //     if (!fromAmazon) {
 //         const answerName = event.question;
 //         const answerFile = circularJSON.parse(await new Promise((resolve) => {
-//             fs.readFile(`test/${answerName}.mob`, 'utf8', function(err, contents) { resolve(contents); });
-//         }));
+//             fs.readFile(`test/${answerName}`, 'utf8', function(err, contents) { resolve(contents); });
+//         }))
 //         return answerFile
 //     }
 //     var s3 = new AWS.S3();
@@ -1205,8 +1300,8 @@
 
 //     if (checkModel) {
 //         console.log(`    _ Checking model...`);
-//         const student_model = studentMob.nodes[studentMob.nodes.length - 1].model;
-//         const answer_model = answerMob.nodes[answerMob.nodes.length - 1].model;
+//         const student_model = studentMob.model;
+//         const answer_model = answerMob.model;
 //         let result;
 //         result = answer_model.compare(student_model, normalize, check_geom_equality, check_attrib_equality);
 //         // if (normalize) {
@@ -1339,8 +1434,15 @@
 
 // async function execute(flowchart: any, consoleLog) {
 
+//     flowchart.model = _parameterTypes.newFn();
+//     flowchart.model.debug = true;
+
 //     // reset input of all nodes except start & resolve all async processes (file reading + get url content)
 //     for (const node of flowchart.nodes) {
+//         node.hasError = false;
+//         let EmptyECheck = false;
+//         let InvalidECheck = false;
+
 //         if (node.type !== 'start') {
 //             if (node.input.edges) {
 //                 node.input.value = undefined;
@@ -1351,85 +1453,25 @@
 //             continue;
 //         }
 
-//         await resolveImportedUrl(node, true);
+//         let validCheck = await checkProdValidity(node, node.localFunc);
+//         InvalidECheck = InvalidECheck || validCheck[0];
+//         EmptyECheck = EmptyECheck || validCheck[1];
+//         validCheck = await checkProdValidity(node, node.procedure);
+//         InvalidECheck = InvalidECheck || validCheck[0];
+//         EmptyECheck = EmptyECheck || validCheck[1];
 
-//         let EmptyECheck = false;
-//         let InvalidECheck = false;
-
-//         for (const prod of node.procedure) {
-//             for (const arg of prod.args) {
-//                 if (!arg.jsValue) {
-//                     arg.jsValue = arg.value
-//                 }
-//             }
-//             if (prod.type === ProcedureTypes.Return || prod.type === ProcedureTypes.Comment || !prod.enabled) { continue; }
-//             if (prod.argCount > 0 && prod.args[0].invalidVar) {
-//                 node.hasError = true;
-//                 prod.hasError = true;
-//                 InvalidECheck = true;
-//             }
-//             if (prod.type === ProcedureTypes.Constant) {
-
-//                 // Following part is for compatibility with older files
-//                 // to be removed...
-//                 if (!prod.args[1].value && prod.args[1].default) {
-//                     prod.args[1].value = prod.args[1].default;
-//                 }
-//                 // remove ends!
-
-//                 try {
-//                     prod.resolvedValue = await CodeUtils.getStartInput(prod.args[1], prod.meta.inputMode);
-//                 } catch (ex) {
-//                     node.hasError = true;
-//                     prod.hasError = true;
-//                     if (ex.message.indexOf('HTTP') !== -1 || ex.message.indexOf('File Reading') !== -1) {
-//                         throw(ex);
-//                     }
-//                     InvalidECheck = true;
-//                 }
-//                 if (!prod.args[0].value || (!prod.args[1].value && prod.args[1].value !== 0)) {
-//                     node.hasError = true;
-//                     prod.hasError = true;
-//                     EmptyECheck = true;
-//                 }
-//             } else {
-//                 for (const arg of prod.args) {
-//                     if (arg.name[0] === '_' || arg.type === 5) {
-//                         continue;
-//                     }
-//                     if (arg.value !== 0 && !arg.value) {
-//                         node.hasError = true;
-//                         prod.hasError = true;
-//                         EmptyECheck = true;
-//                     }
-//                 }
-//             }
-//         }
-//         if (EmptyECheck) {
-//             throw new Error('Empty Argument');
-//         }
-//         if (InvalidECheck) {
-//             throw new Error('Reserved Word Argument');
-//         }
+//         // if (EmptyECheck) {
+//         //     throw new Error('Empty Argument');
+//         // }
+//         // if (InvalidECheck) {
+//         //     throw new Error('Reserved Word Argument');
+//         // }
 //     }
 
-//     for (const func of flowchart.functions) {
-//         for (const node of func.flowchart.nodes) {
-//             await resolveImportedUrl(node, false);
-//         }
-//     }
-//     if (flowchart.subFunctions) {
-//         for (const func of flowchart.subFunctions) {
-//             for (const node of func.flowchart.nodes) {
-//                 await resolveImportedUrl(node, false);
-//             }
-//         }
-//     }
-
-//     executeFlowchart(flowchart, consoleLog);
+//     await executeFlowchart(flowchart, consoleLog);
 // }
 
-// function executeFlowchart(flowchart: IFlowchart, consoleLog) {
+// async function executeFlowchart(flowchart: IFlowchart, consoleLog) {
 //     let globalVars = '';
 //     const constantList = {};
 
@@ -1438,7 +1480,7 @@
 //         FlowchartUtils.orderNodes(flowchart);
 //     }
 
-//     // get the string of all imported functions
+//     // get the javascript string of all imported functions
 //     const funcStrings = {};
 //     for (const func of flowchart.functions) {
 //         funcStrings[func.name] =  CodeUtils.getFunctionString(func);
@@ -1456,14 +1498,23 @@
 //     const nodeIndices = {}
 //     // execute each node
 //     for (let i = 0; i < flowchart.nodes.length; i++) {
-//     // for (const i of executeSet) {
+//         // const node = flowchart.nodes[i];
+//         // if (!node.enabled) {
+//         //     node.output.value = undefined;
+//         //     continue;
+//         // }
+//         // nodeIndices[node.id] = i;
+//         // globalVars = await executeNode(node, funcStrings, globalVars, constantList, consoleLog, nodeIndices);
+
 //         const node = flowchart.nodes[i];
+//         // if disabled node -> continue
 //         if (!node.enabled) {
 //             node.output.value = undefined;
 //             continue;
 //         }
-//         nodeIndices[node.id] = i;
-//         globalVars = executeNode(node, funcStrings, globalVars, constantList, consoleLog, nodeIndices);
+//         node.model = null;
+//         globalVars = await executeNode(flowchart, node, funcStrings, globalVars, constantList, consoleLog, nodeIndices);
+
 //     }
 
 //     for (const node of flowchart.nodes) {
@@ -1482,60 +1533,117 @@
 //     }
 // }
 
-// async function resolveImportedUrl(prodList: IProcedure[]|INode, isMainFlowchart?: boolean) {
-//     if (!isArray(prodList)) {
-//         await resolveImportedUrl(prodList.procedure, isMainFlowchart);
-//         if (prodList.localFunc) {
-//             await resolveImportedUrl(prodList.localFunc, isMainFlowchart);
-//         }
-//         return;
-//     }
-//     for (const prod of <IProcedure[]> prodList) {
-//         if (prod.children) {await  resolveImportedUrl(prod.children); }
-//         if (!prod.enabled) {
-//             continue;
-//         }
-//         if (isMainFlowchart && prod.type === ProcedureTypes.globalFuncCall) {
-//             for (let i = 1; i < prod.args.length; i++) {
-//                 const arg = prod.args[i];
-//                 // args.slice(1).map((arg) => {
-//                 if (arg.type.toString() !== InputType.URL.toString()) { continue; }
-//                 prod.resolvedValue = await CodeUtils.getStartInput(arg, InputType.URL);
+// async function checkProdValidity(node: INode, prodList: IProcedure[]) {
+//     let InvalidECheck = false;
+//     let EmptyECheck = false;
+//     for (const prod of prodList) {
+//         // ignore the return, comment and disabled procedures
+//         if (prod.type === ProcedureTypes.EndReturn || prod.type === ProcedureTypes.Comment || !prod.enabled) { continue; }
+//         // if there's any invalid argument, flag as having error
+//         for (const arg of prod.args) {
+//             if (arg.invalidVar) {
+//                 node.hasError = true;
+//                 prod.hasError = true;
+//                 InvalidECheck = true;
 //             }
-//             continue;
 //         }
-//         if (prod.type !== ProcedureTypes.MainFunction) {continue; }
-//         for (const func of _parameterTypes.urlFunctions) {
-//             const funcMeta = func.split('.');
-//             if (prod.meta.module === funcMeta[0] && prod.meta.name === funcMeta[1]) {
-//                 const arg = prod.args[2];
-//                 if (arg.name[0] === '_') { continue; }
-//                 if (arg.value.indexOf('__model_data__') !== -1) {
-//                     arg.jsValue = arg.value;
-//                     prod.resolvedValue = arg.value.split('__model_data__').join('');
-//                 } else if (arg.jsValue && arg.jsValue.indexOf('__model_data__') !== -1) {
-//                     prod.resolvedValue = arg.jsValue.split('__model_data__').join('');
-//                 } else if (arg.value.indexOf('://') !== -1) {
-//                     const val = <string>(arg.value).replace(/ /g, '');
-//                     const result = await CodeUtils.getURLContent(val);
-//                     if (result === undefined) {
-//                         prod.resolvedValue = arg.value;
-//                     } else if (result.indexOf && result.indexOf('HTTP Request Error') !== -1) {
-//                         throw new Error(result);
-//                     } else if (val.indexOf('.zip') !== -1) {
-//                         prod.resolvedValue = await openZipFile(result);
-//                     } else {
-//                         prod.resolvedValue = '`' + result + '`';
-//                     }
-//                     break;
-//                 } else if ((arg.value[0] !== '"' && arg.value[0] !== '\'')) {
-//                     prod.resolvedValue = null;
-//                     break;
+//         // for start node constant procedures (start node parameters)
+//         if (prod.type === ProcedureTypes.Constant) {
+//             // resolve start node input (URL + File parameters) ... to be revised
+//             // flag error if catch error (invalid argument value)
+//             try {
+//                 prod.resolvedValue = await CodeUtils.getStartInput(prod.args[1], prod.meta.inputMode);
+//             } catch (ex) {
+//                 node.hasError = true;
+//                 prod.hasError = true;
+//                 InvalidECheck = true;
+//             }
+
+//             // if there's no value for the parameter name or parameter value -> flag error (empty argument)
+//             if (!prod.args[0].value || (!prod.args[1].value && prod.args[1].value !== 0 && prod.args[1].value !== false)) {
+//                 node.hasError = true;
+//                 prod.hasError = true;
+//                 EmptyECheck = true;
+//             }
+//         // any other procedure type that is not start node constant
+//         } else {
+//             for (const arg of prod.args) {
+//                 // ignore arguments that have argument name starting with "_" ("__model__", "__constant__", ...)
+//                 if (arg.name[0] === '_' || arg.type === 5) {
+//                     continue;
 //                 }
-//                 break;
+//                 // if the argument value is empty -> flag error (empty argument)
+//                 if (arg.value !== 0 && arg.value !== false && !arg.value) {
+//                     node.hasError = true;
+//                     prod.hasError = true;
+//                     EmptyECheck = true;
+//                 }
 //             }
 //         }
+//         if (prod.children) {
+//             const childrenCheck = checkProdValidity(node, prod.children);
+//             InvalidECheck = InvalidECheck || childrenCheck[0];
+//             EmptyECheck = EmptyECheck || childrenCheck[1];
+//         }
 //     }
+//     return [InvalidECheck, EmptyECheck]
+// }
+
+// async function resolveImportedUrl(prodList: IProcedure[]|INode, isMainFlowchart?: boolean) {
+//     return;
+//     // if (!Array.isArray(prodList)) {
+//     //     await resolveImportedUrl(prodList.procedure, isMainFlowchart);
+//     //     if (prodList.localFunc) {
+//     //         await resolveImportedUrl(prodList.localFunc, isMainFlowchart);
+//     //     }
+//     //     return;
+//     // }
+//     // for (const prod of <IProcedure[]> prodList) {
+//     //     if (prod.children) {await  resolveImportedUrl(prod.children); }
+//     //     if (!prod.enabled) {
+//     //         continue;
+//     //     }
+//     //     if (isMainFlowchart && prod.type === ProcedureTypes.globalFuncCall) {
+//     //         for (let i = 1; i < prod.args.length; i++) {
+//     //             const arg = prod.args[i];
+//     //             // args.slice(1).map((arg) => {
+//     //             if (arg.type.toString() !== InputType.URL.toString()) { continue; }
+//     //             prod.resolvedValue = await CodeUtils.getStartInput(arg, InputType.URL);
+//     //         }
+//     //         continue;
+//     //     }
+//     //     if (prod.type !== ProcedureTypes.MainFunction) {continue; }
+//     //     for (const func of _parameterTypes.urlFunctions) {
+//     //         const funcMeta = func.split('.');
+//     //         if (prod.meta.module === funcMeta[0] && prod.meta.name === funcMeta[1]) {
+//     //             const arg = prod.args[2];
+//     //             if (arg.name[0] === '_') { continue; }
+//     //             if (arg.value.indexOf('__model_data__') !== -1) {
+//     //                 arg.jsValue = arg.value;
+//     //                 prod.resolvedValue = arg.value.split('__model_data__').join('');
+//     //             } else if (arg.jsValue && arg.jsValue.indexOf('__model_data__') !== -1) {
+//     //                 prod.resolvedValue = arg.jsValue.split('__model_data__').join('');
+//     //             } else if (arg.value.indexOf('://') !== -1) {
+//     //                 const val = <string>(arg.value).replace(/ /g, '');
+//     //                 const result = await CodeUtils.getURLContent(val);
+//     //                 if (result === undefined) {
+//     //                     prod.resolvedValue = arg.value;
+//     //                 } else if (result.indexOf && result.indexOf('HTTP Request Error') !== -1) {
+//     //                     throw new Error(result);
+//     //                 } else if (val.indexOf('.zip') !== -1) {
+//     //                     prod.resolvedValue = await openZipFile(result);
+//     //                 } else {
+//     //                     prod.resolvedValue = '`' + result + '`';
+//     //                 }
+//     //                 break;
+//     //             } else if ((arg.value[0] !== '"' && arg.value[0] !== '\'')) {
+//     //                 prod.resolvedValue = null;
+//     //                 break;
+//     //             }
+//     //             break;
+//     //         }
+//     //     }
+//     // }
 // }
 // async function openZipFile(zipFile) {
 //     let result = '{';
@@ -1552,7 +1660,7 @@
 // }
 
 
-// function executeNode(node: INode, funcStrings, globalVars, constantList, consoleLog, nodeIndices): string {
+// async function executeNode(flowchart: IFlowchart, node: INode, funcStrings, globalVars, constantList, consoleLog, nodeIndices): Promise<string> {
 //     const params = {
 //         'currentProcedure': [''],
 //         'console': [],
@@ -1562,7 +1670,7 @@
 //     let fnString = '';
 //     try {
 //         const usedFuncs: string[] = [];
-//         const codeResult = CodeUtils.getNodeCode(node, true, nodeIndices, undefined, undefined, usedFuncs);
+//         const codeResult = CodeUtils.getNodeCode(node, true, nodeIndices, undefined, node.id, usedFuncs);
 //         const usedFuncsSet = new Set(usedFuncs);
 //         // if process is terminated, return
 
@@ -1573,24 +1681,31 @@
 //         // start with asembling the node's code
 //         fnString =  '\n\n//  ------ MAIN CODE ------\n' +
 //                     nodeCode[0] +
-//                     '\nfunction __main_node_code__(){\n' +
+//                     '\nasync function __main_node_code__(__modules__, __params__){\n' +
 //                     nodeCode[1] +
-//                     '\n}\nreturn __main_node_code__();';
+//                     '\n}\nreturn __main_node_code__;';
 
 //         // add the user defined functions that are used in the node
+//         const addedFunc = new Set([]);
 //         usedFuncsSet.forEach((funcName) => {
 //             for (const otherFunc in funcStrings) {
-//                 if (otherFunc.substring(0, funcName.length) === funcName) {
-//                     fnString = funcStrings[otherFunc] + fnString;
+//                 if (!addedFunc.has(otherFunc) && otherFunc.substring(0, funcName.length) === funcName) {
+//                     addedFunc.add(otherFunc);
+//                     fnString =  `\n// ------ GLOBAL FUNCTION: ${otherFunc} ------\n\n` + funcStrings[otherFunc] + fnString;
 //                 }
 //             }
 //         });
 
 //         // add the constants from the start node and the predefined constants/functions (e.g. PI, sqrt, ...)
-//         fnString = _varString + globalVars + fnString;
+//         fnString = _varString + globalVars + '\n\n// <<<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>>>>>>\n\n' + fnString;
 
 //         // add the merge input function and the print function
-//         fnString = `\nconst __debug__ = true;` + pythonList + '\n' + mergeInputsFunc + '\n' + printFunc + '\n' + fnString;
+//         fnString = `\nconst __debug__ = true;` +
+//         '\n\n// ------ MERGE INPUTS FUNCTION ------' + mergeInputsFunc +
+//         '\n\n// ------ PRINT FUNCTION ------' + printFuncString +
+//         `\n\n// ------ FUNCTION FOR PYTHON STYLE LIST ------` + pythonListFunc +
+//         '\n\n// ------ CONSTANTS ------' + fnString;
+
 
 //         // ==> generated code structure:
 //         //  1. mergeInputFunction
@@ -1598,24 +1713,28 @@
 //         //  3. user functions
 //         //  4. main node code
 
-//         params['model'] = _parameterTypes.newFn();
-//         _parameterTypes.mergeFn(params['model'], node.input.value);
+//         params['model'] = flowchart.model;
+//         const snapshotID = params['model'].nextSnapshot(node.input.value);
+//         node.model = null;
 
 //         // create the function with the string: new Function ([arg1[, arg2[, ...argN]],] functionBody)
-//         // console.log(fnString)
+//         // console.log(fnString.split('<<<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>>>>>>')[1]);
 
 //         const fn = new Function('__modules__', '__params__', fnString);
 //         // execute the function
-
-//         const result = fn(Modules, params);
+//         const result = await fn(Modules, params)(Modules, params);
+//         node.model = snapshotID;
 
 //         if (node.type === 'end') {
 //             node.output.value = result;
-//             node.model = params['model'];
 //         } else {
-//             node.output.value = params['model'];
+//             node.output.value = null;
 //         }
+//         // mark the node as has been executed
 //         node.hasExecuted = true;
+
+//         // check all the input nodes of this node, if all of their children nodes are all executed,
+//         // change their output.value to null to preserve memory space.
 //         node.input.edges.forEach( edge => {
 //             const inputNode = edge.source.parentNode;
 //             if (inputNode.output.edges.length > 1) {
@@ -1626,7 +1745,7 @@
 //             inputNode.output.value = null;
 //         });
 
-//         // diff(node.output.value.getData(), node.input.value.getData());
+//         // diff(node.output.value.getModelData(), node.input.value.getModelData());
 //         if (node.type === 'start') {
 //             for (const constant in params['constants']) {
 //                 if (params['constants'].hasOwnProperty(constant)) {

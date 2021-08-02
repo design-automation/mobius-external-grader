@@ -1,5 +1,4 @@
 import { TAttribDataTypes, EEntType, EAttribNames, EEntTypeStr, Txyz, TEntTypeIdx } from '../common';
-import { isString } from 'util';
 import { sortByKey } from '../../util/maps';
 import { GIModelData } from '../GIModelData';
 import { GIAttribMapBase } from '../attrib_classes/GIAttribMapBase';
@@ -139,7 +138,6 @@ export class GIAttribsThreejs {
         // get the attribs map for this ent type
         const attribs_maps_key: string = EEntTypeStr[ent_type];
         const attribs: Map<string, GIAttribMapBase> = this.modeldata.attribs.attribs_maps.get(ssid)[attribs_maps_key];
-
         // create a map of objects to store the data
         // const data_obj_map: Map< number, { '#': number, _id: string} > = new Map();
         const data_obj_map: Map< number, {_id: string} > = new Map();
@@ -199,8 +197,11 @@ export class GIAttribsThreejs {
                             } else {
                                 data_obj_map.get(ent_i)[attrib_name] = JSON.stringify(attrib_value);
                             }
+                        } else if(Array.isArray(attrib_value)) {
+                            const _attrib_value = (typeof attrib_value[0] === 'string') ? `'${attrib_value[0]}'` : attrib_value[0];
+                            data_obj_map.get(ent_i)[`${attrib_name}[0]`] = _attrib_value;
                         } else {
-                            const _attrib_value = isString(attrib_value) ? `'${attrib_value}'` : attrib_value;
+                            const _attrib_value = (typeof attrib_value === 'string') ? `'${attrib_value}'` : attrib_value;
                             data_obj_map.get(ent_i)[`${attrib_name}`] = _attrib_value;
                         }
                     }
@@ -323,7 +324,7 @@ export class GIAttribsThreejs {
                         data_map.set(attrib_name, JSON.stringify(attrib_value));
                     }
                 } else {
-                    const _attrib_value = isString(attrib_value) ? `'${attrib_value}'` : attrib_value;
+                    const _attrib_value = (typeof attrib_value === 'string') ? `'${attrib_value}'` : attrib_value;
                     data_map.set(`${attrib_name}`, _attrib_value);
                 }
             }
@@ -389,7 +390,7 @@ export class GIAttribsThreejs {
                                 data_obj_map.get(ent_i)[attrib_name] = JSON.stringify(attrib_value);
                             }
                         } else {
-                            const _attrib_value = isString(attrib_value) ? `'${attrib_value}'` : attrib_value;
+                            const _attrib_value = (typeof attrib_value === 'string') ? `'${attrib_value}'` : attrib_value;
                             data_obj_map.get(ent_i)[`${attrib_name}`] = _attrib_value;
                         }
                     }

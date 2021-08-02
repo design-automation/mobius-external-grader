@@ -104,7 +104,7 @@ export function Raytrace(__model__: GIModel, rays: TRay|TRay[]|TRay[][],
     if (__model__.debug) {
         chk.checkArgs(fn_name, 'rays', rays, [chk.isRay, chk.isRayL, chk.isRayLL]);
         ents_arrs = checkIDs(__model__, fn_name, 'entities', entities,
-            [ID.isID, ID.isIDL],
+            [ID.isID, ID.isIDL1],
             [EEntType.PGON, EEntType.COLL]) as TEntTypeIdx[];
         chk.checkArgs(fn_name, 'dist', dist, [chk.isNum, chk.isNumL]);
         if (Array.isArray(dist)) {
@@ -268,7 +268,7 @@ export function Isovist(__model__: GIModel, origins: TRay[]|TPlane[],
     if (__model__.debug) {
         chk.checkArgs(fn_name, 'origins', origins, [chk.isRayL, chk.isPlnL]);
         ents_arrs = checkIDs(__model__, fn_name, 'entities', entities,
-            [ID.isIDL],
+            [ID.isIDL1],
             [EEntType.PGON, EEntType.COLL]) as TEntTypeIdx[];
         chk.checkArgs(fn_name, 'dist', radius, [chk.isNum, chk.isNumL]);
         if (Array.isArray(radius)) {
@@ -463,7 +463,7 @@ export function Sky(__model__: GIModel, origins: Txyz[]|TRay[]|TPlane[], detail:
             throw new Error (fn_name + ': "detail" must be an integer between 0 and 3 inclusive.');
         }
         ents_arrs = checkIDs(__model__, fn_name, 'entities', entities,
-            [ID.isID, ID.isIDL],
+            [ID.isID, ID.isIDL1],
             [EEntType.PGON, EEntType.COLL]) as TEntTypeIdx[];
     } else {
         ents_arrs = idsBreak(entities) as TEntTypeIdx[];
@@ -497,10 +497,22 @@ function _skyRayDirsTjs(detail: number): THREE.Vector3[] {
     const hedron_tjs: THREE.IcosahedronGeometry = new THREE.IcosahedronGeometry(1, detail + 2);
     // calc vectors
     const vecs: THREE.Vector3[] = [];
-    for (const vec of hedron_tjs.vertices) {
-        // vec.applyAxisAngle(YAXIS, Math.PI / 2);
-        if (vec.z > -1e-6) {
-            vecs.push(vec);
+    // THREE JS UPDATE --> EDITED
+    // for (const vec of hedron_tjs.vertices) {
+    //     // vec.applyAxisAngle(YAXIS, Math.PI / 2);
+    //     if (vec.z > -1e-6) {
+    //         vecs.push(vec);
+    //     }
+    // }
+
+    let vec: number[] = [];
+    for (const coord of <Float32Array> hedron_tjs.getAttribute('position').array) {
+        vec.push(coord);
+        if (vec.length === 3) {
+            if (vec[2] > -1e-6) {
+                vecs.push(new THREE.Vector3(...vec));
+            }
+            vec = [];
         }
     }
     return vecs;
@@ -604,7 +616,7 @@ export function Sun(__model__: GIModel, origins: Txyz[]|TRay[]|TPlane[], detail:
             throw new Error (fn_name + ': "detail" must be an integer between 0 and 3 inclusive.');
         }
         ents_arrs = checkIDs(__model__, fn_name, 'entities', entities,
-            [ID.isID, ID.isIDL],
+            [ID.isID, ID.isIDL1],
             [EEntType.PGON, EEntType.COLL]) as TEntTypeIdx[];
         if (!__model__.modeldata.attribs.query.hasModelAttrib('geolocation')) {
             throw new Error('analyze.Solar: model attribute "geolocation" is missing, \
@@ -789,15 +801,33 @@ function _solarRaysIndirectTjs(latitude: number, north: Txy, detail: number): TH
     const north_rad = vecAng2([north[0], north[1], 0], [0, 1, 0], [0, 0, 1]);
     // calc vectors
     const indirect_vecs: THREE.Vector3[] = [];
-    for (const vec of hedron_tjs.vertices) {
-        if (Math.abs(vec.y) > solar_offset) {
-            vec.applyAxisAngle(XAXIS, latitude_rad);
-            vec.applyAxisAngle(ZAXIS, -north_rad);
-            if (vec.z > -1e-6) {
-                indirect_vecs.push(vec);
+
+    // THREE JS UPDATE --> EDITED
+    // for (const vec of hedron_tjs.vertices) {
+    //     if (Math.abs(vec.y) > solar_offset) {
+    //         vec.applyAxisAngle(XAXIS, latitude_rad);
+    //         vec.applyAxisAngle(ZAXIS, -north_rad);
+    //         if (vec.z > -1e-6) {
+    //             indirect_vecs.push(vec);
+    //         }
+    //     }
+    // }
+    let coordList: number[] = [];
+    for (const coord of <Float32Array> hedron_tjs.getAttribute('position').array) {
+        coordList.push(coord);
+        if (coordList.length === 3) {
+            const vec = new THREE.Vector3(...coordList);
+            if (Math.abs(vec.y) > solar_offset) {
+                vec.applyAxisAngle(XAXIS, latitude_rad);
+                vec.applyAxisAngle(ZAXIS, -north_rad);
+                if (vec.z > -1e-6) {
+                    indirect_vecs.push(vec);
+                }
             }
+            coordList = [];
         }
     }
+
     // console.log("num rays = ", indirect_vecs.length);
     return indirect_vecs;
 }
@@ -1000,9 +1030,9 @@ export function Nearest(__model__: GIModel,
     let target_ents_arrs: TEntTypeIdx[];
     if (__model__.debug) {
         source_ents_arrs = checkIDs(__model__, fn_name, 'origins', source,
-            [ID.isID, ID.isIDL], null) as TEntTypeIdx[];
+            [ID.isID, ID.isIDL1], null) as TEntTypeIdx[];
         target_ents_arrs = checkIDs(__model__, fn_name, 'destinations', target,
-            [ID.isID, ID.isIDL], null) as TEntTypeIdx[];
+            [ID.isID, ID.isIDL1], null) as TEntTypeIdx[];
     } else {
         // source_ents_arrs = splitIDs(fn_name, 'origins', source,
         //     [IDcheckObj.isID, IDcheckObj.isIDList], null) as TEntTypeIdx[];
@@ -1181,11 +1211,11 @@ export function ShortestPath(__model__: GIModel, source: TId|TId[]|TId[][][], ta
     let ents_arrs: TEntTypeIdx[];
     if (__model__.debug) {
         source_ents_arrs = checkIDs(__model__, fn_name, 'origins', source,
-            [ID.isID, ID.isIDL], null) as TEntTypeIdx[];
+            [ID.isID, ID.isIDL1], null) as TEntTypeIdx[];
         target_ents_arrs = checkIDs(__model__, fn_name, 'destinations', target,
-            [ID.isID, ID.isIDL], null) as TEntTypeIdx[];
+            [ID.isID, ID.isIDL1], null) as TEntTypeIdx[];
         ents_arrs = checkIDs(__model__, fn_name, 'entities', entities,
-            [ID.isID, ID.isIDL], null) as TEntTypeIdx[];
+            [ID.isID, ID.isIDL1], null) as TEntTypeIdx[];
     } else {
         // source_ents_arrs = splitIDs(fn_name, 'origins', source,
         //     [IDcheckObj.isID, IDcheckObj.isIDList], null) as TEntTypeIdx[];
@@ -1481,11 +1511,11 @@ export function ClosestPath(__model__: GIModel, source: TId|TId[]|TId[][][], tar
     let ents_arrs: TEntTypeIdx[];
     if (__model__.debug) {
         source_ents_arrs = checkIDs(__model__, fn_name, 'origins', source,
-            [ID.isID, ID.isIDL], null) as TEntTypeIdx[];
+            [ID.isID, ID.isIDL1], null) as TEntTypeIdx[];
         target_ents_arrs = checkIDs(__model__, fn_name, 'destinations', target,
-            [ID.isID, ID.isIDL], null) as TEntTypeIdx[];
+            [ID.isID, ID.isIDL1], null) as TEntTypeIdx[];
         ents_arrs = checkIDs(__model__, fn_name, 'entities', entities,
-            [ID.isID, ID.isIDL], null) as TEntTypeIdx[];
+            [ID.isID, ID.isIDL1], null) as TEntTypeIdx[];
     } else {
         // source_ents_arrs = splitIDs(fn_name, 'origins', source,
         //     [IDcheckObj.isID, IDcheckObj.isIDList], null) as TEntTypeIdx[];
@@ -1770,10 +1800,10 @@ export function Degree(__model__: GIModel, source: TId|TId[]|TId[][][],
     if (__model__.debug) {
         if (source.length > 0) {
             source_ents_arrs = checkIDs(__model__, fn_name, 'source', source,
-                [ID.isID, ID.isIDL], null) as TEntTypeIdx[];
+                [ID.isID, ID.isIDL1], null) as TEntTypeIdx[];
         }
         ents_arrs = checkIDs(__model__, fn_name, 'entities', entities,
-            [ID.isID, ID.isIDL], null) as TEntTypeIdx[];
+            [ID.isID, ID.isIDL1], null) as TEntTypeIdx[];
     } else {
         // if (source.length > 0) {
         //     source_ents_arrs = splitIDs(fn_name, 'source', source,
@@ -1905,10 +1935,10 @@ export function Centrality(__model__: GIModel, source: TId|TId[]|TId[][][],
     if (__model__.debug) {
         if (source.length > 0) {
             source_ents_arrs = checkIDs(__model__, fn_name, 'source', source,
-                [ID.isID, ID.isIDL], null) as TEntTypeIdx[];
+                [ID.isID, ID.isIDL1], null) as TEntTypeIdx[];
         }
         ents_arrs = checkIDs(__model__, fn_name, 'entities', entities,
-            [ID.isID, ID.isIDL], null) as TEntTypeIdx[];
+            [ID.isID, ID.isIDL1], null) as TEntTypeIdx[];
     } else {
         // if (source.length > 0) {
         //     source_ents_arrs = splitIDs(fn_name, 'source', source,

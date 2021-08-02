@@ -22,7 +22,7 @@ export class GIGeomSnapshot {
     // Snapshot
     // ============================================================================
     /**
-     *
+     * Create a new snapshot.
      * @param id Starts a new snapshot with the given ID.
      * @param include
      */
@@ -197,7 +197,7 @@ export class GIGeomSnapshot {
     /**
      * Takes in a list of ents and filters out ents that do no exist in the snapshot specified by SSID.
      * Used by nav any to any
-     * 
+     *
      * @param ent_type
      * @param ents_i
      */
@@ -239,7 +239,7 @@ export class GIGeomSnapshot {
         }
     }
     /**
-     *
+     * Get sets of all the ps, pt, pl, pg, co in a snapshot.
      * @param ent_type
      */
     public getAllEntSets(ssid: number): IEntSets {
@@ -253,25 +253,20 @@ export class GIGeomSnapshot {
         return ent_sets;
     }
     /**
-     * Get an array of all the ents in a snapshot.
+     * Get an array of all the ps, pt, pl, pg, co in a snapshot.
      * @param ssid
      */
     public getAllEnts(ssid: number): TEntTypeIdx[] {
         const ents: TEntTypeIdx[] = [];
-        const posis_set: Set<number> = this.ss_data.get(ssid)[EEntTypeStr[EEntType.POSI]];
-        posis_set.forEach( posi_i => ents.push([EEntType.POSI, posi_i]) );
-        const points_set: Set<number> = this.ss_data.get(ssid)[EEntTypeStr[EEntType.POINT]];
-        points_set.forEach( point_i => ents.push([EEntType.POINT, point_i]) );
-        const plines_set: Set<number> = this.ss_data.get(ssid)[EEntTypeStr[EEntType.PLINE]];
-        plines_set.forEach( pline_i => ents.push([EEntType.PLINE, pline_i]) );
-        const pgons_set: Set<number> = this.ss_data.get(ssid)[EEntTypeStr[EEntType.PGON]];
-        pgons_set.forEach( pgon_i => ents.push([EEntType.PGON, pgon_i]) );
-        const colls_set: Set<number> = this.ss_data.get(ssid)[EEntTypeStr[EEntType.COLL]];
-        colls_set.forEach( coll_i => ents.push([EEntType.COLL, coll_i]) );
+        this.ss_data.get(ssid).ps.forEach( posi_i => ents.push([EEntType.POSI, posi_i]) );
+        this.ss_data.get(ssid).pt.forEach( point_i => ents.push([EEntType.POINT, point_i]) );
+        this.ss_data.get(ssid).pl.forEach( pline_i => ents.push([EEntType.PLINE, pline_i]) );
+        this.ss_data.get(ssid).pg.forEach( pgon_i => ents.push([EEntType.PGON, pgon_i]) );
+        this.ss_data.get(ssid).co.forEach( coll_i => ents.push([EEntType.COLL, coll_i]) );
         return ents;
     }
     /**
-     *
+     * Get an array of ent indexes in the snapshot.
      * @param ent_type
      */
     public getEnts(ssid: number, ent_type: EEntType): number[] {
@@ -340,7 +335,8 @@ export class GIGeomSnapshot {
         }
     }
     /**
-     * Get the sub ents as a list
+     * Get an array of sub ents given an set of ents.
+     * This can include topology.
      * @param ents
      */
     public getSubEnts(ents_sets: IEntSets): TEntTypeIdx[] {
@@ -423,7 +419,7 @@ export class GIGeomSnapshot {
         return ent_sets;
     }
     /**
-     *
+     * Given sets of [ps, pt, pl, pg, co], get the sub ents and add create additional sets.
      * @param ent_sets
      */
     public addTopoToSubEntsSets(ent_sets: IEntSets): void {
@@ -552,19 +548,24 @@ export class GIGeomSnapshot {
             for (const vert_i of this._geom_maps.up_posis_verts.get(posi_i)) {
                 if (this._geom_maps.up_verts_points.has(vert_i)) {
                     points_i.push(this._geom_maps.up_verts_points.get(vert_i));
-                } else if (this._geom_maps.up_verts_tris.has(vert_i)) {
-                    const pgon_i: number = this.modeldata.geom.nav.navAnyToPgon(EEntType.VERT, vert_i)[0];
-                    if (pgons_verts.has(pgon_i)) {
-                        pgons_verts.get(pgon_i).push(vert_i);
-                    } else {
-                        pgons_verts.set(pgon_i, [vert_i]);
-                    }
                 } else {
-                    const pline_i: number = this.modeldata.geom.nav.navAnyToPline(EEntType.VERT, vert_i)[0];
-                    if (plines_verts.has(pline_i)) {
-                        plines_verts.get(pline_i).push(vert_i);
+                    // not we cannot check trianges, some pgons have no triangles
+                    const edges_i: number[] = this._geom_maps.up_verts_edges.get(vert_i);
+                    const wire_i: number = this._geom_maps.up_edges_wires.get(edges_i[0]);
+                    if (this._geom_maps.up_wires_pgons.has(wire_i)) {
+                        const pgon_i: number = this.modeldata.geom.nav.navAnyToPgon(EEntType.VERT, vert_i)[0];
+                        if (pgons_verts.has(pgon_i)) {
+                            pgons_verts.get(pgon_i).push(vert_i);
+                        } else {
+                            pgons_verts.set(pgon_i, [vert_i]);
+                        }
                     } else {
-                        plines_verts.set(pline_i, [vert_i]);
+                        const pline_i: number = this.modeldata.geom.nav.navAnyToPline(EEntType.VERT, vert_i)[0];
+                        if (plines_verts.has(pline_i)) {
+                            plines_verts.get(pline_i).push(vert_i);
+                        } else {
+                            plines_verts.set(pline_i, [vert_i]);
+                        }
                     }
                 }
             }

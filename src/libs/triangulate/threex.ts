@@ -22,15 +22,14 @@ export function xformMatrix(o: three.Vector3, x: three.Vector3, y: three.Vector3
     m1.setPosition(o_neg);
     const m2: three.Matrix4 = new three.Matrix4();
     m2.makeBasis(x, y, z);
-    m2.getInverse(m2);
+    m2.invert();
     const m3: three.Matrix4 = new three.Matrix4();
     m3.multiplyMatrices(m2, m1);
     return m3;
 }
 
 export function matrixInv(m: three.Matrix4): three.Matrix4 {
-    const m2: three.Matrix4 = new three.Matrix4();
-    return m2.getInverse(m);
+    return (new three.Matrix4()).copy(m).invert();
 }
 
 //  Vectors =======================================================================================================
