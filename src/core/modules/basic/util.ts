@@ -1,10 +1,8 @@
 /**
  * The `util` module has some utility functions used for debugging.
+ * @module
  */
 
-/**
- *
- */
 import { checkIDs, ID } from '../../_check_ids';
 import { GIModel } from '@libs/geo-info/GIModel';
 import { EEntType, TId, TEntTypeIdx, EAttribNames, EAttribDataTypeStrs, IModelJSONData, Txyz, Txy, TAttribDataTypes } from '@libs/geo-info/common';

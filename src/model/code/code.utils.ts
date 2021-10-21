@@ -46,14 +46,40 @@ export class CodeUtils {
                     codeStr.push(`${args[1].jsValue};`);
                     break;
                 }
-                const repVar = this.repSetAttrib(args[0].jsValue);
-                if (!repVar) {
-                    codeStr.push(`${prefix}${args[0].jsValue} = ${args[1].jsValue};`);
-                    if (prefix === 'let ') {
-                        existingVars.push(args[0].jsValue);
+                if (args[0].jsValue.startsWith('|*')) {
+                    const varList = args[0].jsValue.substring(4).split('|');
+                    const openBracket = args[0].jsValue[2];
+                    const closeBracket = args[0].jsValue[3];
+                    const varDict = [];
+                    const assembledVarList = [];
+                    for (let ind = 0; ind < varList.length; ind++) {
+                        if (varList[ind].indexOf('@') !== -1) {
+                            const tempVar = `tempVar${ind}__`;
+                            varDict.push([varList[ind], tempVar]);
+                            assembledVarList.push(tempVar);
+                        } else {
+                            assembledVarList.push(varList[ind]);
+                        }
+                    }
+                    codeStr.push(`${openBracket}${assembledVarList.join(', ')}${closeBracket} = ${args[1].jsValue};`);
+                    for (const varSet of varDict) {
+                        const repVar = this.repSetAttrib(varSet[0]);
+                        if (!repVar) {
+                            codeStr.push(`${prefix}${varSet[0]} = ${varSet[1]};`);
+                        } else {
+                            codeStr.push(`${repVar[0]} ${varSet[1]} ${repVar[1]}`);
+                        }
                     }
                 } else {
-                    codeStr.push(`${repVar[0]} ${args[1].jsValue} ${repVar[1]}`);
+                    const repVar = this.repSetAttrib(args[0].jsValue);
+                    if (!repVar) {
+                        codeStr.push(`${prefix}${args[0].jsValue} = ${args[1].jsValue};`);
+                        if (prefix === 'let ') {
+                            existingVars.push(args[0].jsValue);
+                        }
+                    } else {
+                        codeStr.push(`${repVar[0]} ${args[1].jsValue} ${repVar[1]}`);
+                    }
                 }
                 break;
 
@@ -254,6 +280,30 @@ export class CodeUtils {
                     }
                 } else if (args[0].name === '__none__' || !args[0].jsValue) {
                     codeStr.push(`${fnCall};`);
+                } else if (args[0].jsValue.startsWith('|*')) {
+                    const varList = args[0].jsValue.substring(4).split('|');
+                    const openBracket = args[0].jsValue[2];
+                    const closeBracket = args[0].jsValue[3];
+                    const varDict = [];
+                    const assembledVarList = [];
+                    for (let ind = 0; ind < varList.length; ind++) {
+                        if (varList[ind].indexOf('@') !== -1) {
+                            const tempVar = `tempVar${ind}__`;
+                            varDict.push([varList[ind], tempVar]);
+                            assembledVarList.push(tempVar);
+                        } else {
+                            assembledVarList.push(varList[ind]);
+                        }
+                    }
+                    codeStr.push(`${openBracket}${assembledVarList.join(', ')}${closeBracket} =  ${fnCall};`);
+                    for (const varSet of varDict) {
+                        const repVar = this.repSetAttrib(varSet[0]);
+                        if (!repVar) {
+                            codeStr.push(`${prefix}${varSet[0]} = ${varSet[1]};`);
+                        } else {
+                            codeStr.push(`${repVar[0]} ${varSet[1]} ${repVar[1]}`);
+                        }
+                    }
                 } else {
                     const repfuncVar = this.repSetAttrib(args[0].jsValue);
                     if (!repfuncVar) {
@@ -298,6 +348,31 @@ export class CodeUtils {
                 if (args[0].name === '__none__' || !args[0].jsValue) {
                     codeStr.push(`${lfn};`);
                     codeStr.push('if (__params__.terminated) { return __params__.model;}')
+                    break;
+                } else if (args[0].jsValue.startsWith('|*')) {
+                    const varList = args[0].jsValue.substring(4).split('|');
+                    const openBracket = args[0].jsValue[2];
+                    const closeBracket = args[0].jsValue[3];
+                    const varDict = [];
+                    const assembledVarList = [];
+                    for (let ind = 0; ind < varList.length; ind++) {
+                        if (varList[ind].indexOf('@') !== -1) {
+                            const tempVar = `tempVar${ind}__`;
+                            varDict.push([varList[ind], tempVar]);
+                            assembledVarList.push(tempVar);
+                        } else {
+                            assembledVarList.push(varList[ind]);
+                        }
+                    }
+                    codeStr.push(`${openBracket}${assembledVarList.join(', ')}${closeBracket} =  ${lfn};`);
+                    for (const varSet of varDict) {
+                        const repVar = this.repSetAttrib(varSet[0]);
+                        if (!repVar) {
+                            codeStr.push(`${prefix}${varSet[0]} = ${varSet[1]};`);
+                        } else {
+                            codeStr.push(`${repVar[0]} ${varSet[1]} ${repVar[1]}`);
+                        }
+                    }
                     break;
                 }
                 const lRepImpVar = this.repSetAttrib(args[0].jsValue);
@@ -354,6 +429,30 @@ export class CodeUtils {
                 // codeStr.push(`__params__.prevModel = __params__.model.clone();`);
                 if (args[0].name === '__none__' || !args[0].jsValue) {
                     codeStr.push(`${fn};`);
+                } else if (args[0].jsValue.startsWith('|*')) {
+                    const varList = args[0].jsValue.substring(4).split('|');
+                    const openBracket = args[0].jsValue[2];
+                    const closeBracket = args[0].jsValue[3];
+                    const varDict = [];
+                    const assembledVarList = [];
+                    for (let ind = 0; ind < varList.length; ind++) {
+                        if (varList[ind].indexOf('@') !== -1) {
+                            const tempVar = `tempVar${ind}__`;
+                            varDict.push([varList[ind], tempVar]);
+                            assembledVarList.push(tempVar);
+                        } else {
+                            assembledVarList.push(varList[ind]);
+                        }
+                    }
+                    codeStr.push(`${openBracket}${assembledVarList.join(', ')}${closeBracket} =  ${fn};`);
+                    for (const varSet of varDict) {
+                        const repVar = this.repSetAttrib(varSet[0]);
+                        if (!repVar) {
+                            codeStr.push(`${prefix}${varSet[0]} = ${varSet[1]};`);
+                        } else {
+                            codeStr.push(`${repVar[0]} ${varSet[1]} ${repVar[1]}`);
+                        }
+                    }
                 } else {
                     const repImpVar = this.repSetAttrib(args[0].jsValue);
                     if (!repImpVar) {
@@ -382,8 +481,23 @@ export class CodeUtils {
         // if (isMainFlowchart && prod.print && !specialPrint && prod.args[0].name !== '__none__' && prod.args[0].jsValue) {
         if (prod.print && !specialPrint && prod.args[0].name !== '__none__' && prod.args[0].jsValue) {
                 // const repGet = prod.args[0].jsValue;
-            const repGet = this.repGetAttrib(prod.args[0].jsValue);
-            codeStr.push(`printFunc(__params__.console,\`${prod.args[0].value}\`, ${repGet});`);
+            if (prod.args[0].jsValue.startsWith('|*')) {
+                const varList = args[0].jsValue.substring(4).split('|');
+                const openBracket = args[0].jsValue[2];
+                const closeBracket = args[0].jsValue[3];
+            const assembledVarList = [];
+                for (let ind = 0; ind < varList.length; ind++) {
+                    if (varList[ind].indexOf('@') !== -1) {
+                        assembledVarList.push(`tempVar${ind}__`);
+                    } else {
+                        assembledVarList.push(varList[ind]);
+                    }
+                }
+                codeStr.push(`printFunc(__params__.console,\`${prod.args[0].value}\`, ${openBracket}${assembledVarList.join(', ')}${closeBracket});`);
+            } else {
+                const repGet = this.repGetAttrib(prod.args[0].jsValue);
+                codeStr.push(`printFunc(__params__.console,\`${prod.args[0].value}\`, ${repGet});`);
+            }
         }
         // if (isMainFlowchart && prod.selectGeom && prod.args[0].jsValue) {
         //     // const repGet = prod.args[0].jsValue;
@@ -716,21 +830,21 @@ export class CodeUtils {
 
         codeStr.push('_-_-_+_-_-_');
         // codeStr.push('while (true) {');
-        codeStr.push(`__modules__.${_parameterTypes.preprocess}( __params__.model);`);
+        // codeStr.push(`__modules__.${_parameterTypes.preprocess}( __params__.model);`);
         varsDefined = [];
 
         codeStr = codeStr.concat(CodeUtils.getProdListCode(node.procedure, varsDefined, isMainFlowchart, functionName,
                                                            nodeId, usedFunctions));
-        if (node.type === 'end' && node.procedure.length > 0) {
-            // codeStr.push('break; }');
+        // if (node.type === 'end' && node.procedure.length > 0) {
+        //     // codeStr.push('break; }');
 
-            // codeStr.splice(codeStr.length - 2, 0, 'break; }');
-            // return [[codeStr, varsDefined], _terminateCheck];
-        } else {
-            codeStr.push(`__modules__.${_parameterTypes.postprocess}( __params__.model);`);
-            // codeStr.push('break; }');
-            // codeStr.push('return __params__.model;');
-        }
+        //     // codeStr.splice(codeStr.length - 2, 0, 'break; }');
+        //     // return [[codeStr, varsDefined], _terminateCheck];
+        // } else {
+        //     codeStr.push(`__modules__.${_parameterTypes.postprocess}( __params__.model);`);
+        //     // codeStr.push('break; }');
+        //     // codeStr.push('return __params__.model;');
+        // }
 
         if (_terminateCheck === '') {
             _terminateCheck = node.name;

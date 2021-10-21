@@ -1616,6 +1616,7 @@ async function executeNode(flowchart: IFlowchart, node: INode, funcStrings,
     const params = {
         'currentProcedure': [''],
         'console': [],
+        'curr_ss': {},
         'constants': constantList
     };
 

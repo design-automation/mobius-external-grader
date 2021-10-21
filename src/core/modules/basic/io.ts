@@ -1,10 +1,8 @@
 /**
  * The `io` module has functions for importing and exporting.
+ * @module
  */
 
-/**
- *
- */
 import { checkIDs, ID } from '../../_check_ids';
 
 import * as chk from '../../_check_types';

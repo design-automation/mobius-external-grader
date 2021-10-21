@@ -2,11 +2,9 @@
  * The `pattern` module has functions for creating patters of positions.
  * These functions all return lists of position IDs.
  * The list may be nested, depending on which function is selected.
+ * @module
  */
 
-/**
- *
- */
 
 import * as chk from '../../_check_types';
 

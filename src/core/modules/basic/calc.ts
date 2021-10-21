@@ -2,11 +2,9 @@
  * The `calc` module has functions for performing various types of calculations with entities in the model.
  * These functions neither make nor modify anything in the model.
  * These functions all return either numbers or lists of numbers.
+ * @module
  */
 
-/**
- *
- */
 import { checkIDs, ID } from '../../_check_ids';
 
 import * as chk from '../../_check_types';

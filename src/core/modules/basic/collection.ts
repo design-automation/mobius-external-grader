@@ -1,10 +1,8 @@
 /**
  * The `collections` module has functions for creating and modifying collections.
+ * @module
  */
 
-/**
- *
- */
 import { checkIDs, ID } from '../../_check_ids';
 
 import * as chk from '../../_check_types';

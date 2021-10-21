@@ -1,5 +1,6 @@
 /**
  * Functions to check types.
+ * @module
  */
 
 // ['isNum(v)', 'Returns true if the value is a number, false otherwise.'],

@@ -1,13 +1,9 @@
 /**
  * The `query` module has functions for querying entities in the the model.
  * Most of these functions all return a list of IDs of entities in the model.
- * \n
- * \n
+ * @module
  */
 
-/**
- *
- */
 import { checkIDs, ID } from '../../_check_ids';
 import { checkAttribNameIdxKey, checkAttribValue, splitAttribNameIdxKey } from '../../_check_attribs';
 

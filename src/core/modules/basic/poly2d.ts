@@ -1,10 +1,8 @@
 /**
  * The `poly2D` module has a set of functions for working with 2D polygons, on the XY plane.
+ * @module
  */
 
-/**
- *
- */
 import { checkIDs, ID } from '../../_check_ids';
 
 import * as chk from '../../_check_types';

@@ -3,11 +3,9 @@
  * These functions do not make any new entities, and they do not change the topology of objects.
  * These functions only change attribute values.
  * All these functions have no return value.
+ * @module
  */
 
-/**
- *
- */
 import { checkIDs, ID } from '../../_check_ids';
 
 import * as chk from '../../_check_types';
