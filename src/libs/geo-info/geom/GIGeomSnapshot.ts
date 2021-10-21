@@ -354,7 +354,7 @@ export class GIGeomSnapshot {
     }
     /**
      * Returns sets of unique entity indexes, given an array of TEntTypeIdx.
-     * ~
+     * \n
      * Used for deleting all entities and for adding global function entities to a snapshot.
      */
     public getSubEntsSets(ssid: number, ents: TEntTypeIdx[]): IEntSets {

@@ -20,13 +20,13 @@ export class GIAttribsGetVal {
 
     /**
      * Get an model attrib value, or an array of values.
-     * ~
+     * \n
      * If idx_or_key is null, then this must be a simple attrib.
      * If idx_or_key is a number, then this must be indexing a list attrib.
      * if idx_or_key is a string, then this must be indexing a dict attrib.
-     * ~
+     * \n
      * If the attribute does not exist, throw an error
-     * ~
+     * \n
      * @param ent_type
      * @param name
      */
@@ -54,11 +54,11 @@ export class GIAttribsGetVal {
     }
     /**
      * Get a model attrib list value given an index
-     * ~
+     * \n
      * If this attribute is not a list, throw error
-     * ~
+     * \n
      * If idx is creater than the length of the list, undefined is returned.
-     * ~
+     * \n
      * @param ent_type
      * @param name
      */
@@ -73,11 +73,11 @@ export class GIAttribsGetVal {
     }
     /**
      * Get a model attrib dict value given a key
-     * ~
+     * \n
      * If this attribute is not a dict, throw error
-     * ~
+     * \n
      * If key does not exist, throw error
-     * ~
+     * \n
      * @param ent_type
      * @param name
      */
@@ -95,13 +95,13 @@ export class GIAttribsGetVal {
     // ============================================================================
     /**
      * Get an entity attrib value, or an array of values given an array of entities.
-     * ~
+     * \n
      * If idx_or_key is null, then this must be a simple attrib.
      * If idx_or_key is a number, then this must be indexing a list attrib.
      * if idx_or_key is a string, then this must be indexing a dict attrib.
-     * ~
+     * \n
      * If the attribute does not exist, throw an error
-     * ~
+     * \n
      * @param ent_type
      * @param name
      */
@@ -117,9 +117,9 @@ export class GIAttribsGetVal {
     }
     /**
      * Get an entity attrib value, or an array of values given an array of entities.
-     * ~
+     * \n
      * If the attribute does not exist, throw an error
-     * ~
+     * \n
      * @param ent_type
      * @param name
      */
@@ -136,11 +136,11 @@ export class GIAttribsGetVal {
     }
     /**
      * Get an entity attrib value in a list.
-     * ~
+     * \n
      * If the attribute does not exist, throw error
-     * ~
+     * \n
      * If the index is out of range, return undefined.
-     * ~
+     * \n
      * @param ent_type
      * @param name
      */
@@ -157,11 +157,11 @@ export class GIAttribsGetVal {
     }
     /**
      * Get an entity attrib value in a dictionary.
-     * ~
+     * \n
      * If the attribute does not exist, throw error
-     * ~
+     * \n
      * If the key does not exist, return undefined.
-     * ~
+     * \n
      * @param ent_type
      * @param name
      */

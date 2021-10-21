@@ -1385,11 +1385,12 @@ function checkParams(flowchart: IFlowchart, params: any): string[]{
 function updateParam(answerMob: IFlowchart, studentMob: IFlowchart) {
     const missing_params = [];
     for (const aProd of answerMob.nodes[0].procedure){
-        if (aProd.type !== ProcedureTypes.Constant) {
+        if (aProd.type !== ProcedureTypes.Constant || aProd.argCount === 0) {
             continue;
         }
         let check = false;
         for (const sProd of studentMob.nodes[0].procedure){
+            if (sProd.argCount === 0) { continue; }
             if (sProd.type === ProcedureTypes.Constant && sProd.args[0].value.trim() === aProd.args[0].value.trim()) {
                 sProd.args[1].jsValue = aProd.args[1].jsValue;
                 sProd.args[1].value = aProd.args[1].value;
@@ -1407,6 +1408,7 @@ function updateParam(answerMob: IFlowchart, studentMob: IFlowchart) {
 function setParams(flowchart: IFlowchart, params: any) {
     for (const prod of flowchart.nodes[0].procedure){
         if (prod.type === ProcedureTypes.Constant) {
+            if (prod.argCount === 0) { continue; }
             if (params[prod.args[0].value] !== undefined) {
                 prod.args[1].jsValue = params[prod.args[0].value];
                 prod.args[1].value = params[prod.args[0].value];
@@ -1426,7 +1428,7 @@ function setParams(flowchart: IFlowchart, params: any) {
 function getParams(flowchart: IFlowchart): any {
     const params = {};
     for (const prod of flowchart.nodes[0].procedure){
-        if (prod.type === ProcedureTypes.Constant) {
+        if (prod.type === ProcedureTypes.Constant && prod.argCount > 0) {
             params[prod.args[0].value] = prod.args[1].jsValue||prod.args[1].value;
         }
     }
@@ -1567,6 +1569,7 @@ async function checkProdValidity(node: INode, prodList: IProcedure[]) {
         }
         // for start node constant procedures (start node parameters)
         if (prod.type === ProcedureTypes.Constant) {
+            if (prod.argCount === 0) { continue; }
             // resolve start node input (URL + File parameters) ... to be revised
             // flag error if catch error (invalid argument value)
             try {

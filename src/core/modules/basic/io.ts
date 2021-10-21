@@ -13,14 +13,20 @@ import { GIModel } from '@libs/geo-info/GIModel';
 import { importObj, exportPosiBasedObj, exportVertBasedObj } from '@assets/libs/geo-info/io/io_obj';
 import { importGeojson, exportGeojson } from '@assets/libs/geo-info/io/io_geojson';
 import { download } from '@libs/filesys/download';
-import { TId, EEntType, TEntTypeIdx, IEntSets } from '@libs/geo-info/common';
+import { TId, EEntType, TEntTypeIdx, IEntSets, Txyz, Txy, TAttribDataTypes } from '@libs/geo-info/common';
 // import { __merge__ } from '../_model';
 // import { _model } from '..';
 import { idsMake, idsBreak, idsMakeFromIdxs, idMake } from '@assets/libs/geo-info/common_id_funcs';
-import { arrMakeFlat } from '@assets/libs/util/arrs';
+import { arrMakeFlat, getArrDepth } from '@assets/libs/util/arrs';
 import JSZip from 'jszip';
 import fetch from 'node-fetch';
 import { exportGltf } from '@assets/libs/geo-info/io/io_gltf';
+
+import { vecAng2, vecFromTo, vecRot } from '@assets/libs/geom/vectors';
+import { multMatrix, rotateMatrix } from '@assets/libs/geom/matrix';
+import { Matrix4 } from 'three';
+import proj4 from 'proj4';
+import { checkArgs, isNull, isNum, isNumL, isStr, isXY } from '@assets/core/_check_types';
 
 const requestedBytes = 1024 * 1024 * 200; // 200 MB local storage quota
 
@@ -54,8 +60,11 @@ export enum _EIODataTarget {
  * @param data The data to be read (from URL or from Local Storage).
  * @returns the data.
  */
-export async function Read(__model__: GIModel, data: string): Promise<string|{}> {
+ export async function Read(__model__: GIModel, data: string): Promise<string|{}> {
     return _getFile(data);
+}
+ export function _Async_Param_Read(__model__: GIModel, data: string): Promise<string|{}> {
+    return null;
 }
 // ================================================================================================
 /**
@@ -76,6 +85,10 @@ export async function Write(__model__: GIModel, data: string, file_name: string,
         return false;
     }
 }
+export function _Async_Param_Write(__model__: GIModel, data: string, file_name: string, data_target: _EIODataTarget): Promise<Boolean> {
+    return null;
+}
+
 // ================================================================================================
 /**
  * Imports data into the model.
@@ -110,6 +123,9 @@ export async function Import(__model__: GIModel, input_data: string, data_format
     }
     // single file
     return _import(__model__, model_data, data_format);
+}
+export function _Async_Param_Import(__model__: GIModel, input_data: string, data_format: _EIODataFormat): Promise<TId|TId[]|{}> {
+    return null;
 }
 export function _import(__model__: GIModel, model_data: string, data_format: _EIODataFormat): TId {
     switch (data_format) {
@@ -278,6 +294,9 @@ export async function Export(__model__: GIModel, entities: TId|TId[]|TId[][],
     // --- Error Check ---
     await _export(__model__, ents_arr, file_name, data_format, data_target);
 }
+export function _Async_Param_Export(__model__: GIModel, entities: TId|TId[]|TId[][],
+    file_name: string, data_format: _EIOExportDataFormat, data_target: _EIODataTarget){
+}
 async function _export(__model__: GIModel, ents_arr: TEntTypeIdx[],
     file_name: string, data_format: _EIOExportDataFormat, data_target: _EIODataTarget): Promise<boolean> {
     const ssid: number = __model__.modeldata.active_ssid;
@@ -340,7 +359,236 @@ async function _export(__model__: GIModel, ents_arr: TEntTypeIdx[],
             throw new Error('Data type not recognised');
     }
 }
+// ================================================================================================
+/**
+ * Set the geolocation of the Cartesian coordinate system.
+ *
+ * @param __model__
+ * @param lat_long Set the latitude and longitude of the origin of the Cartesian coordinate system. 
+ * @param rot Set the counter-clockwise rotation of the Cartesian coordinate system, in radians.
+ * @param elev Set the elevation of the Cartesian coordinate system above the ground plane.
+ * @returns void
+ */
+ export function Geolocate(
+        __model__: GIModel, 
+        lat_long: Txy, 
+        rot: number,
+        elev: number
+    ): void {
+    // --- Error Check ---
+    const fn_name = 'io.Geolocate';
+    if (__model__.debug) {
+        checkArgs(fn_name, 'lat_long_o', lat_long, [isXY, isNull]);
+        checkArgs(fn_name, 'rot', elev, [isNum, isNull]);
+        checkArgs(fn_name, 'elev', elev, [isNum, isNull]);
+    }
+    // --- Error Check ---
+    const gl_dict = {"latitude": lat_long[0], "longitude": lat_long[1]};
+    if (elev !== null) {
+        gl_dict["elevation"] = elev;
+    }
+    __model__.modeldata.attribs.set.setModelAttribVal("geolocation", gl_dict);
+    let n_vec: Txyz = [0,1,0];
+    if (rot !== null) {
+        n_vec = vecRot(n_vec, [0,0,1], -rot)
+    }
+    __model__.modeldata.attribs.set.setModelAttribVal("north", [n_vec[0], n_vec[1]]);
+}
+// ================================================================================================
+/**
+ * Set the geolocation of the Cartesian coordinate system.
+ * \n 
+ * The Cartesian coordinate system is geolocated by defining two points:
+ * - The latitude-longitude of the Cartesian origin.
+ * - The latitude-longitude of a point on the positive Cartesian X-axis.
+ * \n
+ * @param __model__
+ * @param lat_long_o Set the latitude and longitude of the origin of the Cartesian coordinate
+ * system. 
+ * @param lat_long_x Set the latitude and longitude of a point on the x-axis of the Cartesian
+ * coordinate system. 
+ * @param elev Set the elevation of the Cartesian coordinate system above the ground plane.
+ * @returns void
+ */
+ export function Geoalign(
+        __model__: GIModel, 
+        lat_long_o: Txy,
+        lat_long_x: Txy,
+        elev: number
+    ): void {
+    // --- Error Check ---
+    const fn_name = 'io.Geoalign';
+    if (__model__.debug) {
+        checkArgs(fn_name, 'lat_long_o', lat_long_o, [isXY, isNull]);
+        checkArgs(fn_name, 'lat_long_x', lat_long_x, [isXY, isNull]);
+        checkArgs(fn_name, 'elev', elev, [isNum, isNull]);
+    }
+    // --- Error Check ---
+    const gl_dict = {"latitude": lat_long_o[0], "longitude": lat_long_o[1]};
+    if (elev !== null) {
+        gl_dict["elevation"] = elev;
+    }
+    __model__.modeldata.attribs.set.setModelAttribVal("geolocation", gl_dict);
+    // calc
+    const proj_obj: proj4.Converter = _createProjection(__model__);
+    // origin
+    let xyz_o: Txyz = _xformFromLongLatToXYZ([lat_long_o[1],lat_long_o[0]], proj_obj, 0) as Txyz;
+    // point on x axis
+    let xyz_x: Txyz = _xformFromLongLatToXYZ([lat_long_x[1],lat_long_x[0]], proj_obj, 0) as Txyz;
+    // x axis vector
+    const old_x_vec: Txyz = [1, 0, 0];
+    const new_x_vec: Txyz = vecFromTo(xyz_o, xyz_x);
+    const rot: number = vecAng2(old_x_vec, new_x_vec, [0, 0, 1]);
+    // console.log("rot = ", rot, "x_vec = ", x_vec, xyz_o, xyz_x)
+    // north vector
+    const n_vec: Txyz = vecRot([0,1,0], [0,0,1], -rot);
+    __model__.modeldata.attribs.set.setModelAttribVal("north", [n_vec[0], n_vec[1]]);
+}
 
+
+// ================================================================================================
+// ================================================================================================
+// ================================================================================================
+// ================================================================================================
+/**
+ * Functions for geospatial projection
+ */
+
+// longitude latitude in Singapore, NUS
+const LONGLAT = [103.778329, 1.298759];
+/**
+ * TODO MEgre with io_geojson.ts
+ * Get long lat, Detect CRS, create projection function
+ * @param model The model.
+ * @param point The features to add.
+ */
+ function _createProjection(model: GIModel): proj4.Converter {
+    // create the function for transformation
+    const proj_str_a = '+proj=tmerc +lat_0=';
+    const proj_str_b = ' +lon_0=';
+    const proj_str_c = '+k=1 +x_0=0 +y_0=0 +ellps=WGS84 +units=m +no_defs';
+    let longitude = LONGLAT[0];
+    let latitude = LONGLAT[1];
+    if (model.modeldata.attribs.query.hasModelAttrib('geolocation')) {
+        const geolocation = model.modeldata.attribs.get.getModelAttribVal('geolocation');
+        const long_value: TAttribDataTypes = geolocation['longitude'];
+        if (typeof long_value !== 'number') {
+            throw new Error('Longitude attribute must be a number.');
+        }
+        longitude = long_value as number;
+        if (longitude < -180 || longitude > 180) {
+            throw new Error('Longitude attribute must be between -180 and 180.');
+        }
+        const lat_value: TAttribDataTypes = geolocation['latitude'];
+        if (typeof lat_value !== 'number') {
+            throw new Error('Latitude attribute must be a number');
+        }
+        latitude = lat_value as number;
+        if (latitude < 0 || latitude > 90) {
+            throw new Error('Latitude attribute must be between 0 and 90.');
+        }
+    }
+    console.log("lat long", latitude, longitude);
+    // try to figure out what the projection is of the source file
+    // let proj_from_str = 'WGS84';
+    // if (geojson_obj.hasOwnProperty('crs')) {
+    //     if (geojson_obj.crs.hasOwnProperty('properties')) {
+    //         if (geojson_obj.crs.properties.hasOwnProperty('name')) {
+    //             const name: string = geojson_obj.crs.properties.name;
+    //             const epsg_index = name.indexOf('EPSG');
+    //             if (epsg_index !== -1) {
+    //                 let epsg = name.slice(epsg_index);
+    //                 epsg = epsg.replace(/\s/g, '+');
+    //                 if (epsg === 'EPSG:4326') {
+    //                     // do nothing, 'WGS84' is fine
+    //                 } else if (['EPSG:4269', 'EPSG:3857', 'EPSG:3785', 'EPSG:900913', 'EPSG:102113'].indexOf(epsg) !== -1) {
+    //                     // these are the epsg codes that proj4 knows
+    //                     proj_from_str = epsg;
+    //                 } else if (epsg === 'EPSG:3414') {
+    //                     // singapore
+    //                     proj_from_str =
+    //                         '+proj=tmerc +lat_0=1.366666666666667 +lon_0=103.8333333333333 +k=1 +x_0=28001.642 +y_0=38744.572 ' +
+    //                         '+ellps=WGS84 +units=m +no_defs';
+    //                 }
+    //             }
+    //         }
+    //     }
+    // }
+    // console.log('CRS of geojson data', proj_from_str);
+
+    const proj_from_str = 'WGS84';
+    const proj_to_str = proj_str_a + latitude + proj_str_b + longitude + proj_str_c;
+    const proj_obj: proj4.Converter = proj4(proj_from_str, proj_to_str);
+    return proj_obj;
+}
+/**
+ * TODO MEgre with io_geojson.ts
+ * Converts geojson long lat to cartesian coords
+ * @param long_lat_arr
+ * @param elevation
+ */
+function _xformFromLongLatToXYZ(
+        long_lat_arr: [number, number]|[number, number][], proj_obj: proj4.Converter, elevation: number): Txyz|Txyz[] {
+    if (getArrDepth(long_lat_arr) === 1) {
+        const long_lat: [number, number] = long_lat_arr as [number, number];
+        const xy: [number, number] = proj_obj.forward(long_lat);
+        return [xy[0], xy[1], elevation];
+    } else {
+        long_lat_arr = long_lat_arr as [number, number][];
+        const xyzs_xformed: Txyz[] = [];
+        for (const long_lat of long_lat_arr) {
+            if (long_lat.length >= 2) {
+                const xyz: Txyz = _xformFromLongLatToXYZ(long_lat, proj_obj, elevation) as Txyz;
+                xyzs_xformed.push(xyz);
+            }
+        }
+        return xyzs_xformed as Txyz[];
+    }
+}
+// ================================================================================================
+/**
+ * Transform a coordinate from latitude-longitude Geodesic coordinate to a Cartesian XYZ coordinate,
+ * based on the geolocation of the model.
+ *
+ * @param __model__
+ * @param lat_long Latitude and longitude coordinates. 
+ * @param elev Set the elevation of the Cartesian coordinate system above the ground plane.
+ * @returns XYZ coordinates
+ */
+ export function LatLong2XYZ(
+        __model__: GIModel, 
+        lat_long: Txy,
+        elev: number
+    ): Txyz {
+    // --- Error Check ---
+    const fn_name = 'util.LatLong2XYZ';
+    if (__model__.debug) {
+        checkArgs(fn_name, 'lat_long', lat_long, [isXY, isNull]);
+        checkArgs(fn_name, 'elev', elev, [isNum, isNull]);
+    }
+    // --- Error Check ---
+    const proj_obj: proj4.Converter = _createProjection(__model__);
+    // calculate angle of rotation
+    let rot_matrix: Matrix4 = null;
+    if (__model__.modeldata.attribs.query.hasModelAttrib('north')) {
+        const north: Txy = __model__.modeldata.attribs.get.getModelAttribVal('north') as Txy;
+        if (Array.isArray(north)) {
+            const rot_ang: number = vecAng2([0, 1, 0], [north[0], north[1], 0], [0, 0, 1]);
+            rot_matrix = rotateMatrix([[0, 0, 0], [0, 0, 1]], rot_ang);
+        }
+    }
+    // add feature
+    let xyz: Txyz = _xformFromLongLatToXYZ([lat_long[1],lat_long[0]], proj_obj, elev) as Txyz;
+    // rotate to north
+    if (rot_matrix !== null) {
+        xyz = multMatrix(xyz, rot_matrix);
+    }
+    return xyz;
+
+}
+// ================================================================================================
+// ================================================================================================
+// ================================================================================================
 // ================================================================================================
 /**
  * Functions for saving and loading resources to file system.
@@ -539,4 +787,6 @@ export async function _getFile(source: string) {
             }
         }
     }
+}
+export function _Async_Param__getFile(source: string) {
 }

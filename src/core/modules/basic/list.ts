@@ -136,9 +136,9 @@ export enum _ERemoveMethod {
 /**
  * Removes items in a list.
  * \n
- * If @param method is set to 'index', then @param item should be the index of the item to be replaced.
+ * If method is set to 'index', then item should be the index of the item to be replaced.
  * Negative indexes are allowed.
- * If @param method is not set to 'index', then @param item should be the value.
+ * If method is not set to 'index', then item should be the value.
  *
  * @param list The list in which to remove items
  * @param item The item to remove, either the index of the item or the value. Negative indexes are allowed.
@@ -190,8 +190,8 @@ export enum _EReplaceMethod {
 /**
  * Replaces items in a list.
  * \n
- * If @param method is set to 'index', then @param old_item should be the index of the item to be replaced. Negative indexes are allowed.
- * If @param method is not set to 'index', then @param old_item should be the value.
+ * If method is set to 'index', then old_item should be the index of the item to be replaced. Negative indexes are allowed.
+ * If method is not set to 'index', then old_item should be the value.
  *
  * @param list The list in which to replace items
  * @param old_item The old item to replace.

@@ -174,7 +174,7 @@ export class GIAttribsPush {
                     }
                     return result;
                 } else {
-                    return mathjs.mean(values);
+                    return mathjs.mean(<any> values);
                 }
             case EAttribPush.MEDIAN:
                 if (data_size > 1) {
@@ -184,7 +184,7 @@ export class GIAttribsPush {
                     }
                     return result;
                 } else {
-                    return mathjs.median(values);
+                    return mathjs.median(<any> values);
                 }
             case EAttribPush.SUM:
                 if (data_size > 1) {
@@ -194,7 +194,7 @@ export class GIAttribsPush {
                     }
                     return result;
                 } else {
-                    return mathjs.sum(values);
+                    return mathjs.sum(<any> values);
                 }
             case EAttribPush.MIN:
                 if (data_size > 1) {
@@ -204,7 +204,7 @@ export class GIAttribsPush {
                     }
                     return result;
                 } else {
-                    return mathjs.min(values);
+                    return mathjs.min(<any> values);
                 }
             case EAttribPush.MAX:
                 if (data_size > 1) {
@@ -214,7 +214,7 @@ export class GIAttribsPush {
                     }
                     return result;
                 } else {
-                    return mathjs.max(values);
+                    return mathjs.max(<any> values);
                 }
             case EAttribPush.LAST:
                 return values[values.length - 1];

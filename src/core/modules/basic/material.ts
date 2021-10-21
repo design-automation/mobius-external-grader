@@ -12,7 +12,7 @@ import { checkIDs, ID } from '../../_check_ids';
 import * as chk from '../../_check_types';
 
 import { GIModel } from '@libs/geo-info/GIModel';
-import { Txyz, EAttribNames, EAttribDataTypeStrs } from '@libs/geo-info/common';
+import { Txyz, EAttribNames, EAttribDataTypeStrs, TColor } from '@libs/geo-info/common';
 import * as THREE from 'three';
 import { TId, EEntType, TEntTypeIdx } from '@libs/geo-info/common';
 import { idsBreak } from '@assets/libs/geo-info/common_id_funcs';
@@ -61,9 +61,6 @@ function _clampArr01(vals: number[]): void {
         vals[i] = _clamp01(vals[i]);
     }
 }
-function _getTjsColor(col: Txyz): THREE.Color {
-    return new THREE.Color(col[0], col[1], col[2]);
-}
 enum _ELineMaterialType {
     BASIC = 'LineBasicMaterial',
     DASHED = 'LineDashedMaterial'
@@ -100,9 +97,9 @@ function _setMaterialModelAttrib(__model__: GIModel, name: string, settings_obj:
 }
 // ================================================================================================
 /**
- * Sets material by creating a polygon attribute called 'material' and setting the value.
- * The value is a sitring, which is the name of the material.
- * The properties of this material must be defined at the model level, using one of the material functions.
+ * Sets material by creating a polygon attribute called 'material' and setting the value. The value
+ * is a string, which is the name of the material. The properties of this material must be defined
+ * at the model level, using one of the material functions.
  * \n
  * @param entities The entities for which to set the material.
  * @param material The name of the material.
@@ -210,7 +207,7 @@ function _meshMaterial(__model__: GIModel, ents_arr: TEntTypeIdx[], material: st
  * @returns void
  */
 export function LineMat(__model__: GIModel, name: string,
-            color: Txyz,
+            color: TColor,
             dash_gap_scale: number|number[],
             select_vert_colors: _Ecolors
         ): void {
@@ -232,7 +229,7 @@ export function LineMat(__model__: GIModel, name: string,
             // color: _getTjsColor(color),
             // vertexColors: vert_colors
             type: _ELineMaterialType.DASHED,
-            color: _getTjsColor(color),
+            color: color,
             vertexColors: vert_colors,
             dashSize: 0,
             gapSize: 0,
@@ -245,7 +242,7 @@ export function LineMat(__model__: GIModel, name: string,
         const scale = dash_gap_scale[2] === undefined ? 1 : dash_gap_scale[2];
         settings_obj = {
             type: _ELineMaterialType.DASHED,
-            color: _getTjsColor(color),
+            color: color,
             vertexColors: vert_colors,
             dashSize: dash,
             gapSize: gap,
@@ -281,7 +278,7 @@ export function LineMat(__model__: GIModel, name: string,
  * @returns void
  */
 export function MeshMat(__model__: GIModel, name: string,
-            color: Txyz,
+            color: TColor,
             opacity: number,
             select_side: _ESide,
             select_vert_colors: _Ecolors
@@ -306,7 +303,7 @@ export function MeshMat(__model__: GIModel, name: string,
         vertexColors: vert_colors,
         opacity: opacity,
         transparent: transparent,
-        color: _getTjsColor(color)
+        color: color
     };
     _setMaterialModelAttrib(__model__, name, settings_obj);
 }
@@ -336,8 +333,8 @@ export function Glass(__model__: GIModel, name: string, opacity: number): void {
         opacity: opacity,
         transparent: transparent,
         shininess: 90,
-        color: new THREE.Color(1, 1, 1),
-        emissive: new THREE.Color(0, 0, 0),
+        color: [1, 1, 1],
+        emissive: [0, 0, 0],
         side: THREE.DoubleSide
     };
     _setMaterialModelAttrib(__model__, name, settings_obj);
@@ -356,18 +353,18 @@ export function Glass(__model__: GIModel, name: string, opacity: number): void {
  * @param emissive The emissive color, as [r, g, b] values between 0 and 1. White is [1, 1, 1].
  * @returns void
  */
-export function Lambert(__model__: GIModel, name: string, emissive: Txyz): void {
+export function Lambert(__model__: GIModel, name: string, emissive: TColor): void {
     // --- Error Check ---
     if (__model__.debug) {
         const fn_name = 'material.Lambert';
         chk.checkArgs(fn_name, 'name', name, [chk.isStr]);
-        chk.checkArgs(fn_name, 'emissive', emissive, [chk.isXYZ]);
+        chk.checkArgs(fn_name, 'emissive', emissive, [chk.isColor]);
     }
     // --- Error Check ---
     _clampArr01(emissive);
     const settings_obj = {
         type: _EMeshMaterialType.LAMBERT,
-        emissive: _getTjsColor(emissive)
+        emissive: emissive
     };
     _setMaterialModelAttrib(__model__, name, settings_obj);
 }
@@ -388,16 +385,16 @@ export function Lambert(__model__: GIModel, name: string, emissive: Txyz): void 
  * @returns void
  */
 export function Phong(__model__: GIModel, name: string,
-            emissive: Txyz,
-            specular: Txyz,
+            emissive: TColor,
+            specular: TColor,
             shininess: number
         ): void {
     // --- Error Check ---
     if (__model__.debug) {
         const fn_name = 'material.Phong';
         chk.checkArgs(fn_name, 'name', name, [chk.isStr]);
-        chk.checkArgs(fn_name, 'emissive', emissive, [chk.isXYZ]);
-        chk.checkArgs(fn_name, 'emissive', specular, [chk.isXYZ]);
+        chk.checkArgs(fn_name, 'emissive', emissive, [chk.isColor]);
+        chk.checkArgs(fn_name, 'specular', specular, [chk.isColor]);
         chk.checkArgs(fn_name, 'shininess', shininess, [chk.isNum]);
     }
     // --- Error Check ---
@@ -407,8 +404,8 @@ export function Phong(__model__: GIModel, name: string,
 
     const settings_obj = {
         type: _EMeshMaterialType.PHONG,
-        emissive: _getTjsColor(emissive),
-        specular: _getTjsColor(specular),
+        emissive: emissive,
+        specular: specular,
         shininess: shininess
     };
     _setMaterialModelAttrib(__model__, name, settings_obj);
@@ -431,7 +428,7 @@ export function Phong(__model__: GIModel, name: string,
  * @returns void
  */
 export function Standard(__model__: GIModel, name: string,
-            emissive: Txyz,
+            emissive: TColor,
             roughness: number,
             metalness: number
         ): void {
@@ -439,7 +436,7 @@ export function Standard(__model__: GIModel, name: string,
     if (__model__.debug) {
         const fn_name = 'material.Standard';
         chk.checkArgs(fn_name, 'name', name, [chk.isStr]);
-        chk.checkArgs(fn_name, 'emissive', emissive, [chk.isXYZ]);
+        chk.checkArgs(fn_name, 'emissive', emissive, [chk.isColor]);
         chk.checkArgs(fn_name, 'roughness', roughness, [chk.isNum]);
         chk.checkArgs(fn_name, 'metalness', metalness, [chk.isNum]);
     }
@@ -450,7 +447,7 @@ export function Standard(__model__: GIModel, name: string,
 
     const settings_obj = {
         type: _EMeshMaterialType.STANDARD,
-        emissive: _getTjsColor(emissive),
+        emissive: emissive,
         roughness: roughness,
         metalness: metalness
     };
@@ -474,7 +471,7 @@ export function Standard(__model__: GIModel, name: string,
  * @returns void
  */
 export function Physical(__model__: GIModel, name: string,
-            emissive: Txyz,
+            emissive: TColor,
             roughness: number,
             metalness: number,
             reflectivity: number
@@ -483,7 +480,7 @@ export function Physical(__model__: GIModel, name: string,
     if (__model__.debug) {
         const fn_name = 'material.Physical';
         chk.checkArgs(fn_name, 'name', name, [chk.isStr]);
-        chk.checkArgs(fn_name, 'emissive', emissive, [chk.isXYZ]);
+        chk.checkArgs(fn_name, 'emissive', emissive, [chk.isColor]);
         chk.checkArgs(fn_name, 'roughness', roughness, [chk.isNum]);
         chk.checkArgs(fn_name, 'metalness', metalness, [chk.isNum]);
         chk.checkArgs(fn_name, 'reflectivity', reflectivity, [chk.isNum]);
@@ -496,7 +493,7 @@ export function Physical(__model__: GIModel, name: string,
 
     const settings_obj = {
         type: _EMeshMaterialType.PHYSICAL,
-        emissive: _getTjsColor(emissive),
+        emissive: emissive,
         roughness: roughness,
         metalness: metalness,
         reflectivity: reflectivity

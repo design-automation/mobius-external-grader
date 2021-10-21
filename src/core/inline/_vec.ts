@@ -3,6 +3,7 @@ import { Txyz, TPlane } from '@assets/libs/geo-info/common';
 import { getArrDepth } from '@assets/libs/util/arrs';
 import { xformMatrix, multMatrix } from '@assets/libs/geom/matrix';
 import { checkNumArgs } from '../_check_inline_args';
+import { checkArgs, isXYZ, isXYZL } from '../_check_types';
 
 // export const vecAdd = vec.vecAdd;
 // export const vecSub = vec.vecSub;
@@ -27,15 +28,15 @@ import { checkNumArgs } from '../_check_inline_args';
  * @param v
  */
 export function vecSum(debug: boolean, ...v: Txyz[]): Txyz {
-    if (debug) {
-        // TODO
-    }
     const depth1: number = getArrDepth(v);
     if (depth1 > 2) {
         // @ts-ignore
         v = v.slice().flat(depth1 - 2);
     } else if (depth1 < 2) {
         throw new Error('Error summing vectors: The vectors are bad.' + JSON.stringify(v));
+    }
+    if (debug) {
+        checkArgs('vecSum', 'v', v, [isXYZL]);
     }
     // return the sum
     return vec.vecSum(v, false) as Txyz;
@@ -589,6 +590,7 @@ export function vecRot(debug: boolean, v1: Txyz|Txyz[], v2: Txyz|Txyz[], ang: nu
 export function vecLen(debug: boolean, v: Txyz|Txyz[]): number|number[] {
     if (debug) {
         checkNumArgs('vecLen', arguments, 1);
+        checkArgs('vecLen', 'v', v, [isXYZ, isXYZL]);
     }
     // overloaded case
     const depth1: number = getArrDepth(v);

@@ -15,8 +15,8 @@ tests = [
     //     'info': 'x'
     // }
     {
-        'file': 'https://raw.githubusercontent.com/phuongtung1/test_repo/master/grader_test',
-        'question': 'grader_test.mob',
+        'file': 'https://raw.githubusercontent.com/phuongtung1/test_repo/master/t0',
+        'question': 'w3_s6_u2_assign_stagmass_ans.mob',
         'localTest': true,
         'info': 'x'
     }

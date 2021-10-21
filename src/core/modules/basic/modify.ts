@@ -235,7 +235,9 @@ export function Offset(__model__: GIModel, entities: TId|TId[], dist: number): v
  * Remesh a face or polygon.
  * \n
  * When a face or polygon is deformed, the triangles that make up that face will sometimes become incorrect.
+ * \n
  * Remeshing will regenerate the triangulated mesh for the face.
+ * \n
  * Remeshing is not performed automatically as it would degrade performance.
  * Instead, it is left up to the user to remesh only when it is actually required.
  * \n

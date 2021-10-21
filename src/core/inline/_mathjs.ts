@@ -34,7 +34,7 @@ export function string(debug: boolean, val: number) {
  * Returns the median absolute deviation of the list
  * @param list
  */
-export function mad(debug: boolean, list: number) {
+export function mad(debug: boolean, list: number[]) {
     if (debug) {
         checkNumArgs('mad', arguments, 1);
     }
@@ -84,7 +84,7 @@ export function prod(debug: boolean, list: number) {
  * Returns the standard deviation of the list
  * @param list
  */
-export function std(debug: boolean, list: number) {
+export function std(debug: boolean, list: number[]) {
     if (debug) {
         checkNumArgs('std', arguments, 1);
     }
@@ -98,7 +98,7 @@ export function vari(debug: boolean, list: number) {
     if (debug) {
         checkNumArgs('vari', arguments, 1);
     }
-    return Mathjs.var(list);
+    return Mathjs.variance(list);
 }
 /**
  * Returns the sum of all values in a list

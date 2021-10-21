@@ -106,11 +106,11 @@ export function vecMult(vec: Txyz, multiplier: number): Txyz {
 }
 
 export function vecCross(v1: Txyz, v2: Txyz, norm: boolean = false): Txyz {
-    const n: Txyz = mathjs.cross(v1, v2);
+    const n = mathjs.cross(v1, v2);
     if (norm) {
-        return vecNorm(n);
+        return vecNorm(<Txyz> n);
     }
-    return n;
+    return <Txyz> n;
 }
 
 export function vecDot(v1: Txyz, v2: Txyz): number {
@@ -148,8 +148,8 @@ export function vecAng2(v1: Txyz, v2: Txyz, n: Txyz): number {
         return Math.PI;
     }
     let angle: number = Math.acos( d );
-    const c: Txyz = mathjs.cross(v1n, v2n);
-    angle = angle * mathjs.compare(mathjs.dot(n, c), 0);
+    const c = mathjs.cross(v1n, v2n);
+    angle = angle * <any> mathjs.compare(mathjs.dot(n, c), 0);
     if (angle < 0) { angle = angle + (Math.PI * 2); }
     return angle;
 }
@@ -185,7 +185,7 @@ export function vecCodir(v1: Txyz, v2: Txyz) {
 }
 
 export function dist(p1: Txyz, p2: Txyz): number {
-    return mathjs.distance(p1, p2);
+    return <number> mathjs.distance(p1, p2);
 }
 
 /**

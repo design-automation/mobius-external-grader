@@ -20,11 +20,11 @@ export class GIGeomEditTopo {
     // ============================================================================
     /**
      * Insert a vertex into an edge and updates the wire with the new edge
-     * ~
+     * \n
      * Applies to both plines and pgons.
-     * ~
+     * \n
      * Plines can be open or closed.
-     * ~
+     * \n
      */
     public insertVertIntoWire(edge_i: number, posi_i: number): number {
         const wire_i: number = this.modeldata.geom.nav.navEdgeToWire(edge_i);
@@ -61,11 +61,11 @@ export class GIGeomEditTopo {
     }
 /**
      * Insert multiple vertices into an edge and updates the wire with the new edges
-     * ~
+     * \n
      * Applies to both plines and pgons.
-     * ~
+     * \n
      * Plines can be open or closed.
-     * ~
+     * \n
      */
     public insertVertsIntoWire(edge_i: number, posis_i: number[]): number[] {
         // check that there are no duplicates in the list
@@ -120,7 +120,7 @@ export class GIGeomEditTopo {
     }
     /**
      * Replace all positions in an entity with a new set of positions.
-     * ~
+     * \n
      */
     public replacePosis(ent_type: EEntType, ent_i: number, new_posis_i: number[]): void {
         const old_posis_i: number[] = this.modeldata.geom.nav.navAnyToPosi(ent_type, ent_i);
@@ -147,10 +147,10 @@ export class GIGeomEditTopo {
     }
     /**
      * Replace the position of a vertex with a new position.
-     * ~
+     * \n
      * If the result is an edge with two same posis, then the vertex will be deleted if del_if_invalid = true.
      * If del_if_invalid = false, no action will be taken.
-     * ~
+     * \n
      * Called by modify.Fuse() and poly2d.Stitch().
      */
     public replaceVertPosi(vert_i: number, new_posi_i: number, del_if_invalid: boolean = true): void {
@@ -278,7 +278,7 @@ export class GIGeomEditTopo {
     // }
     /**
      * Unweld the vertices on naked edges.
-     * ~
+     * \n
      */
     public unweldVertsShallow(verts_i: number[]): number[] {
         // create a map, for each posi_i, count how many verts there are in the input verts
@@ -321,9 +321,9 @@ export class GIGeomEditTopo {
     }
     /**
      * Unweld all vertices by cloning the positions that are shared.
-     * ~
+     * \n
      * Attributes on the positions are copied.
-     * ~
+     * \n
      * @param verts_i
      */
     public cloneVertPositions(verts_i: number[]): number[] {
@@ -349,9 +349,9 @@ export class GIGeomEditTopo {
     }
     /**
      * Weld all vertices by merging the positions that are equal, so that they become shared.
-     * ~
+     * \n
      * The old positions are deleted if unused. Attributes on those positions are discarded.
-     * ~
+     * \n
      * @param verts_i
      */
     public mergeVertPositions(verts_i: number[]): number {
@@ -407,7 +407,7 @@ export class GIGeomEditTopo {
     /**
      * Reverse the edges of a wire.
      * This lists the edges in reverse order, and flips each edge.
-     * ~
+     * \n
      * The attributes will not be affected. So the order of edge attribtes will also become reversed.
      *
      * TODO
@@ -443,7 +443,7 @@ export class GIGeomEditTopo {
     }
     /**
      * Shifts the edges of a wire.
-     * ~
+     * \n
      * The attributes will not be affected. For example, lets say a polygon has three edges
      * e1, e2, e3, with attribute values 5, 6, 7
      * If teh edges are shifted by 1, the edges will now be

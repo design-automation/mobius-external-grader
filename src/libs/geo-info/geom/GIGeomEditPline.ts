@@ -16,9 +16,9 @@ export class GIGeomEditPline {
     }
     /**
      * Close a polyline.
-     * ~
+     * \n
      * If the pline is already closed, do nothing.
-     * ~
+     * \n
      */
     public closePline(pline_i: number): number {
         const wire_i: number = this.modeldata.geom.nav.navPlineToWire(pline_i);
@@ -41,9 +41,9 @@ export class GIGeomEditPline {
     }
     /**
      * Open a wire, by deleting the last edge.
-     * ~
+     * \n
      * If the wire is already open, do nothing.
-     * ~
+     * \n
      * If the wire does not belong to a pline, then do nothing.
      * @param wire_i The wire to close.
      */

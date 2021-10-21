@@ -12,6 +12,12 @@ export interface IThreeJS {
     edge_select_map: Map<number, number>;
     tri_indices: number[];
     tri_select_map: Map<number, number>;
+    vrmesh_edge_indices: number[];
+    vrmesh_edge_select_map: Map<number, number>;
+    vrmesh_tri_indices: number[];
+    vrmesh_tri_select_map: Map<number, number>;
+    vrmesh_hidden_tri_indices: number[];
+    vrmesh_hidden_edge_indices: number[];
     pline_materials: object[];
     pline_material_groups: [number, number, number][];
     pgon_materials: object[];

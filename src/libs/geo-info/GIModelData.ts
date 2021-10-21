@@ -113,12 +113,12 @@ export class GIModelData {
     /**
      * Compares two models.
      * Checks that every entity in this model also exists in the other model.
-     * ~
+     * \n
      * This is the answer model.
      * The other model is the submitted model.
-     * ~
+     * \n
      * Both models will be modified in the process.
-     * ~
+     * \n
      * @param model The model to compare with.
      */
     public compare(model: GIModel, normalize: boolean, check_geom_equality: boolean, check_attrib_equality: boolean):

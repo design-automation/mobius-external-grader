@@ -18,15 +18,15 @@ export class GIModelComparator {
     /**
      * Compares two models.
      * Checks that every entity in this model also exists in the other model.
-     * ~
+     * \n
      * Additional entitis in the other model will not affect the score.
      * Attributes at the model level are ignored except for the `material` attributes.
-     * ~
+     * \n
      * For grading, this model is assumed to be the answer model, and the other model is assumed to be
      * the model submitted by the student.
-     * ~
+     * \n
      * Both models will be modified in the process of cpmparing.
-     * ~
+     * \n
      * @param model The model to compare with.
      */
     public compare(model: GIModel, normalize: boolean, check_geom_equality: boolean, check_attrib_equality: boolean):
@@ -203,7 +203,7 @@ export class GIModelComparator {
     }
     /**
      * Round the xyz values, rounded to the precision level
-     * ~
+     * \n
      * @param posi_i
      */
     private normXyzFprint(ent_type: EEntType, ent_i: number,  trans_padding: [Txyz, number[]]): string {
@@ -227,12 +227,12 @@ export class GIModelComparator {
     // ============================================================================
     /**
      * For any entity, greate a string that concatenates all the xyz values of its positions.
-     * ~
+     * \n
      * These strings will be used for sorting entities into a predictable order,
      * independent of the order in which the geometry was actually created.
-     * ~
+     * \n
      * If there are multiple entities in exactly the same position, then the ordering may be unpredictable.
-     * ~
+     * \n
      * @param ent_type
      * @param ent_i
      */
@@ -249,7 +249,7 @@ export class GIModelComparator {
     /**
      * Compare the objects.
      * Check that every object in this model also exists in the other model.
-     * ~
+     * \n
      * This will also check the following attributes:
      * For posis, it will check the xyz attribute.
      * For vertices, it will check the rgb attribute, if such an attribute exists in the answer model.
@@ -442,8 +442,8 @@ export class GIModelComparator {
         const attrib_names: string[] = [];
         if (this.modeldata.attribs.query.hasEntAttrib(EEntType.PGON, 'material')) {
             const pgons_i: number[] = this.modeldata.geom.snapshot.getEnts(ssid, EEntType.PGON);
-            const mat_names: Set<string> =
-                new Set(this.modeldata.attribs.get.getEntAttribVal(EEntType.PGON, pgons_i, 'material') as string[]);
+            const pgons_mats: string[][] = this.modeldata.attribs.get.getEntAttribVal(EEntType.PGON, pgons_i, 'material') as string[][];
+            const mat_names: Set<string> = new Set((<any> pgons_mats).flat() as string[]);
             for (const mat_name of Array.from(mat_names)) {
                 if (mat_name !== undefined) {
                     attrib_names.push(mat_name);

@@ -263,15 +263,15 @@ export class GIModel {
     /**
      * Compares two models.
      * Checks that every entity in this model also exists in the other model.
-     * ~
+     * \n
      * Additional entitis in the other model will not affect the score.
      * Attributes at the model level are ignored.
-     * ~
+     * \n
      * For grading, this model is assumed to be the answer model, and the other model is assumed to be
      * the model submitted by the student.
-     * ~
+     * \n
      * Both models will be modified in the process of cpmparing.
-     * ~
+     * \n
      * @param model The model to compare with.
      */
     public compare(model: GIModel, normalize: boolean, check_geom_equality: boolean, check_attrib_equality: boolean):

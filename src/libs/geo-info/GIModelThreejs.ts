@@ -40,13 +40,29 @@ export class GIModelThreejs {
         // get posi indices
         const posis_indices: number[] = Array.from(posis_map.values());
         // get the data for triangles
-        const [tris_verts_i, tri_select_map, pgon_materials, pgon_material_groups]:
-            [number[], Map<number, number>, object[], [number, number, number][]] = this.modeldata.geom.threejs.get3jsTris(ssid, vertex_map);
+        const [tri_verts_i, tri_select_map,
+            vrmesh_tri_verts_i, vrmesh_tri_select_map,
+            vrmesh_hidden_tri_verts_i,
+            pgon_materials, pgon_material_groups]:
+            [number[], Map<number, number>,
+            number[], Map<number, number>,
+            number[],
+            object[], [number, number, number][]]
+            = this.modeldata.geom.threejs.get3jsTris(ssid, vertex_map);
         // get the data for edges
-        const [edges_verts_i, edge_select_map, pline_materials, pline_material_groups]:
-            [number[], Map<number, number>, object[], [number, number, number][]] = this.modeldata.geom.threejs.get3jsEdges(ssid, vertex_map);
+        const [edge_verts_i, edge_select_map,
+            vrmesh_edge_verts_i, vrmesh_edge_select_map,
+            vrmesh_hidden_edge_verts_i,
+            pline_materials, pline_material_groups]:
+            [number[], Map<number, number>,
+            number[], Map<number, number>,
+            number[],
+            object[], [number, number, number][]]
+            = this.modeldata.geom.threejs.get3jsEdges(ssid, vertex_map);
         // get the datas for points
-        const [points_verts_i, point_select_map]: [number[], Map<number, number>] = this.modeldata.geom.threejs.get3jsPoints(ssid, vertex_map);
+        const [point_verts_i, point_select_map]:
+            [number[], Map<number, number>]
+            = this.modeldata.geom.threejs.get3jsPoints(ssid, vertex_map);
         // return an object containing all the data
         const data: IThreeJS = {
             posis_xyz: posis_xyz,
@@ -56,12 +72,25 @@ export class GIModelThreejs {
             verts_map: vertex_map,
             normals: normals_values,
             colors: colors_values,
-            point_indices: points_verts_i,
+
+            point_indices: point_verts_i,
             point_select_map: point_select_map,
-            edge_indices: edges_verts_i,
+
+            edge_indices: edge_verts_i,
             edge_select_map: edge_select_map,
-            tri_indices: tris_verts_i,
+
+            tri_indices: tri_verts_i,
             tri_select_map: tri_select_map,
+
+            vrmesh_edge_indices: vrmesh_edge_verts_i,
+            vrmesh_edge_select_map: vrmesh_edge_select_map,
+
+            vrmesh_tri_indices: vrmesh_tri_verts_i,
+            vrmesh_tri_select_map: vrmesh_tri_select_map,
+
+            vrmesh_hidden_tri_indices: vrmesh_hidden_tri_verts_i,
+            vrmesh_hidden_edge_indices: vrmesh_hidden_edge_verts_i,
+
             pline_materials: pline_materials,
             pline_material_groups: pline_material_groups,
             pgon_materials: pgon_materials,

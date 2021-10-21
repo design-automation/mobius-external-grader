@@ -19,7 +19,7 @@ export class GIGeomEditPgon {
     /**
      * Creates one or more holes in a polygon.
      * Updates time stamp for the polygon.
-     * ~
+     * \n
      */
     public cutPgonHoles(pgon_i: number, posis_i_arr: number[][]): number[] {
         // get the normal of the face
@@ -54,7 +54,7 @@ export class GIGeomEditPgon {
     /**
      * Retriangulate the polygons.
      * Updates time stamp for the polygons.
-     * ~
+     * \n
      */
     public triPgons(pgons_i: number|number[]): void {
         if (!Array.isArray(pgons_i)) {

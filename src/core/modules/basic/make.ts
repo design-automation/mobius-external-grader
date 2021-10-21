@@ -53,7 +53,6 @@ export enum _ECutMethod {
  * @example_info Creates a position with coordinates x=1, y=2, z=3.
  * @example positions = make.Position([[1,2,3],[3,4,5],[5,6,7]])
  * @example_info Creates three positions, with coordinates [1,2,3],[3,4,5] and [5,6,7].
- * @example_link make.Position.mob&node=1
  */
 export function Position(__model__: GIModel, coords: Txyz|Txyz[]|Txyz[][]): TId|TId[]|TId[][] {
     if (isEmptyArr(coords)) { return []; }
@@ -74,7 +73,6 @@ export function Position(__model__: GIModel, coords: Txyz|Txyz[]|Txyz[][]): TId|
  * @returns Entities, new point or a list of new points.
  * @example point1 = make.Point(position1)
  * @example_info Creates a point at position1.
- * @example_link make.Point.mob&node=1
  */
 export function Point(__model__: GIModel, entities: TId|TId[]|TId[][]): TId|TId[]|TId[][] {
     if (isEmptyArr(entities)) { return []; }
@@ -102,7 +100,6 @@ export function Point(__model__: GIModel, entities: TId|TId[]|TId[][]): TId|TId[
  * @returns Entities, new polyline, or a list of new polylines.
  * @example polyline1 = make.Polyline([position1,position2,position3], close)
  * @example_info Creates a closed polyline with vertices position1, position2, position3 in sequence.
- * @example_link make.Polyline.mob&node=1
  */
 export function Polyline(__model__: GIModel, entities: TId|TId[]|TId[][], close: _EClose): TId|TId[] {
     if (isEmptyArr(entities)) { return []; }
@@ -137,7 +134,6 @@ export function Polyline(__model__: GIModel, entities: TId|TId[]|TId[][], close:
  * @example_info Creates a polygon with vertices pos1, pos2, pos3 in sequence.
  * @example polygons = make.Polygon([[pos1,pos2,pos3], [pos3,pos4,pos5]])
  * @example_info Creates two polygons, the first with vertices at [pos1,pos2,pos3], and the second with vertices at [pos3,pos4,pos5].
- * @example_link make.Polygon.mob&node=1
  */
 export function Polygon(__model__: GIModel, entities: TId|TId[]|TId[][]): TId|TId[] {
     if (isEmptyArr(entities)) { return []; }

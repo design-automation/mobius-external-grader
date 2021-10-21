@@ -88,11 +88,11 @@ export class GIAttribMapBase {
     }
     /**
      * Returns the length of the data.
-     * ~
+     * \n
      * If _data_type is NUMBER, STRING, BOOLEAN, then length = 1
-     * ~
+     * \n
      * If _data_type is LIST, length is the list of the longest length, can be 0
-     * ~
+     * \n
      * If _data_type is OBJECT, length is the obect with the longest Object.keys, can be 0
      */
     public getDataLength(): number {
@@ -146,13 +146,13 @@ export class GIAttribMapBase {
     }
     /**
      * Gets the value for a given entity, or an array of values given an array of entities.
-     * ~
+     * \n
      * Returns undefined if the entity does not exist in this map.
-     * ~
+     * \n
      * If value is a list or dict, it is passed by reference.
-     * ~
+     * \n
      * WARNING: The returned dict or list should not be modified, it should be treated as immutable.
-     * ~
+     * \n
      * @param ent_i
      */
     public getEntVal(ent_i: number): TAttribDataTypes {
@@ -376,15 +376,15 @@ export class GIAttribMapBase {
     //  ===============================================================================================================
     /**
      * Compare two values with a comparison operator, ==, !=, >, >=, <, <=
-     * ~
+     * \n
      * If the values are of different types, then false is returned.
-     * ~
+     * \n
      * For arrays, true is returned only if a pairwise comparison between the items in the two arrays all return true.
      * The two arrays must also be of equal length.
-     * ~
+     * \n
      * Values may be null.
      * Values that are undefined will be treated as null.
-     * ~
+     * \n
      * @param operator
      * @param val1
      * @param val2
@@ -483,9 +483,9 @@ export class GIAttribMapBase {
     }
     /**
      * Gets the value for a given index.
-     * ~
+     * \n
      * If the value does not exist, it throws an error.
-     * ~
+     * \n
      * If value is a list or dict, it is passed by reference.
      * @param ent_i
      */
@@ -511,9 +511,9 @@ export class GIAttribMapBase {
     // ============================================================================================
     /**
      * Executes a query.
-     * ~
+     * \n
      * The value can be NUMBER, STRING, BOOLEAN, LIST or DICT
-     * ~
+     * \n
      * @param ents_i
      * @param operator The relational operator, ==, !=, <=, >=, etc
      * @param search_val The value to search, string or number, or any[].

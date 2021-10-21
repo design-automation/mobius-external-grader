@@ -63,9 +63,9 @@ export class GIAttribMapNum extends GIAttribMapBase {
     // ============================================================================================
     /**
      * Executes a query.
-     * ~
+     * \n
      * The value can be NUMBER, STRING, BOOLEAN, LIST or DICT
-     * ~
+     * \n
      * @param ents_i
      * @param operator The relational operator, ==, !=, <=, >=, etc
      * @param search_val The value to search, string or number, or any[].

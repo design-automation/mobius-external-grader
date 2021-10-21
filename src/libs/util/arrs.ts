@@ -53,11 +53,11 @@ export function arrIdxRem(arr: any[], idx: number, item: any, del_empty: boolean
 }
 /**
  * Make flat array (depth = 1) from anything.
- * ~
+ * \n
  * If it is not an array, then make it an array
- * ~
+ * \n
  * If it is an array, then make it flat
- * ~
+ * \n
  * @param data
  */
 export function arrMakeFlat(data: any): any[] {
@@ -107,7 +107,7 @@ export function arrMaxDepth(data: any[]): number {
 
 /**
  * Converts a value to an array of specified length.
- * ~
+ * \n
  * @param data
  */
 export function arrFill(data: any, length: number): any[] {
