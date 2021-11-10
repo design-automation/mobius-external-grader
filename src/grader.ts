@@ -1215,6 +1215,7 @@ function extractAnswerList(flowchart: any): any {
             if (paramVal.constructor !== [].constructor) {
                 paramVal = [paramVal];
             }
+            paramVal = paramVal.map((x: any) => typeof x === 'string'? `"${x}"` : x )
             paramList.push([param, paramVal]);
         } else if (param !== 'params') {
             try {
@@ -1247,7 +1248,9 @@ function extractAnswerList(flowchart: any): any {
 
 function isParamName(str: string, flowchart: any): boolean {
     for (const prod of flowchart.nodes[0].procedure) {
-        if (prod.type === ProcedureTypes.Constant && (prod.args[0].value === str || prod.args[0].jsValue === str)) {
+        if (prod.type === ProcedureTypes.Constant &&
+            prod.argCount > 0 &&
+            (prod.args[0].value === str || prod.args[0].jsValue === str)) {
             return true;
         }
     }
@@ -1371,6 +1374,7 @@ function checkParams(flowchart: IFlowchart, params: any): string[]{
         let check = false;
         for (const prod of flowchart.nodes[0].procedure){
             if (prod.type === ProcedureTypes.Constant && 
+                prod.argCount > 0 &&
                 (params[prod.args[0].value] === params[param] || params[prod.args[0].jsValue] === params[param])) {
                 check = true;
             }
