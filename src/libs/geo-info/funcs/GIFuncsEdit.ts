@@ -1,9 +1,9 @@
 import { interpByNum, interpByLen } from '@libs/geom/vectors';
 import { EEntType, Txyz, TEntTypeIdx, IEntSets } from '../common';
 import { distance } from '@libs/geom/distance';
-import { getArrDepth } from '@assets/libs/util/arrs';
+import { getArrDepth } from '@libs/util/arrs';
 import { GIModelData } from '../GIModelData';
-import { TypedArrayUtils } from '@libs/TypedArrayUtils.js';
+import { TypedArrayUtils } from '@libs/TypedArrayUtils';
 import * as THREE from 'three';
 
 // Enums

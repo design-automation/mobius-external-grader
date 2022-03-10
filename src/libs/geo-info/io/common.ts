@@ -1,4 +1,3 @@
-import { mode } from '@assets/core/inline/_mathjs';
 import { EEntType, IEntSets, TEntTypeIdx } from '../common';
 import { GIModel } from '../GIModel';
 

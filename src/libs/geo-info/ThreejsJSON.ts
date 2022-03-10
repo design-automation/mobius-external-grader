@@ -20,7 +20,9 @@ export interface IThreeJS {
     vrmesh_hidden_edge_indices: number[];
     pline_materials: object[];
     pline_material_groups: [number, number, number][];
+    vrmesh_pline_material_groups: [number, number, number][];
     pgon_materials: object[];
     pgon_material_groups: [number, number, number][];
+    vrmesh_pgon_material_groups: [number, number, number][];
 }
 

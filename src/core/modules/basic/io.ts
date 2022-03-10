@@ -25,6 +25,8 @@ import { multMatrix, rotateMatrix } from '@assets/libs/geom/matrix';
 import { Matrix4 } from 'three';
 import proj4 from 'proj4';
 import { checkArgs, isNull, isNum, isNumL, isStr, isXY } from '@assets/core/_check_types';
+import { importCityJSON } from '@assets/libs/geo-info/io/io_cityjson';
+import * as lodash from 'lodash';
 
 const requestedBytes = 1024 * 1024 * 200; // 200 MB local storage quota
 
@@ -38,10 +40,11 @@ declare global {
 }
 // ================================================================================================
 // Import / Export data types
-export enum _EIODataFormat {
+export enum _EIOImportDataFormat {
     GI = 'gi',
     OBJ = 'obj',
-    GEOJSON = 'geojson'
+    GEOJSON = 'geojson',
+    CITYJSON = 'CityJSON'
 }
 export enum _EIODataSource {
     DEFAULT = 'From URL',
@@ -104,7 +107,7 @@ export function _Async_Param_Write(__model__: GIModel, data: string, file_name: 
  * @example io.Import ("my_data.obj", obj)
  * @example_info Imports the data from my_data.obj, from local storage.
  */
-export async function Import(__model__: GIModel, input_data: string, data_format: _EIODataFormat): Promise<TId|TId[]|{}> {
+export async function Import(__model__: GIModel, input_data: string, data_format: _EIOImportDataFormat): Promise<TId|TId[]|{}> {
     const model_data = await _getFile(input_data);
     if (!model_data) {
         throw new Error('Invalid imported model data');
@@ -122,20 +125,23 @@ export async function Import(__model__: GIModel, input_data: string, data_format
     // single file
     return _import(__model__, model_data, data_format);
 }
-export function _Async_Param_Import(__model__: GIModel, input_data: string, data_format: _EIODataFormat): Promise<TId|TId[]|{}> {
+export function _Async_Param_Import(__model__: GIModel, input_data: string, data_format: _EIOImportDataFormat): Promise<TId|TId[]|{}> {
     return null;
 }
-export function _import(__model__: GIModel, model_data: string, data_format: _EIODataFormat): TId {
+export function _import(__model__: GIModel, model_data: string, data_format: _EIOImportDataFormat): TId {
     switch (data_format) {
-        case _EIODataFormat.GI:
+        case _EIOImportDataFormat.GI:
             const gi_coll_i: number  = _importGI(__model__, <string> model_data);
             return idMake(EEntType.COLL, gi_coll_i) as TId;
-        case _EIODataFormat.OBJ:
+        case _EIOImportDataFormat.OBJ:
             const obj_coll_i: number  = _importObj(__model__, <string> model_data);
             return idMake(EEntType.COLL, obj_coll_i) as TId;
-        case _EIODataFormat.GEOJSON:
-            const gj_coll_i: number  = _importGeojson(__model__, <string> model_data);
+        case _EIOImportDataFormat.GEOJSON:
+            const gj_coll_i: number  = _importGeoJSON(__model__, <string> model_data);
             return idMake(EEntType.COLL, gj_coll_i) as TId;
+        case _EIOImportDataFormat.CITYJSON:
+            const cj_coll_i: number = _importCityJSON(__model__, <string> model_data);
+            return idMake(EEntType.COLL, cj_coll_i) as TId;
         default:
             throw new Error('Import type not recognised');
     }
@@ -177,7 +183,7 @@ function _importObj(__model__: GIModel, model_data: string): number {
     __model__.modeldata.attribs.set.setEntAttribVal(EEntType.COLL, container_coll_i, 'name', 'import OBJ');
     return container_coll_i;
 }
-function _importGeojson(__model__: GIModel, model_data: string): number {
+function _importGeoJSON(__model__: GIModel, model_data: string): number {
     // get number of ents before merge
     const num_ents_before: number[] = __model__.metadata.getEntCounts();
     // import
@@ -186,7 +192,19 @@ function _importGeojson(__model__: GIModel, model_data: string): number {
     const num_ents_after: number[] = __model__.metadata.getEntCounts();
     // return the result
     const container_coll_i = _createColl(__model__, num_ents_before, num_ents_after);
-    __model__.modeldata.attribs.set.setEntAttribVal(EEntType.COLL, container_coll_i, 'name', 'import GEOJSON');
+    __model__.modeldata.attribs.set.setEntAttribVal(EEntType.COLL, container_coll_i, 'name', 'import_GeoJSON');
+    return container_coll_i;
+}
+function _importCityJSON(__model__: GIModel, model_data: string): number {
+    // get number of ents before merge
+    const num_ents_before: number[] = __model__.metadata.getEntCounts();
+    // import
+    importCityJSON(__model__, model_data);
+    // get number of ents after merge
+    const num_ents_after: number[] = __model__.metadata.getEntCounts();
+    // return the result
+    const container_coll_i = _createColl(__model__, num_ents_before, num_ents_after);
+    __model__.modeldata.attribs.set.setEntAttribVal(EEntType.COLL, container_coll_i, 'name', 'import_CityJSON');
     return container_coll_i;
 }
 // function _createGIColl(__model__: GIModel, before: number[], after: number[]): number {
@@ -679,7 +697,7 @@ async function getURLContent(url: string): Promise<any> {
 }
 async function openZipFile(zipFile) {
     const result = {};
-    await JSZip.loadAsync(zipFile).then(async function (zip) {
+    await JSZip.loadAsync(zipFile.arrayBuffer()).then(async function (zip) {
         for (const filename of Object.keys(zip.files)) {
             // const splittedNames = filename.split('/').slice(1).join('/');
             await zip.files[filename].async('text').then(function (fileData) {
@@ -687,6 +705,16 @@ async function openZipFile(zipFile) {
             });
         }
     });
+    // const result = {};
+    // const zip = jszip_1.default.loadAsync(zipFile.arrayBuffer());
+    // const files = (await zip).files;
+    // const awaitList = [];
+    // for (const filename of Object.keys(files)) {
+    //     // const splittedNames = filename.split('/').slice(1).join('/');
+    //     result[filename] = files[filename].async('text');
+    //     awaitList.push(result[filename]);
+    // }
+    // await Promise.all(awaitList);
     return result;
 }
 async function loadFromFileSystem(filecode): Promise<any> {

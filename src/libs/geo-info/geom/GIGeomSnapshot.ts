@@ -1,4 +1,4 @@
-import { vecCross, vecDiv, vecFromTo } from '@assets/libs/geom/vectors';
+import { vecCross, vecDiv, vecFromTo } from '@libs/geom/vectors';
 import { EAttribNames, EEntType, EEntTypeStr, IEntSets, IGeomMaps, ISnapshotData, TEntTypeIdx, Txyz } from '../common';
 import { mapSetMerge } from '../common_func';
 import { GIModelData } from '../GIModelData';

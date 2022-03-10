@@ -1,5 +1,8 @@
 
-var TypedArrayUtils = {};
+const TypedArrayUtils = {
+    quicksortIP: null,
+    Kdtree: null
+};
 
 /**
  * In-place quicksort for typed arrays (e.g. for Float32Array)

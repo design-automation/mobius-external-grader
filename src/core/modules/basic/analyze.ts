@@ -21,7 +21,7 @@ import { multMatrix } from '@libs/geom/matrix';
 import { XAXIS, YAXIS, ZAXIS } from '@assets/libs/geom/constants';
 import cytoscape from 'cytoscape';
 import * as THREE from 'three';
-import { TypedArrayUtils } from '@libs/TypedArrayUtils.js';
+import { TypedArrayUtils } from '@libs/TypedArrayUtils';
 import * as Mathjs from 'mathjs';
 import { createSingleMeshBufTjs } from '@assets/libs/geom/mesh';
 import { isRay, isXYZ, isPlane } from '@assets/libs/geo-info/common_func';

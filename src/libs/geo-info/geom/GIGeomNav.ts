@@ -405,6 +405,11 @@ export class GIGeomNav {
         if (ent_type === EEntType.WIRE) { return this.modeldata.geom.query.getWireVerts(ent_i); }
         if (ent_type === EEntType.POINT) { return [this._geom_maps.dn_points_verts.get(ent_i)]; }
         const verts_i: number[] = [];
+        if (ent_type === EEntType.COLL) {
+            for (const point_i of this.navCollToPoint(ent_i)) {
+                verts_i.push(this.navPointToVert(point_i));
+            }
+        }
         for (const wire_i of this._navDnAnyToWire(ent_type, ent_i)) {
             for (const vert_i of this.modeldata.geom.query.getWireVerts(wire_i)) {
                 verts_i.push(vert_i);

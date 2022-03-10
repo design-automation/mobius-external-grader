@@ -32,7 +32,9 @@ export class GIGeomThreejs {
         number[], Map<number, number>,
         number[],
         // Map<number, number>,
-        object[], [number, number, number][]] {
+        object[],
+        [number, number, number][],
+        [number, number, number][]] {
 
         // TODO this should not be parsed each time
         let settings = JSON.parse(localStorage.getItem('mpm_settings'));
@@ -142,6 +144,7 @@ export class GIGeomThreejs {
         const vrmesh_hidden_tri_verts_i: TTri[] = [];
         // const vrmesh_hidden_tri_select_map: Map<number, number> = new Map();
         const mat_groups_map: Map<number, [number, number][]> = new Map(); // mat_index -> [start, end][]
+        const vrmesh_mat_groups_map: Map<number, [number, number][]> = new Map(); // mat_index -> [start, end][]
         for (const tri_data_arr of tri_data_arrs) {
             // save the tri data
             const tjs_i = tri_verts_i.push(tri_data_arr[1]) - 1;
@@ -171,11 +174,26 @@ export class GIGeomThreejs {
                 vrmesh_hidden_tri_verts_i.push(tri_data_arr[1]);
                 const tjs_i = vrmesh_tri_verts_i.push(tri_data_arr[1]) - 1;
                 vrmesh_tri_select_map.set(tjs_i, tri_data_arr[2]);
+                for (const mat_index of tri_data_arr[0]) {
+                    let start_end_arrs: [number, number][] = vrmesh_mat_groups_map.get(mat_index);
+                    if (start_end_arrs === undefined) {
+                        start_end_arrs = [[tjs_i, tjs_i]];
+                        vrmesh_mat_groups_map.set(mat_index, start_end_arrs);
+                    } else {
+                        const start_end: [number, number] = start_end_arrs[start_end_arrs.length - 1];
+                        if (tjs_i === start_end[1] + 1) {
+                            start_end[1] = tjs_i;
+                        } else {
+                            start_end_arrs.push([tjs_i, tjs_i]);
+                        }
+                    }
+                }
             }
         }
         // convert the mat_groups_map into the format required for threejs
         // for each material group, we need an array [start, count, mat_index]
         const material_groups: [number, number, number][] = this._convertMatGroups(mat_groups_map, 3);
+        const vr_mesh_material_groups: [number, number, number][] = this._convertMatGroups(vrmesh_mat_groups_map, 3);
         // convert the verts list to a flat array
         // tslint:disable-next-line:no-unused-expression
         // @ts-ignore
@@ -194,7 +212,8 @@ export class GIGeomThreejs {
             vrmesh_hidden_tri_verts_i_flat, // 2) the vertices for vr nav mesh
             // vrmesh_hidden_tri_select_map,    // 3) the select map for vr nav mesh
             materials,         // 4) the materials array, which is an array of objects
-            material_groups    // 5) the material groups array, which is an array of [ start, count, mat_index ]
+            material_groups,    // 5) the material groups array, which is an array of [ start, count, mat_index ]
+            vr_mesh_material_groups
         ];
     }
     /**
@@ -204,25 +223,26 @@ export class GIGeomThreejs {
      * 2) the materials array, which is an array of objects
      * 3) the material groups array, which is an array of [ start, count, mat_index ]
      */
-    public get3jsEdges(ssid: number, vertex_map: Map<number, number>): 
+    public get3jsEdges(ssid: number, vertex_map: Map<number, number>):
     [number[], Map<number, number>,
     number[], Map<number, number>,
     number[],
-    object[], [number, number, number][]] {
+    object[],
+    [number, number, number][], [number, number, number][]] {
         // arrays to store threejs data
         const edge_data_arrs: [number, TEdge, number][] = []; // edge_mat_indices, new_edge_verts_i, edge_i
         const vrmesh_edge_data_arrs: [number, TEdge, number, boolean][] = []; // edge_mat_indices, new_edge_verts_i, edge_i
         // materials
         const line_mat_black: object = {
-            color: [0,0,0],
+            color: [0, 0, 0],
             linewidth: 1
         };
         const line_mat_white: object = {
-            color: [1,1,1],
+            color: [1, 1, 1],
             linewidth: 1
         };
         const materials: object[] = [
-            this._getPlineMaterial( line_mat_black ), 
+            this._getPlineMaterial( line_mat_black ),
             this._getPlineMaterial( line_mat_white )
         ];
         const material_names:  string[] = ['black', 'white'];
@@ -314,6 +334,7 @@ export class GIGeomThreejs {
         const vrmesh_edge_select_map: Map<number, number> = new Map();
         const vrmesh_hidden_edges_verts_i: TEdge[] = [];
         const mat_groups_map: Map<number, [number, number][]> = new Map(); // mat_index -> [start, end][]
+        const vrmesh_mat_groups_map: Map<number, [number, number][]> = new Map(); // mat_index -> [start, end][]
         for (const edge_data_arr of edge_data_arrs) {
             // save the edge data
             const tjs_i = edges_verts_i.push(edge_data_arr[1]) - 1;
@@ -340,11 +361,25 @@ export class GIGeomThreejs {
             } else {
                 tjs_i = vrmesh_edges_verts_i.push(edge_data_arr[1]) - 1;
                 vrmesh_edge_select_map.set(tjs_i, edge_data_arr[2]);
+                const mat_index = edge_data_arr[0];
+                let start_end_arrs: [number, number][] = vrmesh_mat_groups_map.get(mat_index);
+                if (start_end_arrs === undefined) {
+                    start_end_arrs = [[tjs_i, tjs_i]];
+                    vrmesh_mat_groups_map.set(mat_index, start_end_arrs);
+                } else {
+                    const start_end: [number, number] = start_end_arrs[start_end_arrs.length - 1];
+                    if (tjs_i === start_end[1] + 1) {
+                        start_end[1] = tjs_i;
+                    } else {
+                        start_end_arrs.push([tjs_i, tjs_i]);
+                    }
+                }
             }
         }
         // convert the mat_groups_map into the format required for threejs
         // for each material group, we need an array [start, count, mat_index]
         const material_groups: [number, number, number][] = this._convertMatGroups(mat_groups_map, 2);
+        const vrmesh_material_groups: [number, number, number][] = this._convertMatGroups(vrmesh_mat_groups_map, 2);
         // convert the verts list to a flat array
         // tslint:disable-next-line:no-unused-expression
         // @ts-ignore
@@ -362,7 +397,8 @@ export class GIGeomThreejs {
             vrmesh_edge_select_map,    // 3) the select map, that maps from the threejs tri indices to the gi model tri indices
             vrmesh_hidden_edges_verts_i_flat, // 2) the vertices, as a flat array
             materials,          // 4) the materials array, which is an array of objects
-            material_groups     // 5) the material groups array, which is an array of [ start, count, mat_index ]
+            material_groups,     // 5) the material groups array, which is an array of [ start, count, mat_index ]
+            vrmesh_material_groups
         ];
     }
     /**

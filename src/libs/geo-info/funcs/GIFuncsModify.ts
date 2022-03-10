@@ -2,7 +2,7 @@ import { mirrorMatrix, multMatrix, rotateMatrix, scaleMatrix, xfromSourceTargetM
 import { vecAdd, vecCross, vecDiv, vecDot, vecFromTo, vecLen, vecNorm, vecSetLen, vecSum } from '../../geom/vectors';
 import { EEntType, Txyz, TEntTypeIdx, TPlane, TRay } from '../common';
 import * as THREE from 'three';
-import { getArrDepth } from '@assets/libs/util/arrs';
+import { getArrDepth } from '@libs/util/arrs';
 import { GIModelData } from '../GIModelData';
 
 

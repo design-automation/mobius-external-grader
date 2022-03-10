@@ -62,7 +62,7 @@ function _create(__model__: GIModel, ents_arr: TEntTypeIdx[]): number {
     const pgons_i: number[] = [];
     const child_colls_i: number[] = [];
     for (const ent_arr of ents_arr) {
-        if (ent_arr[0] === EEntType.POSI) { points_i.push(ent_arr[1]); }
+        if (ent_arr[0] === EEntType.POINT) { points_i.push(ent_arr[1]); }
         if (ent_arr[0] === EEntType.PLINE) { plines_i.push(ent_arr[1]); }
         if (ent_arr[0] === EEntType.PGON) { pgons_i.push(ent_arr[1]); }
         if (ent_arr[0] === EEntType.COLL) { child_colls_i.push(ent_arr[1]); }

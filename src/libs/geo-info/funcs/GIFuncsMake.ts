@@ -3,11 +3,11 @@ import { vecAdd, vecCross, vecDiv, vecFromTo, vecMult } from '../../geom/vectors
 import { EEntType, Txyz, TEntTypeIdx, TPlane, EAttribNames, EAttribDataTypeStrs, TAttribDataTypes } from '../common';
 import * as THREE from 'three';
 import { getEntIdxs, isDim0, isDim2 } from '../common_id_funcs';
-import { getArrDepth } from '@assets/libs/util/arrs';
+import { getArrDepth } from '@libs/util/arrs';
 import { GIModelData } from '../GIModelData';
-import { listZip } from '@assets/core/inline/_list';
 import { distance } from '@libs/geom/distance';
 import { GIAttribMapBase } from '../attrib_classes/GIAttribMapBase';
+import lodash from 'lodash';
 
 // Enums
 export enum _EClose {
@@ -846,10 +846,17 @@ export class GIFuncsMake {
         }
         return new_pgons;
     }
+    private _listZip(debug: boolean, list1: any[], list2?: any[]): any[] {
+        if (arguments.length === 2) {
+            return lodash.unzip(list1);
+        }
+        const lists = Array.from(arguments).slice(1);
+        return lodash.zip(...lists);
+    }
     private _sweepStringers( backbone_wire_i: number, xsection_wire_i: number, divisions: number): TEntTypeIdx[] {
         const backbone_is_closed: boolean = this.modeldata.geom.query.isWireClosed(backbone_wire_i);
         const ribs_posis_i: number[][] = this. _sweepPosis(backbone_wire_i, xsection_wire_i, divisions);
-        const stringers_posis_i: number[][] = listZip(false, ribs_posis_i);
+        const stringers_posis_i: number[][] = this._listZip(false, ribs_posis_i);
         const plines: TEntTypeIdx[] = [];
         for (const stringer_posis_i of stringers_posis_i) {
             const pline_i: number = this.modeldata.geom.add.addPline(stringer_posis_i, backbone_is_closed);

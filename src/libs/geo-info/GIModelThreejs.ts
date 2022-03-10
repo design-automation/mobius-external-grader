@@ -43,21 +43,23 @@ export class GIModelThreejs {
         const [tri_verts_i, tri_select_map,
             vrmesh_tri_verts_i, vrmesh_tri_select_map,
             vrmesh_hidden_tri_verts_i,
-            pgon_materials, pgon_material_groups]:
+            pgon_materials, pgon_material_groups, vrmesh_pgon_material_groups]:
             [number[], Map<number, number>,
             number[], Map<number, number>,
             number[],
-            object[], [number, number, number][]]
+            object[],
+            [number, number, number][],
+            [number, number, number][]]
             = this.modeldata.geom.threejs.get3jsTris(ssid, vertex_map);
         // get the data for edges
         const [edge_verts_i, edge_select_map,
             vrmesh_edge_verts_i, vrmesh_edge_select_map,
             vrmesh_hidden_edge_verts_i,
-            pline_materials, pline_material_groups]:
+            pline_materials, pline_material_groups, vrmesh_pline_material_groups]:
             [number[], Map<number, number>,
             number[], Map<number, number>,
             number[],
-            object[], [number, number, number][]]
+            object[], [number, number, number][], [number, number, number][]]
             = this.modeldata.geom.threejs.get3jsEdges(ssid, vertex_map);
         // get the datas for points
         const [point_verts_i, point_select_map]:
@@ -93,8 +95,11 @@ export class GIModelThreejs {
 
             pline_materials: pline_materials,
             pline_material_groups: pline_material_groups,
+            vrmesh_pline_material_groups: vrmesh_pline_material_groups,
+
             pgon_materials: pgon_materials,
-            pgon_material_groups: pgon_material_groups
+            pgon_material_groups: pgon_material_groups,
+            vrmesh_pgon_material_groups: vrmesh_pgon_material_groups
         };
         // console.log("THREEJS DATA: ", data);
         return data;

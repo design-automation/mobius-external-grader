@@ -161,7 +161,7 @@ def upload_to_amazon(zipfile, funcName):
 
 
 if __name__ == '__main__':
-    copy_from_mobius()
+    # copy_from_mobius()
     buildcheck = build_code()
     if buildcheck:
         zipcheck = zipdir()

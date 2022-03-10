@@ -205,6 +205,6 @@ export class GIAttribsSetVal {
         } else if (typeof value === 'object') {
             return EAttribDataTypeStrs.DICT;
         }
-        throw new Error('Data type for new attribute not recognised.');
+        throw new Error('Data type for new attribute not recognised: ' + value);
     }
 }
