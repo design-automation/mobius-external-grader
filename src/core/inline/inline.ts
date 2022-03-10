@@ -105,7 +105,8 @@ const dictionaries = [
 
 const colors = [
     'colFalse(val, min, max)',
-    'colScale(val, min, max, sc)'
+    'colScale(val, min, max, sc)',
+    'colFromStr(col_str)'
 ];
 
 const planes = [

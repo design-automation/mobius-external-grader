@@ -5,8 +5,6 @@
 
 import { checkIDs, ID } from '../../_check_ids';
 
-import * as chk from '../../_check_types';
-
 import { GIModel } from '@libs/geo-info/GIModel';
 import { importObj, exportPosiBasedObj, exportVertBasedObj } from '@assets/libs/geo-info/io/io_obj';
 import { importGeojson, exportGeojson } from '@assets/libs/geo-info/io/io_geojson';
@@ -24,9 +22,8 @@ import { vecAng2, vecFromTo, vecRot } from '@assets/libs/geom/vectors';
 import { multMatrix, rotateMatrix } from '@assets/libs/geom/matrix';
 import { Matrix4 } from 'three';
 import proj4 from 'proj4';
-import { checkArgs, isNull, isNum, isNumL, isStr, isXY } from '@assets/core/_check_types';
+import { checkArgs, isNull, isNum, isNumL, isStr, isStrL, isXY } from '@assets/core/_check_types';
 import { importCityJSON } from '@assets/libs/geo-info/io/io_cityjson';
-import * as lodash from 'lodash';
 
 const requestedBytes = 1024 * 1024 * 200; // 200 MB local storage quota
 
@@ -92,6 +89,33 @@ export function _Async_Param_Write(__model__: GIModel, data: string, file_name: 
 
 // ================================================================================================
 /**
+ * Imports a string of data into the model.
+ * \n
+ * @param model_data The model data
+ * @param data_format Enum, the file format.
+ * @returns A list of the positions, points, polylines, polygons and collections added to the model.
+ * @example io.Import ("my_data.obj", obj)
+ * @example_info Imports the data from my_data.obj, from local storage.
+ */
+ export function ImportData(__model__: GIModel, model_data: string, data_format: _EIOImportDataFormat): TId|TId[]|{} {
+    if (!model_data) {
+        throw new Error('Invalid imported model data');
+    }
+    // zip file
+    if (model_data.constructor === {}.constructor) {
+        const coll_results = {};
+        for (const data_name in <Object> model_data) {
+            if (model_data[data_name]) {
+                coll_results[data_name]  = _import(__model__, <string> model_data[data_name], data_format);
+            }
+        }
+        return coll_results;
+    }
+    // single file
+    return _import(__model__, model_data, data_format);
+}
+// ================================================================================================
+/**
  * Imports data into the model.
  * \n
  * There are two ways of specifying the file location to be imported:
@@ -101,14 +125,14 @@ export function _Async_Param_Write(__model__: GIModel, data: string, file_name: 
  * To place a file in local storage, go to the Mobius menu, and select 'Local Storage' from the dropdown.
  * Note that a script using a file in local storage may fail when others try to open the file.
  * \n
- * @param model_data The model data
+ * @param data_url The url to retrieve the data from
  * @param data_format Enum, the file format.
  * @returns A list of the positions, points, polylines, polygons and collections added to the model.
  * @example io.Import ("my_data.obj", obj)
  * @example_info Imports the data from my_data.obj, from local storage.
  */
-export async function Import(__model__: GIModel, input_data: string, data_format: _EIOImportDataFormat): Promise<TId|TId[]|{}> {
-    const model_data = await _getFile(input_data);
+export async function Import(__model__: GIModel, data_url: string, data_format: _EIOImportDataFormat): Promise<TId|TId[]|{}> {
+    const model_data = await _getFile(data_url);
     if (!model_data) {
         throw new Error('Invalid imported model data');
     }
@@ -272,6 +296,53 @@ export enum _EIOExportDataFormat {
     GLTF = 'gltf'
 }
 /**
+ * Export data from the model as a string.
+ * \n
+ * @param __model__
+ * @param entities Optional. Entities to be exported. If null, the whole model will be exported.
+ * @param file_name Name of the file as a string.
+ * @param data_format Enum, the file format.
+ * @returns the model data as a string.
+ * @example io.Export (#pg, 'my_model.obj', obj)
+ * @example_info Exports all the polgons in the model as an OBJ.
+ */
+export async function ExportData(__model__: GIModel, entities: TId|TId[]|TId[][], data_format: _EIOExportDataFormat): Promise<string> {
+    if ( typeof localStorage === 'undefined') { return; }
+    // --- Error Check ---
+    const fn_name = 'io.Export';
+    let ents_arr = null;
+    if (__model__.debug) {
+        if (entities !== null) {
+            entities = arrMakeFlat(entities) as TId[];
+            ents_arr = checkIDs(__model__, fn_name, 'entities', entities,
+                [ID.isIDL1], [EEntType.PLINE, EEntType.PGON, EEntType.COLL])  as TEntTypeIdx[];
+        }
+    } else {
+        if (entities !== null) {
+            entities = arrMakeFlat(entities) as TId[];
+            ents_arr = idsBreak(entities) as TEntTypeIdx[];
+        }
+    }
+    // --- Error Check ---
+    const ssid: number = __model__.modeldata.active_ssid;
+    let model_data = '';
+    switch (data_format) {
+        case _EIOExportDataFormat.GI:
+            model_data = __model__.exportGI(ents_arr);
+            return model_data.replace(/\\/g, '\\\\\\'); // TODO temporary fix
+        case _EIOExportDataFormat.OBJ_VERT:
+            return exportVertBasedObj(__model__, ents_arr, ssid);
+        case _EIOExportDataFormat.OBJ_POSI:
+            return exportPosiBasedObj(__model__, ents_arr, ssid);
+        case _EIOExportDataFormat.GEOJSON:
+            return exportGeojson(__model__, ents_arr, true, ssid); // flatten
+        case _EIOExportDataFormat.GLTF:
+            return await exportGltf(__model__, ents_arr, ssid);
+        default:
+            throw new Error('Data type not recognised');
+    }
+}
+/**
  * Export data from the model as a file.
  * \n
  * If you expore to your  hard disk,
@@ -300,7 +371,7 @@ export async function Export(__model__: GIModel, entities: TId|TId[]|TId[][],
             ents_arr = checkIDs(__model__, fn_name, 'entities', entities,
                 [ID.isIDL1], [EEntType.PLINE, EEntType.PGON, EEntType.COLL])  as TEntTypeIdx[];
         }
-        chk.checkArgs(fn_name, 'file_name', file_name, [chk.isStr, chk.isStrL]);
+        checkArgs(fn_name, 'file_name', file_name, [isStr, isStrL]);
     } else {
         if (entities !== null) {
             entities = arrMakeFlat(entities) as TId[];
@@ -705,16 +776,6 @@ async function openZipFile(zipFile) {
             });
         }
     });
-    // const result = {};
-    // const zip = jszip_1.default.loadAsync(zipFile.arrayBuffer());
-    // const files = (await zip).files;
-    // const awaitList = [];
-    // for (const filename of Object.keys(files)) {
-    //     // const splittedNames = filename.split('/').slice(1).join('/');
-    //     result[filename] = files[filename].async('text');
-    //     awaitList.push(result[filename]);
-    // }
-    // await Promise.all(awaitList);
     return result;
 }
 async function loadFromFileSystem(filecode): Promise<any> {
@@ -754,10 +815,8 @@ async function loadFromFileSystem(filecode): Promise<any> {
     return await p;
 }
 export async function _getFile(source: string) {
-    if (source.indexOf('__model_data__') !== -1) {
-        return source.split('__model_data__').join('');
-    } else if (source[0] === '{') {
-        return source;
+    if (source.startsWith('__model_data__')) {
+        return source.substring(14);
     } else if (source.indexOf('://') !== -1) {
         const val = source.replace(/ /g, '');
         const result = await getURLContent(val);
@@ -772,7 +831,7 @@ export async function _getFile(source: string) {
         }
     } else {
         if (source.length > 1 && source[0] === '{') {
-            return null;
+            return source;
         }
         const val = source.replace(/\"|\'/g, '');
         const backup_list: string[] = JSON.parse(localStorage.getItem('mobius_backup_list'));

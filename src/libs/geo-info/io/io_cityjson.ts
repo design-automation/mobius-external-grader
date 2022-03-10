@@ -461,7 +461,7 @@ function _addGeomAttribs(model: GIModel, coll_i: number, geom: any): void {
 function _addSemanticAttribs(model: GIModel, ent_type: EEntType, ents_i: number[], geom: any): void {
     if (!geom.hasOwnProperty('semantics')) { return; }
     const surfaces: any = geom.semantics.surfaces;
-    let values: any = geom.semantics.values;
+    let values: any[] = geom.semantics.values;
     if (geom.type === 'CompositeSolid' || geom.type === 'MultiSolid') {
         _expandNullValues(values, geom.boundaries);
         values = values.flat(2);
@@ -513,7 +513,7 @@ function _addMaterialAttribs(model: GIModel, ents_i: number[], geom: any, mat_na
     if (!mat_names) { return; }
     if (!geom.hasOwnProperty('material')) { return; }
     for (const [theme_key, theme_data] of Object.entries(geom.material)) {
-        let values: any = theme_data['values'];
+        let values: any[] = theme_data['values'];
         if (geom.type === 'CompositeSolid' || geom.type === 'MultiSolid') {
             _expandNullValues(values, geom.boundaries);
             values = values.flat(2);

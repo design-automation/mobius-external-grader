@@ -41,7 +41,6 @@
     "@types/circular-json": "^0.4.0",
     "@types/node-fetch": "^2.5.5",
     "@types/underscore": "^1.8.14",
-    "@types/webgl2": "0.0.5",
     "node-fetch": "^2.6.1",
     "xmlhttprequest": "^1.8.0"
   },

@@ -186,6 +186,7 @@ rayLtoG = __modules__._ray.rayLtoG;
 rayGtoL = __modules__._ray.rayGtoL;
 colFalse = __modules__._colors.colFalse;
 colScale = __modules__._colors.colScale;
+colFromStr = __modules__._colors.colFromStr;
 radToDeg = __modules__._conversion.radToDeg;
 degToRad = __modules__._conversion.degToRad;
 numToStr = __modules__._conversion.numToStr;

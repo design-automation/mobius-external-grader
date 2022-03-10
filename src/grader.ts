@@ -1297,7 +1297,15 @@ async function resultCheck(studentMob: IFlowchart, answerMob: IFlowchart, checkC
     const student_console = [];
     const answer_console = [];
     console.log(`    _ Executing the submitted file`);
-    await execute(studentMob, student_console);
+    try {
+        await execute(studentMob, student_console);
+    } catch (ex) {
+        caseComment += '<p><b>Percentage: 0%</b></p>';
+        caseComment += '<p>Score: 0/1</p>';
+        caseComment += '<p style="padding-left: 20px;"><b>Unable to run the Submitted File with the above Parameters</b></p>';
+        comment.push(caseComment)
+        return 0
+    }
     console.log(`    _ Executing the answer file`);
     await execute(answerMob, answer_console);
     console.log(`    _ File execution finished`);
@@ -1442,7 +1450,7 @@ function getParams(flowchart: IFlowchart): any {
 async function execute(flowchart: any, consoleLog) {
 
     flowchart.model = _parameterTypes.newFn();
-    flowchart.model.debug = true;
+    flowchart.model.debug = false;
 
     // reset input of all nodes except start & resolve all async processes (file reading + get url content)
     for (const node of flowchart.nodes) {
@@ -1657,7 +1665,7 @@ async function executeNode(flowchart: IFlowchart, node: INode, funcStrings,
         fnString = _varString + globalVars + '\n\n// <<<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>>>>>>\n\n' + fnString;
 
         // add the merge input function and the print function
-        fnString = `\nconst __debug__ = true;` +
+        fnString = `\nconst __debug__ = false;` +
         '\n\n// ------ MERGE INPUTS FUNCTION ------' + mergeInputsFunc +
         '\n\n// ------ PRINT FUNCTION ------' + printFuncString +
         `\n\n// ------ FUNCTION FOR PYTHON STYLE LIST ------` + pythonListFunc +
